@@ -28,15 +28,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p dist
-          cp -R index.html assets src dist/
           VERSION="$(tr -d '[:space:]' < VERSION)"
           SHORT_SHA="${GITHUB_SHA::7}"
-          cat > dist/build-info.js <<EOF
-          window.BREACH_LINE_BUILD = Object.freeze({
-            version: '${VERSION}',
-            commit: '${SHORT_SHA}',
-          });
+
+          mkdir -p dist
+          cp -R assets dist/assets
+          cp -R src "dist/src-${SHORT_SHA}"
+          sed "s/__BUILD_ID__/${SHORT_SHA}/g" index.html > dist/index.html
+
+          cat > dist/build-info.json <<EOF
+          {
+            "version": "${VERSION}",
+            "commit": "${SHORT_SHA}"
+          }
           EOF
 
       - name: Upload Pages artifact
