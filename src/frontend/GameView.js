@@ -49,9 +49,9 @@ export class GameView {
       const card = this.document.createElement('button');
       card.className = `roster-card${type.key === model.selectedUnitType ? ' selected' : ''}`;
       card.dataset.unitType = type.key;
-      const stats = type.action === 'heal'
-        ? `HP ${type.hp} · HEAL ${type.healAmount} · RNG ${type.range}`
-        : `HP ${type.hp} · ATK ${type.attack} · RNG ${type.range}`;
+      const actionStat = type.action === 'heal' ? `HEAL ${type.healAmount}` : `ATK ${type.attack}`;
+      const rangeStat = type.range > 1 ? ` · RNG ${type.range}` : '';
+      const stats = `HP ${type.hp} · ${actionStat}${rangeStat}`;
       const tags = type.tags.length ? `<span class="rc-tags">${type.tags.join(' · ')}</span>` : '';
       card.innerHTML = `<span class="rc-info"><span class="rc-name">${type.name}</span><span class="rc-stats">${stats}</span>${tags}<span class="rc-behavior">${type.behavior}</span></span><span class="rc-cost">${type.cost}</span>`;
       card.prepend(this.createUnitGraphic(type));
