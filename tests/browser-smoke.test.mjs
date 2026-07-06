@@ -38,7 +38,10 @@ function serveSmokeSite() {
       if (requestPath === '/index.html') {
         const html = content.toString()
           .replaceAll('__BUILD_ID__', 'smoke')
-          .replace('</body>', '<script type="module" src="./tests/browser-smoke-runner.mjs"></script></body>');
+          .replace(
+            "await import(`./src-smoke/main.js`);",
+            "await import(`./src-smoke/main.js`); await import('./tests/browser-smoke-runner.mjs');",
+          );
         content = Buffer.from(html);
       }
       response.writeHead(200, { 'content-type': mimeTypes.get(extname(localPath)) ?? 'application/octet-stream' });
