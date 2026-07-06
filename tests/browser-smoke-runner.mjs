@@ -39,8 +39,10 @@ async function run() {
   assert(!document.querySelector('#gameShell').hidden, 'Game shell did not open');
 
   for (let remaining = 3; remaining > 0; remaining -= 1) {
-    const choices = document.querySelectorAll('[data-draft-unit]');
+    const choices = [...document.querySelectorAll('[data-draft-unit]')];
     assert(choices.length === 3, `Expected three draft choices with ${remaining} drafts remaining`);
+    const roles = choices.map((choice) => choice.querySelector('.unit-description-role')?.textContent);
+    assert(new Set(roles).size === 3, `Expected draft choices from three different roles, received ${roles.join(', ')}`);
     choices[0].click();
     await sleep(70);
   }
@@ -64,7 +66,7 @@ async function run() {
   assert(rect.width > 0 && rect.height > 0, 'Battlefield canvas has no layout size');
   let inspected = false;
   for (let row = 0; row < 8 && !inspected; row += 1) {
-    for (let column = 9; column < 14 && !inspected; column += 1) {
+    for (let column = 0; column < 14 && !inspected; column += 1) {
       inspected = await tryInspectCell(canvas, rect, row, column);
     }
   }
