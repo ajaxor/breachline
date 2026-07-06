@@ -1,4 +1,4 @@
-import { GAME_CONFIG, MODE, PLAYER_UNIT_TYPES, TEAM, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
+import { GAME_CONFIG, MODE, PLAYER_UNIT_TYPES, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
 import { GameModel } from './GameModel.js';
 
 export class StrategyGameModel extends GameModel {
@@ -6,7 +6,6 @@ export class StrategyGameModel extends GameModel {
     super(options);
     this.supply = Object.fromEntries(PLAYER_UNIT_TYPES.map((type) => [type.key, 0]));
     this.currentDraftBudget = this.mission.draftBudget;
-    this.battleCasualtiesSettled = true;
   }
 
   get canLaunch() { return this.placement.length > 0; }
@@ -77,28 +76,34 @@ export class StrategyGameModel extends GameModel {
   }
 
   startBattle() {
+    if (!this.canLaunch) return false;
+    const committed = this.placement.reduce((counts, unit) => {
+      counts[unit.type] = (counts[unit.type] ?? 0) + 1;
+      return counts;
+    }, {});
     const started = super.startBattle();
-    if (started) this.battleCasualtiesSettled = false;
-    return started;
+    if (!started) return false;
+    for (const [typeKey, count] of Object.entries(committed)) {
+      this.supply[typeKey] = Math.max(0, (this.supply[typeKey] ?? 0) - count);
+    }
+    return true;
   }
 
-  settlePlayerCasualties() {
-    if (this.battleCasualtiesSettled || this.mode !== MODE.BATTLE) return;
-    for (const unit of this.units) {
-      if (unit.team === TEAM.PLAYER && !unit.alive) {
-        this.supply[unit.type] = Math.max(0, (this.supply[unit.type] ?? 0) - 1);
-      }
+  pruneDepletedRoster() {
+    for (const type of PLAYER_UNIT_TYPES) {
+      if ((this.supply[type.key] ?? 0) <= 0) this.roster[type.key] = false;
     }
-    this.battleCasualtiesSettled = true;
+    if (this.selectedUnitType && !this.roster[this.selectedUnitType]) {
+      this.selectedUnitType = this.rosterTypes[0]?.key ?? null;
+    }
   }
 
   finishBattle(result) {
-    this.settlePlayerCasualties();
     super.finishBattle(result);
+    this.pruneDepletedRoster();
   }
 
   returnToDeployment(missionIndex = this.selectedMission) {
-    this.settlePlayerCasualties();
     this.clearPlacement();
     super.returnToDeployment(missionIndex);
   }
