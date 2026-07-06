@@ -75,10 +75,12 @@ export function createCampaign(random = Math.random) {
   return Array.from({ length: GAME_CONFIG.missionCount }, (_, index) => {
     const playerBudget = GAME_CONFIG.startingBudget + index * GAME_CONFIG.budgetStep;
     const enemyBudget = playerBudget + GAME_CONFIG.enemyBudgetBonus + index * GAME_CONFIG.enemyBudgetStep;
+    const draftBudget = GAME_CONFIG.startingDraftBudget + index * GAME_CONFIG.draftBudgetStep;
     return {
       index,
       playerBudget,
       enemyBudget,
+      draftBudget,
       enemyFormation: generateFormation(enemyBudget, index, random),
       status: index === 0 ? 'available' : 'locked',
     };
