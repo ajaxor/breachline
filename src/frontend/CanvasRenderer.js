@@ -44,12 +44,9 @@ export class CanvasRenderer {
   }
 
   drawAnimatedUnit(unit, effects, now) {
-    const moveProgress = unit.animationStartedAt === undefined
-      ? 1
-      : clamp01((now - unit.animationStartedAt) / Math.max(1, unit.animationDuration));
+    const moveProgress = unit.animationStartedAt === undefined ? 1 : clamp01((now - unit.animationStartedAt) / Math.max(1, unit.animationDuration));
     let row = lerp(unit.previousRow ?? unit.row, unit.row, moveProgress);
     let column = lerp(unit.previousColumn ?? unit.column, unit.column, moveProgress);
-
     const attack = effects.find((effect) => effect.attackerId === unit.id && (effect.type === 'melee' || effect.type === 'ranged'));
     if (attack) {
       const progress = clamp01((now - attack.start) / attack.duration);
@@ -60,7 +57,6 @@ export class CanvasRenderer {
       row += rowDelta / length * lunge;
       column += columnDelta / length * lunge;
     }
-
     this.drawUnit(unit, false, row, column);
     if (unit.breached) this.drawBreachMarker(row, column);
   }
@@ -89,6 +85,8 @@ export class CanvasRenderer {
     const color = unit.team === TEAM.PLAYER ? '#38bdf8' : '#ff5d5d';
     const x = column * this.cellSize + this.cellSize / 2;
     const y = row * this.cellSize + this.cellSize / 2;
+    this.context.save();
+    this.context.globalAlpha = unit.stealthed ? 0.28 : 1;
     this.drawShape(type.shape, x, y, this.cellSize * 0.32, ghost ? `${color}80` : color);
     if (!ghost) {
       const width = this.cellSize * 0.7;
@@ -98,6 +96,7 @@ export class CanvasRenderer {
       this.context.fillStyle = health > 0.5 ? '#4ade80' : health > 0.2 ? '#fbbf24' : '#ff5d5d';
       this.context.fillRect(x - width / 2, y - this.cellSize / 2 + 5, width * health, 4);
     }
+    this.context.restore();
   }
 
   drawEffect(effect, now) {
@@ -112,13 +111,9 @@ export class CanvasRenderer {
   }
 
   drawProjectile(effect, progress, color) {
-    const fromX = this.x(effect.from.column);
-    const fromY = this.y(effect.from.row);
-    const toX = this.x(effect.to.column);
-    const toY = this.y(effect.to.row);
+    const fromX = this.x(effect.from.column), fromY = this.y(effect.from.row);
+    const toX = this.x(effect.to.column), toY = this.y(effect.to.row);
     const travel = Math.min(1, progress / 0.55);
-    const headX = lerp(fromX, toX, travel);
-    const headY = lerp(fromY, toY, travel);
     const ctx = this.context;
     ctx.save();
     ctx.globalAlpha = 1 - progress;
@@ -126,7 +121,7 @@ export class CanvasRenderer {
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(fromX, fromY);
-    ctx.lineTo(headX, headY);
+    ctx.lineTo(lerp(fromX, toX, travel), lerp(fromY, toY, travel));
     ctx.stroke();
     ctx.restore();
     if (progress > 0.5) this.drawImpact(toX, toY, (progress - 0.5) / 0.5, color);
@@ -134,10 +129,8 @@ export class CanvasRenderer {
 
   drawHeal(effect, progress) {
     const ctx = this.context;
-    const fromX = this.x(effect.from.column);
-    const fromY = this.y(effect.from.row);
-    const toX = this.x(effect.to.column);
-    const toY = this.y(effect.to.row);
+    const fromX = this.x(effect.from.column), fromY = this.y(effect.from.row);
+    const toX = this.x(effect.to.column), toY = this.y(effect.to.row);
     ctx.save();
     ctx.globalAlpha = (1 - progress) * 0.8;
     ctx.strokeStyle = '#4ade80';
@@ -155,8 +148,7 @@ export class CanvasRenderer {
 
   drawExplosion(effect, progress) {
     const ctx = this.context;
-    const x = this.x(effect.column);
-    const y = this.y(effect.row);
+    const x = this.x(effect.column), y = this.y(effect.row);
     ctx.save();
     ctx.globalAlpha = 1 - progress;
     ctx.strokeStyle = '#fbbf24';
@@ -225,21 +217,42 @@ export class CanvasRenderer {
     ctx.lineWidth = 2;
     ctx.beginPath();
     if (shape === 'square') ctx.rect(-radius, -radius, radius * 2, radius * 2);
-    else if (shape === 'triangle') { ctx.moveTo(0, -radius * 1.15); ctx.lineTo(radius, radius * 0.8); ctx.lineTo(-radius, radius * 0.8); ctx.closePath(); }
-    else if (shape === 'diamond') { ctx.moveTo(0, -radius * 1.2); ctx.lineTo(radius * 1.2, 0); ctx.lineTo(0, radius * 1.2); ctx.lineTo(-radius * 1.2, 0); ctx.closePath(); }
-    else if (shape === 'hex') { for (let i = 0; i < 6; i += 1) { const angle = Math.PI / 6 + i * Math.PI / 3; const px = radius * Math.cos(angle); const py = radius * Math.sin(angle); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); } ctx.closePath(); }
+    else if (shape === 'triangle') this.polygon(ctx, radius, 3, -Math.PI / 2);
+    else if (shape === 'diamond' || shape === 'kite') this.polygon(ctx, radius * 1.2, 4, -Math.PI / 2);
+    else if (shape === 'hex') this.polygon(ctx, radius, 6, Math.PI / 6);
+    else if (shape === 'octagon') this.polygon(ctx, radius, 8, Math.PI / 8);
+    else if (shape === 'star' || shape === 'burst') this.star(ctx, radius, shape === 'burst' ? 8 : 5);
+    else if (shape === 'chevron') { ctx.moveTo(-radius, -radius); ctx.lineTo(0, 0); ctx.lineTo(-radius, radius); ctx.moveTo(0, -radius); ctx.lineTo(radius, 0); ctx.lineTo(0, radius); }
+    else if (shape === 'wing') { ctx.moveTo(-radius, 0); ctx.quadraticCurveTo(0, -radius, radius, 0); ctx.quadraticCurveTo(0, radius * 0.45, -radius, 0); ctx.closePath(); }
     else ctx.arc(0, 0, radius, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
     if (shape === 'circle') {
       ctx.beginPath();
-      ctx.moveTo(-radius * 0.5, 0);
-      ctx.lineTo(radius * 0.5, 0);
-      ctx.moveTo(0, -radius * 0.5);
-      ctx.lineTo(0, radius * 0.5);
+      ctx.moveTo(-radius * 0.5, 0); ctx.lineTo(radius * 0.5, 0);
+      ctx.moveTo(0, -radius * 0.5); ctx.lineTo(0, radius * 0.5);
       ctx.stroke();
     }
     ctx.restore();
+  }
+
+  polygon(ctx, radius, sides, offset = 0) {
+    for (let i = 0; i < sides; i += 1) {
+      const angle = offset + i * Math.PI * 2 / sides;
+      const px = radius * Math.cos(angle), py = radius * Math.sin(angle);
+      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+    ctx.closePath();
+  }
+
+  star(ctx, radius, points) {
+    for (let i = 0; i < points * 2; i += 1) {
+      const angle = -Math.PI / 2 + i * Math.PI / points;
+      const r = i % 2 ? radius * 0.45 : radius;
+      const px = r * Math.cos(angle), py = r * Math.sin(angle);
+      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+    ctx.closePath();
   }
 
   x(column) { return column * this.cellSize + this.cellSize / 2; }
