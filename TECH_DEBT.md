@@ -35,7 +35,7 @@ No open items.
 
 ### Rendering and performance
 
-- [ ] Extract unit-icon drawing from `CanvasRenderer` into a small shared frontend graphics module. `UnitPresentation` currently instantiates `CanvasRenderer` solely to draw each roster, draft, and inspector icon, coupling DOM presentation to the battlefield renderer and creating one renderer object per icon. Move the pure canvas path functions into a reusable helper consumed by both renderers.
+- [ ] Complete the unit-icon graphics extraction in `CanvasRenderer`. `UnitPresentation` now draws icons directly through `src/frontend/UnitGraphics.js` and no longer creates a battlefield renderer per icon, but `CanvasRenderer` still owns a duplicate copy of the same path definitions. Delegate battlefield unit graphics to the shared module and remove the duplicated renderer methods so future icon changes cannot drift.
 - [ ] Consolidate unit and health-bar drawing between `CanvasRenderer` and `BattlefieldRenderer`. The conditional full-health-bar behavior currently requires `BattlefieldRenderer` to duplicate `drawUnit`, so later visual changes can drift between the two implementations. Extract unit-body drawing and health-bar drawing into protected helpers or make health-bar visibility a policy hook on the base renderer.
 - [ ] Avoid searching the active-effect list independently for every unit during rendering. `drawAnimatedUnit` calls `find` on active effects for each living unit, producing avoidable repeated work. Index attack effects by attacker ID once per frame and pass the relevant effect directly.
 
