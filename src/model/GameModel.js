@@ -78,9 +78,28 @@ export class GameModel {
       this.draftChoices = [];
       return this.draftChoices;
     }
+
     const lockedTypes = PLAYER_UNIT_TYPES.filter((type) => !this.roster[type.key]);
-    const pool = lockedTypes.length ? lockedTypes : PLAYER_UNIT_TYPES;
-    this.draftChoices = this.shuffle(pool).slice(0, 3);
+    const preferredPool = lockedTypes.length ? lockedTypes : PLAYER_UNIT_TYPES;
+    const chosenRoles = new Set();
+    const choices = [];
+
+    const addOnePerRole = (pool) => {
+      const roles = this.shuffle([...new Set(pool.map((type) => type.role))]);
+      for (const role of roles) {
+        if (choices.length >= 3 || chosenRoles.has(role)) continue;
+        const candidates = pool.filter((type) => type.role === role);
+        const [choice] = this.shuffle(candidates);
+        if (!choice) continue;
+        choices.push(choice);
+        chosenRoles.add(role);
+      }
+    };
+
+    addOnePerRole(preferredPool);
+    if (choices.length < 3) addOnePerRole(PLAYER_UNIT_TYPES);
+
+    this.draftChoices = choices.slice(0, 3);
     return this.draftChoices;
   }
 
