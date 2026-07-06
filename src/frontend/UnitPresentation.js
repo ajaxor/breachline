@@ -74,14 +74,11 @@ export class UnitPresentation {
   }
 
   createRosterRow(type, selected) {
-    const row = this.document.createElement('div');
-    row.className = `roster-card${selected ? ' selected' : ''}`;
-
     const select = this.document.createElement('button');
-    select.className = 'roster-select';
+    select.className = `roster-card${selected ? ' selected' : ''}`;
     select.dataset.unitType = type.key;
     select.setAttribute('aria-pressed', String(selected));
-    select.appendChild(this.createGraphic(type, { size: 42 }));
+    select.appendChild(this.createGraphic(type, { size: 38 }));
 
     const name = this.document.createElement('span');
     name.className = 'rc-name';
@@ -91,14 +88,6 @@ export class UnitPresentation {
     cost.textContent = String(type.cost);
     cost.setAttribute('aria-label', `${type.cost} points`);
     select.append(name, cost);
-
-    const details = this.document.createElement('button');
-    details.className = 'roster-details';
-    details.dataset.rosterInspect = type.key;
-    details.setAttribute('aria-label', `View ${type.name} details`);
-    details.textContent = 'i';
-
-    row.append(select, details);
-    return row;
+    return select;
   }
 }
