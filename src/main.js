@@ -6,5 +6,6 @@ import { GameModel } from './model/GameModel.js';
 const view = new GameView();
 const model = new GameModel();
 const renderer = new CanvasRenderer(view.elements.field, view.elements.fieldWrap);
-const controller = new GameController(model, view, renderer);
+const buildInfo = window.BREACH_LINE_BUILD || { version: 'dev', commit: 'local' };
+const controller = new GameController(model, view, renderer, buildInfo);
 controller.initialize();
