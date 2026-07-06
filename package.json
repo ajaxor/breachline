@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "scripts": {
+    "balance": "node scripts/balance-units.mjs"
+  }
+}
