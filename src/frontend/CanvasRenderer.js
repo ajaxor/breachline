@@ -1,4 +1,6 @@
 import { GAME_CONFIG, MODE, TEAM, UNIT_TYPES } from '../data/gameConfig.js';
+import { EFFECT_TYPE } from '../data/gameTypes.js';
+import { drawUnitGraphic } from './UnitGraphics.js';
 
 const lerp = (start, end, progress) => start + (end - start) * progress;
 const clamp01 = (value) => Math.max(0, Math.min(1, value));
@@ -39,18 +41,23 @@ export class CanvasRenderer {
 
     const now = this.now();
     const activeEffects = model.effects.filter((effect) => now - effect.start < effect.duration);
-    model.units.filter((unit) => unit.alive).forEach((unit) => this.drawAnimatedUnit(unit, activeEffects, now));
+    const attacksByUnit = new Map();
+    for (const effect of activeEffects) {
+      if (effect.attackerId !== undefined && (effect.type === EFFECT_TYPE.MELEE || effect.type === EFFECT_TYPE.RANGED)) {
+        attacksByUnit.set(effect.attackerId, effect);
+      }
+    }
+    model.units.filter((unit) => unit.alive).forEach((unit) => this.drawAnimatedUnit(unit, attacksByUnit.get(unit.id), now));
     activeEffects.forEach((effect) => this.drawEffect(effect, now));
   }
 
-  drawAnimatedUnit(unit, effects, now) {
+  drawAnimatedUnit(unit, attack, now) {
     const moveProgress = unit.animationStartedAt === undefined ? 1 : clamp01((now - unit.animationStartedAt) / Math.max(1, unit.animationDuration));
     let row = lerp(unit.previousRow ?? unit.row, unit.row, moveProgress);
     let column = lerp(unit.previousColumn ?? unit.column, unit.column, moveProgress);
-    const attack = effects.find((effect) => effect.attackerId === unit.id && (effect.type === 'melee' || effect.type === 'ranged'));
     if (attack) {
       const progress = clamp01((now - attack.start) / attack.duration);
-      const lunge = Math.sin(progress * Math.PI) * (attack.type === 'melee' ? 0.32 : 0.08);
+      const lunge = Math.sin(progress * Math.PI) * (attack.type === EFFECT_TYPE.MELEE ? 0.32 : 0.08);
       const rowDelta = attack.to.row - attack.from.row;
       const columnDelta = attack.to.column - attack.from.column;
       const length = Math.max(1, Math.hypot(rowDelta, columnDelta));
@@ -79,9 +86,8 @@ export class CanvasRenderer {
   }
 
   drawDeploymentZone(columns, color) {
-    const ctx = this.context;
-    ctx.fillStyle = color;
-    columns.forEach((column) => ctx.fillRect(column * this.cellSize, 0, this.cellSize, GAME_CONFIG.rows * this.cellSize));
+    this.context.fillStyle = color;
+    columns.forEach((column) => this.context.fillRect(column * this.cellSize, 0, this.cellSize, GAME_CONFIG.rows * this.cellSize));
   }
 
   drawUnit(unit, ghost, row = unit.row, column = unit.column) {
@@ -90,119 +96,41 @@ export class CanvasRenderer {
     const x = column * this.cellSize + this.cellSize / 2;
     const y = row * this.cellSize + this.cellSize / 2;
     this.context.save();
+    this.context.translate(x, y);
+    this.prepareUnitContext(unit, ghost);
     this.context.globalAlpha = (unit.stealthed ? 0.28 : 1) * (ghost ? 0.55 : 1);
-    this.drawUnitGraphic(type.graphic ?? type.shape, x, y, this.cellSize * 0.32, color);
-    if (!ghost) {
-      const width = this.cellSize * 0.7;
-      const health = Math.max(0, unit.hp / unit.maxHp);
-      this.context.fillStyle = '#0d141b';
-      this.context.fillRect(x - width / 2, y - this.cellSize / 2 + 5, width, 4);
-      this.context.fillStyle = health > 0.5 ? '#4ade80' : health > 0.2 ? '#fbbf24' : '#ff5d5d';
-      this.context.fillRect(x - width / 2, y - this.cellSize / 2 + 5, width * health, 4);
-    }
+    drawUnitGraphic(this.context, type.graphic ?? type.shape, 0, 0, this.cellSize * 0.32, color);
+    if (this.shouldDrawHealthBar(unit, ghost)) this.drawHealthBar(unit);
     this.context.restore();
   }
 
-  drawUnitGraphic(graphic, x, y, radius, color) {
-    const ctx = this.context;
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
-    ctx.lineWidth = Math.max(1.5, radius * 0.12);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+  prepareUnitContext() {}
 
-    ctx.save();
-    ctx.globalAlpha *= 0.18;
-    ctx.beginPath();
-    this.unitBodyPath(ctx, graphic, radius);
-    ctx.fill();
-    ctx.restore();
-    ctx.beginPath();
-    this.unitBodyPath(ctx, graphic, radius);
-    ctx.stroke();
-
-    ctx.lineWidth = Math.max(1.2, radius * 0.09);
-    this.drawUnitDetails(ctx, graphic, radius);
-    ctx.restore();
+  shouldDrawHealthBar(_unit, ghost) {
+    return !ghost;
   }
 
-  unitBodyPath(ctx, graphic, radius) {
-    if (graphic === 'rifleman') ctx.roundRect(-radius * 0.72, -radius * 0.82, radius * 1.44, radius * 1.64, radius * 0.2);
-    else if (graphic === 'bulwark') this.polygon(ctx, radius, 6, Math.PI / 6);
-    else if (graphic === 'marksman') this.polygon(ctx, radius, 3, -Math.PI / 2);
-    else if (graphic === 'demolisher') this.polygon(ctx, radius * 1.05, 4, -Math.PI / 2);
-    else if (graphic === 'medic') ctx.arc(0, 0, radius, 0, Math.PI * 2);
-    else if (graphic === 'ranger') { ctx.moveTo(-radius, -radius * 0.85); ctx.lineTo(radius * 0.2, 0); ctx.lineTo(-radius, radius * 0.85); ctx.lineTo(radius, radius * 0.85); ctx.lineTo(radius * 0.35, 0); ctx.lineTo(radius, -radius * 0.85); ctx.closePath(); }
-    else if (graphic === 'infiltrator') { ctx.moveTo(0, -radius * 1.15); ctx.lineTo(radius * 0.78, 0); ctx.lineTo(0, radius); ctx.lineTo(-radius * 0.78, 0); ctx.closePath(); }
-    else if (graphic === 'wasp') { ctx.moveTo(-radius, 0); ctx.quadraticCurveTo(-radius * 0.35, -radius, 0, -radius * 0.2); ctx.quadraticCurveTo(radius * 0.35, -radius, radius, 0); ctx.quadraticCurveTo(radius * 0.35, radius, 0, radius * 0.2); ctx.quadraticCurveTo(-radius * 0.35, radius, -radius, 0); ctx.closePath(); }
-    else if (graphic === 'artillery') this.polygon(ctx, radius, 8, Math.PI / 8);
-    else if (graphic === 'barricade') ctx.roundRect(-radius, -radius * 0.72, radius * 2, radius * 1.44, radius * 0.12);
-    else if (graphic === 'turret') ctx.arc(0, 0, radius, 0, Math.PI * 2);
-    else ctx.rect(-radius, -radius, radius * 2, radius * 2);
-  }
-
-  drawUnitDetails(ctx, graphic, radius) {
-    ctx.beginPath();
-    if (graphic === 'rifleman') {
-      ctx.arc(-radius * 0.18, -radius * 0.22, radius * 0.2, 0, Math.PI * 2);
-      ctx.moveTo(-radius * 0.1, 0); ctx.lineTo(radius * 0.52, radius * 0.42);
-      ctx.moveTo(radius * 0.25, radius * 0.25); ctx.lineTo(radius * 0.72, -radius * 0.18);
-    } else if (graphic === 'bulwark') {
-      ctx.rect(-radius * 0.48, -radius * 0.52, radius * 0.96, radius * 1.04);
-      ctx.moveTo(-radius * 0.7, -radius * 0.1); ctx.lineTo(radius * 0.7, -radius * 0.1);
-      ctx.moveTo(0, -radius * 0.52); ctx.lineTo(0, radius * 0.52);
-    } else if (graphic === 'marksman') {
-      ctx.moveTo(-radius * 0.62, radius * 0.38); ctx.lineTo(radius * 0.7, -radius * 0.15);
-      ctx.moveTo(radius * 0.08, radius * 0.08); ctx.lineTo(radius * 0.25, radius * 0.45);
-      ctx.arc(-radius * 0.2, radius * 0.18, radius * 0.16, 0, Math.PI * 2);
-    } else if (graphic === 'demolisher') {
-      ctx.arc(0, radius * 0.08, radius * 0.42, 0, Math.PI * 2);
-      ctx.moveTo(radius * 0.18, -radius * 0.34); ctx.quadraticCurveTo(radius * 0.65, -radius * 0.75, radius * 0.72, -radius * 0.2);
-      ctx.moveTo(-radius * 0.24, radius * 0.08); ctx.lineTo(radius * 0.24, radius * 0.08);
-    } else if (graphic === 'medic') {
-      ctx.moveTo(-radius * 0.48, 0); ctx.lineTo(radius * 0.48, 0);
-      ctx.moveTo(0, -radius * 0.48); ctx.lineTo(0, radius * 0.48);
-      ctx.arc(0, 0, radius * 0.68, 0, Math.PI * 2);
-    } else if (graphic === 'ranger') {
-      ctx.moveTo(-radius * 0.55, -radius * 0.48); ctx.lineTo(radius * 0.25, 0); ctx.lineTo(-radius * 0.55, radius * 0.48);
-      ctx.moveTo(radius * 0.15, -radius * 0.52); ctx.lineTo(radius * 0.72, 0); ctx.lineTo(radius * 0.15, radius * 0.52);
-    } else if (graphic === 'infiltrator') {
-      ctx.moveTo(-radius * 0.5, radius * 0.05); ctx.quadraticCurveTo(0, -radius * 0.45, radius * 0.5, radius * 0.05);
-      ctx.moveTo(-radius * 0.28, radius * 0.2); ctx.lineTo(radius * 0.28, radius * 0.2);
-    } else if (graphic === 'wasp') {
-      ctx.ellipse(0, 0, radius * 0.24, radius * 0.65, 0, 0, Math.PI * 2);
-      ctx.moveTo(-radius * 0.18, -radius * 0.2); ctx.lineTo(radius * 0.18, -radius * 0.2);
-      ctx.moveTo(-radius * 0.2, radius * 0.15); ctx.lineTo(radius * 0.2, radius * 0.15);
-      ctx.moveTo(0, -radius * 0.65); ctx.lineTo(0, -radius * 0.95);
-    } else if (graphic === 'artillery') {
-      ctx.arc(0, radius * 0.08, radius * 0.48, 0, Math.PI * 2);
-      ctx.moveTo(0, -radius * 0.1); ctx.lineTo(radius * 0.76, -radius * 0.68);
-      ctx.moveTo(-radius * 0.52, radius * 0.62); ctx.lineTo(radius * 0.52, radius * 0.62);
-    } else if (graphic === 'barricade') {
-      ctx.moveTo(-radius * 0.78, -radius * 0.48); ctx.lineTo(radius * 0.15, radius * 0.48);
-      ctx.moveTo(-radius * 0.15, -radius * 0.48); ctx.lineTo(radius * 0.78, radius * 0.48);
-      ctx.moveTo(-radius * 0.72, radius * 0.75); ctx.lineTo(-radius * 0.5, radius * 0.42);
-      ctx.moveTo(radius * 0.72, radius * 0.75); ctx.lineTo(radius * 0.5, radius * 0.42);
-    } else if (graphic === 'turret') {
-      ctx.arc(0, 0, radius * 0.55, 0, Math.PI * 2);
-      ctx.moveTo(0, 0); ctx.lineTo(radius * 0.9, -radius * 0.42);
-      ctx.moveTo(-radius * 0.42, radius * 0.55); ctx.lineTo(-radius * 0.7, radius * 0.88);
-      ctx.moveTo(radius * 0.42, radius * 0.55); ctx.lineTo(radius * 0.7, radius * 0.88);
-    }
-    ctx.stroke();
+  drawHealthBar(unit) {
+    const width = this.cellSize * 0.7;
+    const health = Math.max(0, unit.hp / unit.maxHp);
+    this.context.fillStyle = '#0d141b';
+    this.context.fillRect(-width / 2, -this.cellSize / 2 + 5, width, 4);
+    this.context.fillStyle = health > 0.5 ? '#4ade80' : health > 0.2 ? '#fbbf24' : '#ff5d5d';
+    this.context.fillRect(-width / 2, -this.cellSize / 2 + 5, width * health, 4);
   }
 
   drawEffect(effect, now) {
     const progress = clamp01((now - effect.start) / effect.duration);
     const color = effect.team === TEAM.PLAYER ? '#38bdf8' : effect.team === TEAM.ENEMY ? '#ff5d5d' : '#fbbf24';
-    if (effect.type === 'ranged') this.drawProjectile(effect, progress, color);
-    else if (effect.type === 'melee') this.drawImpact(this.x(effect.to.column), this.y(effect.to.row), progress, color);
-    else if (effect.type === 'heal') this.drawHeal(effect, progress);
-    else if (effect.type === 'explosion') this.drawExplosion(effect, progress);
-    else if (effect.type === 'death') this.drawDeath(effect, progress);
-    else if (effect.type === 'text') this.drawText(effect, progress);
+    switch (effect.type) {
+      case EFFECT_TYPE.RANGED: this.drawProjectile(effect, progress, color); break;
+      case EFFECT_TYPE.MELEE: this.drawImpact(this.x(effect.to.column), this.y(effect.to.row), progress, color); break;
+      case EFFECT_TYPE.HEAL: this.drawHeal(effect, progress); break;
+      case EFFECT_TYPE.EXPLOSION: this.drawExplosion(effect, progress); break;
+      case EFFECT_TYPE.DEATH: this.drawDeath(effect, progress); break;
+      case EFFECT_TYPE.TEXT: this.drawText(effect, progress); break;
+      default: throw new Error(`Unsupported effect type: ${effect.type}`);
+    }
   }
 
   drawProjectile(effect, progress, color) {
@@ -264,7 +192,8 @@ export class CanvasRenderer {
     const ctx = this.context;
     ctx.save();
     ctx.globalAlpha = 1 - progress;
-    this.drawShape(effect.shape, this.x(effect.column), this.y(effect.row), this.cellSize * 0.32 * (1 - 0.35 * progress), effect.color);
+    if (effect.graphic) drawUnitGraphic(ctx, effect.graphic, this.x(effect.column), this.y(effect.row), this.cellSize * 0.32 * (1 - 0.35 * progress), effect.color);
+    else this.drawShape(effect.shape, this.x(effect.column), this.y(effect.row), this.cellSize * 0.32 * (1 - 0.35 * progress), effect.color);
     ctx.restore();
   }
 
