@@ -69,29 +69,24 @@ export class UnitPresentation {
       header.appendChild(cost);
     }
 
-    const actionStat = type.action === 'heal' ? `HEAL ${type.healAmount}` : `ATK ${type.attack}`;
-    const stats = this.document.createElement('div');
-    stats.className = 'unit-description-stats';
-    stats.innerHTML = `<span>HP <strong>${type.hp}</strong></span><span>${actionStat}</span>${type.range > 1 ? `<span>RNG <strong>${type.range}</strong></span>` : ''}`;
+    const details = this.document.createElement('div');
+    details.className = 'unit-description-details';
+    const actionLabel = type.action === 'heal' ? 'HEAL' : 'ATK';
+    const actionValue = type.action === 'heal' ? type.healAmount : type.attack;
+    details.innerHTML = `<span class="unit-description-stat">HP <strong>${type.hp}</strong></span><span class="unit-description-stat">${actionLabel} <strong>${actionValue}</strong></span>${type.range > 1 ? `<span class="unit-description-stat">RNG <strong>${type.range}</strong></span>` : ''}`;
 
-    const tags = this.document.createElement('div');
-    tags.className = 'unit-description-tags';
-    if (type.tags.length) {
-      type.tags.forEach((tag) => {
-        const chip = this.document.createElement('span');
-        chip.textContent = tag;
-        tags.appendChild(chip);
-      });
-    } else {
-      tags.classList.add('empty');
-      tags.textContent = 'No special abilities';
-    }
+    type.tags.forEach((tag) => {
+      const chip = this.document.createElement('span');
+      chip.className = 'unit-description-tag';
+      chip.textContent = tag;
+      details.appendChild(chip);
+    });
 
     const behavior = this.document.createElement('div');
     behavior.className = 'unit-description-behavior';
     behavior.textContent = type.behavior;
 
-    description.append(header, stats, tags, behavior);
+    description.append(header, details, behavior);
     return description;
   }
 
