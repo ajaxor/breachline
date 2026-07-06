@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -79,3 +79,30 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Check out repository for deployment receipt
+        uses: actions/checkout@v4
+
+      - name: Publish deployment receipt
+        shell: bash
+        env:
+          DEPLOYED_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan ci-status-output
+          git rm -rf .
+          cat > ci-status.json <<EOF
+          {
+            "commit": "${GITHUB_SHA}",
+            "shortCommit": "${GITHUB_SHA::7}",
+            "workflow": "${GITHUB_WORKFLOW}",
+            "runId": "${GITHUB_RUN_ID}",
+            "status": "success",
+            "deployedUrl": "${DEPLOYED_URL}"
+          }
+          EOF
+          git add ci-status.json
+          git commit -m "Record successful deployment for ${GITHUB_SHA::7}"
+          git push --force origin HEAD:ci-status
