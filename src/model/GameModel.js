@@ -165,9 +165,10 @@ export class GameModel {
     if (!unit.alive) return true;
     const type = UNIT_TYPES[unit.type];
     if (unit.breached) {
-      if (this.canActAfterMovement(unit, type)) this.attackBase(unit, now, duration);
+      this.attackBase(unit, now, duration);
       return true;
     }
+    if (hasUnitTag(type, UNIT_TAG.FLYING)) return this.processFlyingUnit(unit, type, now, duration);
     if (this.tryCombatAction(unit, type, now, duration)) return true;
     unit.movedThisTurn = this.moveUnit(unit, now, duration);
     if (!unit.movedThisTurn) return false;
@@ -178,7 +179,16 @@ export class GameModel {
     return true;
   }
 
-  canActAfterMovement(unit, type = UNIT_TYPES[unit.type]) { return !unit.movedThisTurn || hasUnitTag(type, UNIT_TAG.FAST_ATTACK); }
+  processFlyingUnit(unit, type, now, duration) {
+    unit.movedThisTurn = this.moveUnit(unit, now, duration);
+    if (unit.breached) this.attackBase(unit, now, duration);
+    else this.tryCombatAction(unit, type, now, duration);
+    return true;
+  }
+
+  canActAfterMovement(unit, type = UNIT_TYPES[unit.type]) {
+    return !unit.movedThisTurn || hasUnitTag(type, UNIT_TAG.FAST_ATTACK) || hasUnitTag(type, UNIT_TAG.FLYING);
+  }
 
   tryCombatAction(unit, type, now, duration) {
     if (!this.canActAfterMovement(unit, type)) return false;
@@ -242,14 +252,8 @@ export class GameModel {
     const direction = unit.team === TEAM.PLAYER ? 1 : -1;
     const nextColumn = unit.column + direction;
     if (nextColumn < 0 || nextColumn >= GAME_CONFIG.columns) { this.breach(unit, direction, now, duration); return true; }
+    if (hasUnitTag(type, UNIT_TAG.FLYING)) { unit.column = nextColumn; return true; }
     if (!this.occupantAt(unit.row, nextColumn)) { unit.column = nextColumn; return true; }
-    if (hasUnitTag(type, UNIT_TAG.FLYING)) {
-      let landingColumn = nextColumn + direction;
-      while (landingColumn >= 0 && landingColumn < GAME_CONFIG.columns && this.occupantAt(unit.row, landingColumn)) landingColumn += direction;
-      if (landingColumn < 0 || landingColumn >= GAME_CONFIG.columns) { this.breach(unit, direction, now, duration); return true; }
-      unit.column = landingColumn;
-      return true;
-    }
     if (hasUnitTag(type, UNIT_TAG.CAN_MOVE_SIDEWAYS)) {
       for (const row of [unit.row - 1, unit.row + 1]) {
         if (row >= 0 && row < GAME_CONFIG.rows && !this.occupantAt(row, nextColumn)) { unit.row = row; unit.column = nextColumn; return true; }
