@@ -8,24 +8,10 @@ import { BudgetDeploymentPolicy } from './DeploymentPolicies.js';
 import { SpatialIndex } from './SpatialIndex.js';
 import { gridDistance } from './TargetingPolicy.js';
 
-const snapshot = (unit) => ({
-  id: unit.id,
-  team: unit.team,
-  type: unit.type,
-  row: unit.row,
-  column: unit.column,
-});
+const snapshot = (unit) => ({ id: unit.id, team: unit.team, type: unit.type, row: unit.row, column: unit.column });
 
 export class GameModel {
-  constructor({
-    random = Math.random,
-    now = () => performance.now(),
-    unitFactory = new BattleUnitFactory(),
-    actionResolver = new CombatActionResolver(),
-    campaignProgression = new CampaignProgression(),
-    eventPresenter = null,
-    createDeploymentPolicy = (model) => new BudgetDeploymentPolicy(model),
-  } = {}) {
+  constructor({ random = Math.random, now = () => performance.now(), unitFactory = new BattleUnitFactory(), actionResolver = new CombatActionResolver(), campaignProgression = new CampaignProgression(), eventPresenter = null, createDeploymentPolicy = (model) => new BudgetDeploymentPolicy(model) } = {}) {
     this.random = random;
     this.now = now;
     this.unitFactory = unitFactory;
@@ -67,39 +53,22 @@ export class GameModel {
     this.spatialIndex = new SpatialIndex();
   }
 
-  beginDrafts(count = 1) {
-    this.pendingDrafts += count;
-    this.rollDraftChoices();
-    return this.draftChoices;
-  }
+  beginDrafts(count = 1) { this.pendingDrafts += count; this.rollDraftChoices(); return this.draftChoices; }
 
   rollDraftChoices() {
-    if (this.pendingDrafts <= 0) {
-      this.draftChoices = [];
-      return this.draftChoices;
-    }
-
+    if (this.pendingDrafts <= 0) { this.draftChoices = []; return this.draftChoices; }
     const lockedTypes = PLAYER_UNIT_TYPES.filter((type) => !this.roster[type.key]);
     const preferredPool = lockedTypes.length ? lockedTypes : PLAYER_UNIT_TYPES;
-    const chosenRoles = new Set();
     const choices = [];
-
-    const addOnePerRole = (pool) => {
-      const roles = this.shuffle([...new Set(pool.map((type) => type.role))]);
-      for (const role of roles) {
-        if (choices.length >= 3 || chosenRoles.has(role)) continue;
-        const candidates = pool.filter((type) => type.role === role);
-        const [choice] = this.shuffle(candidates);
-        if (!choice) continue;
-        choices.push(choice);
-        chosenRoles.add(role);
+    const addDistinctRoles = (pool) => {
+      for (const type of this.shuffle(pool)) {
+        if (choices.length >= 3) break;
+        if (!choices.some((choice) => choice.role === type.role)) choices.push(type);
       }
     };
-
-    addOnePerRole(preferredPool);
-    if (choices.length < 3) addOnePerRole(PLAYER_UNIT_TYPES);
-
-    this.draftChoices = choices.slice(0, 3);
+    addDistinctRoles(preferredPool);
+    if (choices.length < 3) addDistinctRoles(PLAYER_UNIT_TYPES);
+    this.draftChoices = choices;
     return this.draftChoices;
   }
 
@@ -115,29 +84,15 @@ export class GameModel {
   deployedCount(typeKey) { return this.placement.filter((unit) => unit.type === typeKey).length; }
   availableCount(typeKey) { return this.deploymentPolicy.availableCount(typeKey); }
   selectMission(index) { return this.campaignProgression.selectMission(this, index); }
-
-  setSelectedUnitType(type) {
-    if (!UNIT_TYPES[type] || hasUnitTag(type, UNIT_TAG.AI_ONLY) || !this.roster[type]) return false;
-    this.selectedUnitType = type;
-    return true;
-  }
-
-  enemyPlanAt(row, column) {
-    if (this.mode !== MODE.DEPLOY) return null;
-    return this.mission.enemyFormation.find((unit) => unit.row === row && unit.column === column) ?? null;
-  }
-
+  setSelectedUnitType(type) { if (!UNIT_TYPES[type] || hasUnitTag(type, UNIT_TAG.AI_ONLY) || !this.roster[type]) return false; this.selectedUnitType = type; return true; }
+  enemyPlanAt(row, column) { if (this.mode !== MODE.DEPLOY) return null; return this.mission.enemyFormation.find((unit) => unit.row === row && unit.column === column) ?? null; }
   togglePlacement(row, column) { return this.deploymentPolicy.togglePlacement(row, column); }
   clearPlacement() { this.placement = []; }
 
   startBattle() {
     if (!this.canLaunch) return false;
     const committedFormation = this.placement.map((unit) => ({ ...unit }));
-    const started = this.setupBattle({
-      playerFormation: committedFormation,
-      enemyFormation: this.mission.enemyFormation,
-      missionLabel: `Mission ${this.selectedMission + 1}`,
-    });
+    const started = this.setupBattle({ playerFormation: committedFormation, enemyFormation: this.mission.enemyFormation, missionLabel: `Mission ${this.selectedMission + 1}` });
     if (started) this.deploymentPolicy.commitBattle(committedFormation);
     return started;
   }
@@ -147,19 +102,10 @@ export class GameModel {
     this.resetBattle();
     this.mode = MODE.BATTLE;
     const startedAt = this.now();
-    this.units = [
-      ...playerFormation.map((plan) => this.unitFactory.create(plan, TEAM.PLAYER, this.nextUnitId++, startedAt)),
-      ...enemyFormation.map((plan) => this.unitFactory.create(plan, TEAM.ENEMY, this.nextUnitId++, startedAt)),
-    ];
+    this.units = [...playerFormation.map((plan) => this.unitFactory.create(plan, TEAM.PLAYER, this.nextUnitId++, startedAt)), ...enemyFormation.map((plan) => this.unitFactory.create(plan, TEAM.ENEMY, this.nextUnitId++, startedAt))];
     this.spatialIndex = new SpatialIndex(this.units);
     this.refreshStealth();
-    this.emitCombatEvent({
-      type: COMBAT_EVENT.BATTLE_STARTED,
-      label: missionLabel,
-      playerCount: this.livingPlayerCount,
-      enemyCount: this.livingEnemyCount,
-      at: startedAt,
-    });
+    this.emitCombatEvent({ type: COMBAT_EVENT.BATTLE_STARTED, label: missionLabel, playerCount: this.livingPlayerCount, enemyCount: this.livingEnemyCount, at: startedAt });
     return true;
   }
 
@@ -170,13 +116,7 @@ export class GameModel {
     this.effects = this.effects.filter((effect) => now - effect.start < effect.duration);
     const duration = Math.max(110, Math.min(480, GAME_CONFIG.tickIntervalMs * 0.85));
     const actingUnits = this.units.filter((unit) => unit.alive);
-    actingUnits.forEach((unit) => {
-      unit.previousRow = unit.row;
-      unit.previousColumn = unit.column;
-      unit.animationStartedAt = now;
-      unit.animationDuration = duration;
-      unit.movedThisTurn = false;
-    });
+    actingUnits.forEach((unit) => { unit.previousRow = unit.row; unit.previousColumn = unit.column; unit.animationStartedAt = now; unit.animationDuration = duration; unit.movedThisTurn = false; });
     this.spatialIndex = new SpatialIndex(this.units);
     this.processActionQueue(this.shuffle(actingUnits), now, duration);
     this.refreshStealth();
@@ -199,12 +139,7 @@ export class GameModel {
     this.spatialIndex.remove(unit);
     unit.breached = true;
     unit.column = direction > 0 ? GAME_CONFIG.columns - 1 : 0;
-    this.emitCombatEvent({
-      type: COMBAT_EVENT.UNIT_BREACHED,
-      unit: snapshot(unit),
-      targetBase: unit.team === TEAM.PLAYER ? 'hostile' : 'home',
-      at: now,
-    });
+    this.emitCombatEvent({ type: COMBAT_EVENT.UNIT_BREACHED, unit: snapshot(unit), targetBase: unit.team === TEAM.PLAYER ? 'hostile' : 'home', at: now });
   }
 
   attackBase(unit, now) {
@@ -212,37 +147,19 @@ export class GameModel {
     const damage = Math.max(type.attack, 4);
     if (unit.team === TEAM.PLAYER) this.enemyBaseHp = Math.max(0, this.enemyBaseHp - damage);
     else this.playerBaseHp = Math.max(0, this.playerBaseHp - damage);
-    this.emitCombatEvent({
-      type: COMBAT_EVENT.BASE_ATTACKED,
-      unit: snapshot(unit),
-      targetBase: unit.team === TEAM.PLAYER ? 'hostile' : 'home',
-      damage,
-      at: now,
-    });
+    this.emitCombatEvent({ type: COMBAT_EVENT.BASE_ATTACKED, unit: snapshot(unit), targetBase: unit.team === TEAM.PLAYER ? 'hostile' : 'home', damage, at: now });
   }
 
   refreshStealth() {
     const living = this.units.filter((unit) => unit.alive);
     for (const unit of living) {
-      if (!hasUnitTag(unit.type, UNIT_TAG.STEALTH)) {
-        unit.stealthed = false;
-        continue;
-      }
-      unit.stealthed = !this.spatialIndex.nearby(unit.row, unit.column, 1).some((other) => (
-        other.team !== unit.team && gridDistance(unit, other) <= 1
-      ));
+      if (!hasUnitTag(unit.type, UNIT_TAG.STEALTH)) { unit.stealthed = false; continue; }
+      unit.stealthed = !this.spatialIndex.nearby(unit.row, unit.column, 1).some((other) => other.team !== unit.team && gridDistance(unit, other) <= 1);
     }
   }
 
-  addDeathEffect(unit, now) {
-    this.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DESTROYED, unit: snapshot(unit), at: now, silent: true });
-  }
-
-  killUnit(unit, now) {
-    unit.alive = false;
-    this.spatialIndex.remove(unit);
-    this.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DESTROYED, unit: snapshot(unit), at: now });
-  }
+  addDeathEffect(unit, now) { this.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DESTROYED, unit: snapshot(unit), at: now, silent: true }); }
+  killUnit(unit, now) { unit.alive = false; this.spatialIndex.remove(unit); this.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DESTROYED, unit: snapshot(unit), at: now }); }
 
   determineResult() {
     if (this.playerBaseHp <= 0 && this.enemyBaseHp <= 0) return { cssClass: RESULT_TYPE.DRAW, text: 'DRAW — BOTH BASES FALL SIMULTANEOUSLY', playerWon: false };
@@ -255,31 +172,10 @@ export class GameModel {
   }
 
   finishBattle(result) { return this.campaignProgression.finishBattle(this, result); }
-
-  returnToDeployment(missionIndex = this.selectedMission) {
-    this.resetBattle();
-    this.selectedMission = missionIndex;
-  }
-
-  emitCombatEvent(event) {
-    this.combatEvents.push(event);
-    this.eventPresenter?.present(this, event);
-  }
-
-  addLog(message, cssClass = '') {
-    this.logEntries.push({ message, cssClass });
-    if (this.logEntries.length > GAME_CONFIG.maxLogEntries) this.logEntries.splice(0, this.logEntries.length - GAME_CONFIG.maxLogEntries);
-  }
-
+  returnToDeployment(missionIndex = this.selectedMission) { this.resetBattle(); this.selectedMission = missionIndex; }
+  emitCombatEvent(event) { this.combatEvents.push(event); this.eventPresenter?.present(this, event); }
+  addLog(message, cssClass = '') { this.logEntries.push({ message, cssClass }); if (this.logEntries.length > GAME_CONFIG.maxLogEntries) this.logEntries.splice(0, this.logEntries.length - GAME_CONFIG.maxLogEntries); }
   point(unit) { return { row: unit.row, column: unit.column }; }
   occupantAt(row, column) { return this.spatialIndex.occupantAt(row, column); }
-
-  shuffle(items) {
-    const copy = items.slice();
-    for (let i = copy.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(this.random() * (i + 1));
-      [copy[i], copy[j]] = [copy[j], copy[i]];
-    }
-    return copy;
-  }
+  shuffle(items) { const copy = items.slice(); for (let i = copy.length - 1; i > 0; i -= 1) { const j = Math.floor(this.random() * (i + 1)); [copy[i], copy[j]] = [copy[j], copy[i]]; } return copy; }
 }
