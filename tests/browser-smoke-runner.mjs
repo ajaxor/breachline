@@ -12,6 +12,26 @@ async function click(selector) {
   return element;
 }
 
+async function tryInspectCell(canvas, rect, row, column) {
+  const points = [
+    {
+      clientX: rect.left + (column + 0.5) / 14 * rect.width,
+      clientY: rect.top + (row + 0.5) / 8 * rect.height,
+    },
+    {
+      clientX: rect.left + (row + 0.5) / 8 * rect.width,
+      clientY: rect.top + (14 - column - 0.5) / 14 * rect.height,
+    },
+  ];
+
+  for (const point of points) {
+    canvas.dispatchEvent(new MouseEvent('click', { bubbles: true, ...point }));
+    await sleep(15);
+    if (!document.querySelector('#unitInspector').hidden) return true;
+  }
+  return false;
+}
+
 async function run() {
   await sleep(100);
   await click('#btnStartGame');
@@ -42,19 +62,10 @@ async function run() {
   await sleep(120);
   const rect = canvas.getBoundingClientRect();
   assert(rect.width > 0 && rect.height > 0, 'Battlefield canvas has no layout size');
-  const portrait = rect.height > rect.width;
   let inspected = false;
   for (let row = 0; row < 8 && !inspected; row += 1) {
     for (let column = 9; column < 14 && !inspected; column += 1) {
-      const clientX = portrait
-        ? rect.left + (row + 0.5) / 8 * rect.width
-        : rect.left + (column + 0.5) / 14 * rect.width;
-      const clientY = portrait
-        ? rect.top + (14 - column - 0.5) / 14 * rect.height
-        : rect.top + (row + 0.5) / 8 * rect.height;
-      canvas.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX, clientY }));
-      await sleep(15);
-      inspected = !document.querySelector('#unitInspector').hidden;
+      inspected = await tryInspectCell(canvas, rect, row, column);
     }
   }
   assert(inspected, 'Could not inspect a hostile unit on the deployment grid');
