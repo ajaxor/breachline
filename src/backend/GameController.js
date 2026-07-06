@@ -10,7 +10,6 @@ export class GameController {
     this.animationFrame = null;
     this.afterDraft = null;
     this.inspectedEnemyCell = null;
-    this.inspectedRosterType = null;
   }
 
   initialize() {
@@ -40,22 +39,20 @@ export class GameController {
       if (button && this.model.selectMission(Number(button.dataset.mission))) this.refresh();
     });
     this.view.elements.rosterList.addEventListener('click', (event) => {
-      const details = event.target.closest('[data-roster-inspect]');
-      if (details) {
-        const typeKey = details.dataset.rosterInspect;
-        if (this.inspectedRosterType === typeKey) {
-          this.clearUnitInspection();
-        } else {
-          this.inspectedEnemyCell = null;
-          this.inspectedRosterType = typeKey;
-          this.view.showUnitInspector(UNIT_TYPES[typeKey], 'Roster unit', 'player');
-        }
-        return;
-      }
       const button = event.target.closest('[data-unit-type]');
       if (!button) return;
       this.model.setSelectedUnitType(button.dataset.unitType);
       this.view.renderRoster(this.model);
+      this.clearUnitInspection();
+    });
+    this.view.elements.rosterExpand.addEventListener('click', () => this.view.openRoster(this.model));
+    this.view.elements.rosterClose.addEventListener('click', () => this.view.closeRoster());
+    this.view.elements.rosterOverlay.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-full-roster-unit]');
+      if (!button) return;
+      this.model.setSelectedUnitType(button.dataset.fullRosterUnit);
+      this.view.renderRoster(this.model);
+      this.view.closeRoster();
       this.clearUnitInspection();
     });
     this.view.elements.draftChoices.addEventListener('click', (event) => {
@@ -80,7 +77,6 @@ export class GameController {
         if (this.inspectedEnemyCell === key) {
           this.clearUnitInspection();
         } else {
-          this.inspectedRosterType = null;
           this.inspectedEnemyCell = key;
           this.view.showUnitInspector(UNIT_TYPES[enemy.type], 'Hostile unit', 'enemy');
         }
@@ -108,7 +104,6 @@ export class GameController {
 
   clearUnitInspection() {
     this.inspectedEnemyCell = null;
-    this.inspectedRosterType = null;
     this.view.clearUnitInspector();
   }
 
@@ -120,12 +115,14 @@ export class GameController {
   }
 
   activateTab(tab) {
+    this.view.closeRoster();
     this.view.setActiveTab(tab);
     if (tab === 'battle') requestAnimationFrame(() => this.renderer.resize(this.model));
   }
 
   startBattle() {
     if (!this.model.startBattle()) return;
+    this.view.closeRoster();
     this.view.clearBanner();
     this.clearUnitInspection();
     this.refresh();
@@ -146,6 +143,7 @@ export class GameController {
     this.stopAnimationLoop();
     this.model.returnToDeployment(missionIndex);
     this.view.closeSheets();
+    this.view.closeRoster();
     this.view.clearBanner();
     this.clearUnitInspection();
     this.activateTab('battle');
