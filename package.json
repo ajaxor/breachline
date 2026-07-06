@@ -1,7 +1,7 @@
 {
   "type": "module",
   "scripts": {
-    "test": "node tests/strategy-game-model.test.mjs",
+    "test": "node --test tests/*.test.mjs",
     "balance": "node scripts/balance-units.mjs"
   }
 }
