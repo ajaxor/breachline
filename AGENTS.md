@@ -31,14 +31,36 @@ Maintain `TECH_DEBT.md` as the repository's active technical-debt to-do list.
 - Update related entries when circumstances change.
 - Never silently create debt. When taking a deliberate shortcut, document it during the same task.
 
+## Post-commit CI verification
+
+Every push to `main` runs the deployment workflow and publishes a machine-readable receipt plus full validation logs to the orphan `ci-status` branch. Use that branch as the source of truth for push-triggered workflow results; the GitHub connector's commit-workflow lookup may return no runs because it currently filters to pull-request-triggered workflows.
+
+After the final task commit is pushed:
+
+1. Record the exact full commit SHA.
+2. Read `ci-status.json` from the `ci-status` branch repeatedly until its `commit` field exactly matches that SHA. A receipt for an older commit is stale and must not be treated as the result for the current task.
+3. Confirm all of the following in the matching receipt:
+   - `status` is `success`;
+   - `buildResult` is `success`;
+   - `deployResult` is `success`;
+   - `testsExitCode`, `balanceExitCode`, and `moduleGraphExitCode` are all `0`.
+4. If any validation fails, inspect the corresponding files on the same branch:
+   - `diagnostics/tests.log` for the Node test suite;
+   - `diagnostics/balance.log` for balance-regression failures;
+   - `diagnostics/module-graph.log` for import/module validation failures.
+5. Diagnose and fix the failure, push the correction to `main`, then repeat this process using the replacement commit's exact SHA.
+
+Do not report that checks are unavailable merely because a workflow-run query returns no result. Do not report the task complete while the matching `ci-status` receipt is stale, absent, pending, failed, or contains a nonzero validation exit code.
+
 ## Completing a task
 
 1. Validate the change as thoroughly as the repository and available tools permit.
 2. Update documentation and `TECH_DEBT.md` when needed.
 3. Push completed changes directly to `main`.
-4. In the final response, include:
+4. Verify the exact pushed commit through the `ci-status` branch as described above.
+5. In the final response, include:
    - a concise summary of the completed work;
-   - the validation performed;
+   - the validation performed, including the matching commit SHA and CI receipt result;
    - a **Tech debt noticed** section listing every new debt item found during the task, or explicitly stating that none was found;
    - a link to the deployed game: https://ajaxor.github.io/breachline/
 
