@@ -29,11 +29,15 @@ jobs:
       - name: Run automated tests
         run: npm test
 
+      - name: Check balance regression baseline
+        run: npm run balance:check
+
       - name: Validate application module graph
         run: >-
           node --input-type=module -e "
           await import('./src/backend/GameController.js');
           await import('./src/frontend/BattlefieldRenderer.js');
+          await import('./src/frontend/CombatEventPresenter.js');
           await import('./src/frontend/GameView.js');
           await import('./src/model/StrategyGameModel.js');
           "
