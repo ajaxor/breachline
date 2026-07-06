@@ -21,6 +21,23 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run automated tests
+        run: npm test
+
+      - name: Validate application module graph
+        run: >-
+          node --input-type=module -e "
+          await import('./src/backend/GameController.js');
+          await import('./src/frontend/BattlefieldRenderer.js');
+          await import('./src/frontend/GameView.js');
+          await import('./src/model/StrategyGameModel.js');
+          "
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
