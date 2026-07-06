@@ -1,13 +1,17 @@
 import { GAME_CONFIG, MODE, PLAYER_UNIT_TYPES, TEAM, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
+import { ATTACK_EFFECT, EFFECT_TYPE, LOG_TYPE, MISSION_STATUS, RESULT_TYPE, UNIT_ACTION } from '../data/gameTypes.js';
+import { BattleUnitFactory } from './BattleUnitFactory.js';
 import { createCampaign } from './CampaignFactory.js';
+import { SpatialIndex } from './SpatialIndex.js';
 
 const gridDistance = (a, b) => Math.max(Math.abs(a.row - b.row), Math.abs(a.column - b.column));
 const laneDistance = (a, b) => Math.abs(a.column - b.column);
 
 export class GameModel {
-  constructor({ random = Math.random, now = () => performance.now() } = {}) {
+  constructor({ random = Math.random, now = () => performance.now(), unitFactory = new BattleUnitFactory() } = {}) {
     this.random = random;
     this.now = now;
+    this.unitFactory = unitFactory;
     this.campaign = createCampaign(random);
     this.selectedMission = 0;
     this.roster = Object.fromEntries(PLAYER_UNIT_TYPES.map((type) => [type.key, false]));
@@ -38,6 +42,7 @@ export class GameModel {
     this.playerBaseHp = GAME_CONFIG.baseHp;
     this.enemyBaseHp = GAME_CONFIG.baseHp;
     this.result = null;
+    this.spatialIndex = new SpatialIndex();
   }
 
   beginDrafts(count = 1) {
@@ -71,7 +76,7 @@ export class GameModel {
 
   selectMission(index) {
     const mission = this.campaign[index];
-    if (!mission || mission.status === 'locked' || (this.mode === MODE.BATTLE && !this.battleOver)) return false;
+    if (!mission || mission.status === MISSION_STATUS.LOCKED || (this.mode === MODE.BATTLE && !this.battleOver)) return false;
     this.selectedMission = index;
     return true;
   }
@@ -104,25 +109,25 @@ export class GameModel {
 
   startBattle() {
     if (!this.canLaunch) return false;
+    return this.setupBattle({
+      playerFormation: this.placement,
+      enemyFormation: this.mission.enemyFormation,
+      missionLabel: `Mission ${this.selectedMission + 1}`,
+    });
+  }
+
+  setupBattle({ playerFormation, enemyFormation, missionLabel = 'Battle' }) {
+    if (!Array.isArray(playerFormation) || !Array.isArray(enemyFormation) || playerFormation.length === 0) return false;
     this.resetBattle();
     this.mode = MODE.BATTLE;
     const startedAt = this.now();
-    const createUnit = (plan, team) => {
-      const type = UNIT_TYPES[plan.type];
-      return {
-        id: this.nextUnitId++, team, type: plan.type, row: plan.row, column: plan.column,
-        previousRow: plan.row, previousColumn: plan.column, animationStartedAt: startedAt,
-        animationDuration: 1, breached: false, movedThisTurn: false,
-        hp: type.hp, maxHp: type.hp, alive: true,
-        stealthed: hasUnitTag(type, UNIT_TAG.STEALTH),
-      };
-    };
     this.units = [
-      ...this.placement.map((plan) => createUnit(plan, TEAM.PLAYER)),
-      ...this.mission.enemyFormation.map((plan) => createUnit(plan, TEAM.ENEMY)),
+      ...playerFormation.map((plan) => this.unitFactory.create(plan, TEAM.PLAYER, this.nextUnitId++, startedAt)),
+      ...enemyFormation.map((plan) => this.unitFactory.create(plan, TEAM.ENEMY, this.nextUnitId++, startedAt)),
     ];
+    this.spatialIndex = new SpatialIndex(this.units);
     this.refreshStealth();
-    this.addLog(`Mission ${this.selectedMission + 1} begins. Your force: ${this.livingPlayerCount} units. Hostile force: ${this.livingEnemyCount} units.`, 'sys');
+    this.addLog(`${missionLabel} begins. Your force: ${this.livingPlayerCount} units. Hostile force: ${this.livingEnemyCount} units.`, LOG_TYPE.SYSTEM);
     return true;
   }
 
@@ -130,6 +135,7 @@ export class GameModel {
     if (this.mode !== MODE.BATTLE || this.battleOver) return this.result;
     this.tickCount += 1;
     const now = this.now();
+    this.effects = this.effects.filter((effect) => now - effect.start < effect.duration);
     const duration = Math.max(110, Math.min(480, GAME_CONFIG.tickIntervalMs * 0.85));
     const actingUnits = this.units.filter((unit) => unit.alive);
     actingUnits.forEach((unit) => {
@@ -139,6 +145,7 @@ export class GameModel {
       unit.animationDuration = duration;
       unit.movedThisTurn = false;
     });
+    this.spatialIndex = new SpatialIndex(this.units);
     this.processActionQueue(this.shuffle(actingUnits), now, duration);
     this.refreshStealth();
     this.result = this.determineResult();
@@ -152,9 +159,8 @@ export class GameModel {
     while (queue.length > 0 && consecutivePasses < queue.length) {
       const unit = queue.shift();
       if (!unit.alive) continue;
-      if (this.processUnit(unit, now, duration)) {
-        consecutivePasses = 0;
-      } else {
+      if (this.processUnit(unit, now, duration)) consecutivePasses = 0;
+      else {
         queue.push(unit);
         consecutivePasses += 1;
       }
@@ -192,18 +198,19 @@ export class GameModel {
 
   tryCombatAction(unit, type, now, duration) {
     if (!this.canActAfterMovement(unit, type)) return false;
-    const enemies = this.units.filter((candidate) => candidate.alive && candidate.team !== unit.team);
-    const allies = this.units.filter((candidate) => candidate.alive && candidate.team === unit.team && candidate.id !== unit.id);
-    if (type.action === 'heal') {
+    const nearby = this.spatialIndex.nearby(unit.row, unit.column, type.range);
+    const enemies = nearby.filter((candidate) => candidate.alive && candidate.team !== unit.team);
+    const allies = nearby.filter((candidate) => candidate.alive && candidate.team === unit.team && candidate.id !== unit.id);
+    if (type.action === UNIT_ACTION.HEAL) {
       const target = allies.filter((ally) => ally.hp < ally.maxHp && this.isInAttackPattern(unit, ally, type)).sort((a, b) => gridDistance(unit, a) - gridDistance(unit, b))[0];
       if (!target) return false;
       const healed = Math.min(type.healAmount, target.maxHp - target.hp);
       target.hp += healed;
       this.effects.push(
-        { type: 'heal', from: this.point(unit), to: this.point(target), start: now, duration },
-        { type: 'text', ...this.point(target), text: `+${healed}`, color: '#4ade80', start: now, duration: duration * 1.3 },
+        { type: EFFECT_TYPE.HEAL, from: this.point(unit), to: this.point(target), start: now, duration },
+        { type: EFFECT_TYPE.TEXT, ...this.point(target), text: `+${healed}`, color: '#4ade80', start: now, duration: duration * 1.3 },
       );
-      this.addLog(`${type.name} #${unit.id} restores ${healed} HP to ${UNIT_TYPES[target.type].name} #${target.id}.`, 'hit');
+      this.addLog(`${type.name} #${unit.id} restores ${healed} HP to ${UNIT_TYPES[target.type].name} #${target.id}.`, LOG_TYPE.HIT);
       return true;
     }
     if (type.attack <= 0) return false;
@@ -225,23 +232,24 @@ export class GameModel {
 
   attackUnit(attacker, target, enemies, now, duration) {
     const type = UNIT_TYPES[attacker.type];
-    this.effects.push({ type: type.range > 1 ? 'ranged' : 'melee', attackerId: attacker.id, team: attacker.team, from: this.point(attacker), to: this.point(target), start: now, duration });
+    this.effects.push({ type: type.range > 1 ? EFFECT_TYPE.RANGED : EFFECT_TYPE.MELEE, attackerId: attacker.id, team: attacker.team, from: this.point(attacker), to: this.point(target), start: now, duration });
     target.hp -= type.attack;
-    this.effects.push({ type: 'text', ...this.point(target), text: `-${type.attack}`, color: '#ff5d5d', start: now, duration: duration * 1.3 });
-    this.addLog(`${type.name} #${attacker.id} hits ${UNIT_TYPES[target.type].name} #${target.id} for ${type.attack}.`, 'hit');
-    if (type.onAttack === 'detonate') {
-      this.effects.push({ type: 'explosion', ...this.point(attacker), start: now, duration: Math.max(duration, 320) });
+    this.effects.push({ type: EFFECT_TYPE.TEXT, ...this.point(target), text: `-${type.attack}`, color: '#ff5d5d', start: now, duration: duration * 1.3 });
+    this.addLog(`${type.name} #${attacker.id} hits ${UNIT_TYPES[target.type].name} #${target.id} for ${type.attack}.`, LOG_TYPE.HIT);
+    if (type.onAttack === ATTACK_EFFECT.DETONATE) {
+      this.effects.push({ type: EFFECT_TYPE.EXPLOSION, ...this.point(attacker), start: now, duration: Math.max(duration, 320) });
       for (const enemy of enemies) {
         if (enemy.id === target.id || !enemy.alive || gridDistance(attacker, enemy) > 1) continue;
         const splash = Math.round(type.attack * 0.55);
         enemy.hp -= splash;
-        this.effects.push({ type: 'text', ...this.point(enemy), text: `-${splash}`, color: '#ff5d5d', start: now, duration: duration * 1.3 });
-        this.addLog(`Splash blast hits ${UNIT_TYPES[enemy.type].name} #${enemy.id} for ${splash}.`, 'hit');
+        this.effects.push({ type: EFFECT_TYPE.TEXT, ...this.point(enemy), text: `-${splash}`, color: '#ff5d5d', start: now, duration: duration * 1.3 });
+        this.addLog(`Splash blast hits ${UNIT_TYPES[enemy.type].name} #${enemy.id} for ${splash}.`, LOG_TYPE.HIT);
         if (enemy.hp <= 0) this.killUnit(enemy, now, duration);
       }
       attacker.alive = false;
+      this.spatialIndex.remove(attacker);
       this.addDeathEffect(attacker, now, duration);
-      this.addLog(`${type.name} #${attacker.id} detonates and is destroyed.`, attacker.team === TEAM.PLAYER ? 'kill p-kill' : 'kill');
+      this.addLog(`${type.name} #${attacker.id} detonates and is destroyed.`, attacker.team === TEAM.PLAYER ? LOG_TYPE.PLAYER_LOSS : LOG_TYPE.KILL);
     }
     if (target.alive && target.hp <= 0) this.killUnit(target, now, duration);
   }
@@ -251,22 +259,30 @@ export class GameModel {
     if (hasUnitTag(type, UNIT_TAG.STATIONARY)) return false;
     const direction = unit.team === TEAM.PLAYER ? 1 : -1;
     const nextColumn = unit.column + direction;
-    if (nextColumn < 0 || nextColumn >= GAME_CONFIG.columns) { this.breach(unit, direction, now, duration); return true; }
-    if (hasUnitTag(type, UNIT_TAG.FLYING)) { unit.column = nextColumn; return true; }
-    if (!this.occupantAt(unit.row, nextColumn)) { unit.column = nextColumn; return true; }
-    if (hasUnitTag(type, UNIT_TAG.CAN_MOVE_SIDEWAYS)) {
-      for (const row of [unit.row - 1, unit.row + 1]) {
-        if (row >= 0 && row < GAME_CONFIG.rows && !this.occupantAt(row, nextColumn)) { unit.row = row; unit.column = nextColumn; return true; }
-      }
+    if (nextColumn < 0 || nextColumn >= GAME_CONFIG.columns) {
+      this.breach(unit, direction, now, duration);
+      return true;
     }
-    return false;
+    const previousRow = unit.row;
+    const previousColumn = unit.column;
+    if (hasUnitTag(type, UNIT_TAG.FLYING)) unit.column = nextColumn;
+    else if (!this.occupantAt(unit.row, nextColumn)) unit.column = nextColumn;
+    else if (hasUnitTag(type, UNIT_TAG.CAN_MOVE_SIDEWAYS)) {
+      const row = [unit.row - 1, unit.row + 1].find((candidate) => candidate >= 0 && candidate < GAME_CONFIG.rows && !this.occupantAt(candidate, nextColumn));
+      if (row === undefined) return false;
+      unit.row = row;
+      unit.column = nextColumn;
+    } else return false;
+    this.spatialIndex.move(unit, previousRow, previousColumn);
+    return true;
   }
 
   breach(unit, direction, now, duration) {
+    this.spatialIndex.remove(unit);
     unit.breached = true;
     unit.column = direction > 0 ? GAME_CONFIG.columns - 1 : 0;
-    this.effects.push({ type: 'text', ...this.point(unit), text: 'BREACH!', color: '#fbbf24', start: now, duration: Math.max(duration * 1.6, 400) });
-    this.addLog(`${UNIT_TYPES[unit.type].name} #${unit.id} breaks through and begins sieging the ${unit.team === TEAM.PLAYER ? 'hostile' : 'home'} base!`, 'sys');
+    this.effects.push({ type: EFFECT_TYPE.TEXT, ...this.point(unit), text: 'BREACH!', color: '#fbbf24', start: now, duration: Math.max(duration * 1.6, 400) });
+    this.addLog(`${UNIT_TYPES[unit.type].name} #${unit.id} breaks through and begins sieging the ${unit.team === TEAM.PLAYER ? 'hostile' : 'home'} base!`, LOG_TYPE.SYSTEM);
   }
 
   attackBase(unit, now, duration) {
@@ -274,53 +290,66 @@ export class GameModel {
     const damage = Math.max(type.attack, 4);
     if (unit.team === TEAM.PLAYER) this.enemyBaseHp = Math.max(0, this.enemyBaseHp - damage);
     else this.playerBaseHp = Math.max(0, this.playerBaseHp - damage);
-    this.effects.push({ type: 'text', ...this.point(unit), text: `-${damage}`, color: '#fbbf24', start: now, duration: duration * 1.2 });
-    this.addLog(`${type.name} #${unit.id} strikes the ${unit.team === TEAM.PLAYER ? 'hostile' : 'home'} base for ${damage}.`, unit.team === TEAM.PLAYER ? 'kill' : 'kill p-kill');
+    this.effects.push({ type: EFFECT_TYPE.TEXT, ...this.point(unit), text: `-${damage}`, color: '#fbbf24', start: now, duration: duration * 1.2 });
+    this.addLog(`${type.name} #${unit.id} strikes the ${unit.team === TEAM.PLAYER ? 'hostile' : 'home'} base for ${damage}.`, unit.team === TEAM.PLAYER ? LOG_TYPE.KILL : LOG_TYPE.PLAYER_LOSS);
   }
 
   refreshStealth() {
     const living = this.units.filter((unit) => unit.alive);
     for (const unit of living) {
-      if (!hasUnitTag(unit.type, UNIT_TAG.STEALTH)) { unit.stealthed = false; continue; }
-      unit.stealthed = !living.some((other) => other.team !== unit.team && gridDistance(unit, other) <= 1);
+      if (!hasUnitTag(unit.type, UNIT_TAG.STEALTH)) {
+        unit.stealthed = false;
+        continue;
+      }
+      unit.stealthed = !this.spatialIndex.nearby(unit.row, unit.column, 1).some((other) => other.team !== unit.team && gridDistance(unit, other) <= 1);
     }
   }
 
   addDeathEffect(unit, now, duration) {
     const type = UNIT_TYPES[unit.type];
-    this.effects.push({ type: 'death', ...this.point(unit), shape: type.shape, graphic: type.graphic, color: unit.team === TEAM.PLAYER ? '#38bdf8' : '#ff5d5d', seed: unit.id * 2.399963229728653, start: now, duration: Math.max(duration * 1.25, 450) });
+    this.effects.push({ type: EFFECT_TYPE.DEATH, ...this.point(unit), shape: type.shape, graphic: type.graphic, color: unit.team === TEAM.PLAYER ? '#38bdf8' : '#ff5d5d', seed: unit.id * 2.399963229728653, start: now, duration: Math.max(duration * 1.25, 450) });
   }
 
   killUnit(unit, now, duration) {
     unit.alive = false;
+    this.spatialIndex.remove(unit);
     this.addDeathEffect(unit, now, duration);
-    this.addLog(`${UNIT_TYPES[unit.type].name} #${unit.id} destroyed.`, unit.team === TEAM.PLAYER ? 'kill p-kill' : 'kill');
+    this.addLog(`${UNIT_TYPES[unit.type].name} #${unit.id} destroyed.`, unit.team === TEAM.PLAYER ? LOG_TYPE.PLAYER_LOSS : LOG_TYPE.KILL);
   }
 
   determineResult() {
-    if (this.playerBaseHp <= 0 && this.enemyBaseHp <= 0) return { cssClass: 'draw', text: 'DRAW — BOTH BASES FALL SIMULTANEOUSLY', playerWon: false };
-    if (this.enemyBaseHp <= 0) return { cssClass: 'player-win', text: 'VICTORY — HOSTILE BASE DESTROYED', playerWon: true };
-    if (this.playerBaseHp <= 0) return { cssClass: 'enemy-win', text: 'DEFEAT — YOUR BASE IS DESTROYED', playerWon: false };
-    if (this.livingPlayerCount === 0 && this.livingEnemyCount === 0) return { cssClass: 'draw', text: 'DRAW — MUTUAL ANNIHILATION', playerWon: false };
-    if (this.livingPlayerCount === 0) return { cssClass: 'enemy-win', text: 'DEFEAT — YOUR FORCE ELIMINATED', playerWon: false };
-    if (this.livingEnemyCount === 0) return { cssClass: 'player-win', text: 'VICTORY — HOSTILE FORCE ELIMINATED', playerWon: true };
+    if (this.playerBaseHp <= 0 && this.enemyBaseHp <= 0) return { cssClass: RESULT_TYPE.DRAW, text: 'DRAW — BOTH BASES FALL SIMULTANEOUSLY', playerWon: false };
+    if (this.enemyBaseHp <= 0) return { cssClass: RESULT_TYPE.PLAYER_WIN, text: 'VICTORY — HOSTILE BASE DESTROYED', playerWon: true };
+    if (this.playerBaseHp <= 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — YOUR BASE IS DESTROYED', playerWon: false };
+    if (this.livingPlayerCount === 0 && this.livingEnemyCount === 0) return { cssClass: RESULT_TYPE.DRAW, text: 'DRAW — MUTUAL ANNIHILATION', playerWon: false };
+    if (this.livingPlayerCount === 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — YOUR FORCE ELIMINATED', playerWon: false };
+    if (this.livingEnemyCount === 0) return { cssClass: RESULT_TYPE.PLAYER_WIN, text: 'VICTORY — HOSTILE FORCE ELIMINATED', playerWon: true };
     return null;
   }
 
   finishBattle(result) {
     this.battleOver = true;
     if (result.playerWon) {
-      this.mission.status = 'cleared';
+      this.mission.status = MISSION_STATUS.CLEARED;
       const nextMission = this.campaign[this.selectedMission + 1];
-      if (nextMission?.status === 'locked') nextMission.status = 'available';
+      if (nextMission?.status === MISSION_STATUS.LOCKED) nextMission.status = MISSION_STATUS.AVAILABLE;
     }
-    this.addLog(result.text, 'sys');
+    this.addLog(result.text, LOG_TYPE.SYSTEM);
   }
 
-  returnToDeployment(missionIndex = this.selectedMission) { this.resetBattle(); this.selectedMission = missionIndex; }
-  addLog(message, cssClass = '') { this.logEntries.push({ message, cssClass }); }
+  returnToDeployment(missionIndex = this.selectedMission) {
+    this.resetBattle();
+    this.selectedMission = missionIndex;
+  }
+
+  addLog(message, cssClass = '') {
+    this.logEntries.push({ message, cssClass });
+    if (this.logEntries.length > GAME_CONFIG.maxLogEntries) this.logEntries.splice(0, this.logEntries.length - GAME_CONFIG.maxLogEntries);
+  }
+
   point(unit) { return { row: unit.row, column: unit.column }; }
-  occupantAt(row, column) { return this.units.find((unit) => unit.alive && !unit.breached && unit.row === row && unit.column === column); }
+  occupantAt(row, column) { return this.spatialIndex.occupantAt(row, column); }
+
   shuffle(items) {
     const copy = items.slice();
     for (let i = copy.length - 1; i > 0; i -= 1) {
