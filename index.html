@@ -31,19 +31,19 @@
       <div class="screens">
         <section id="screenMissions" class="screen active">
           <header class="top-header"><div><div class="title"><span class="dot"></span>BREACH LINE</div><div class="sub">Autonomous Formation Combat</div></div></header>
-          <div class="missions-body"><h2>Campaign — 10 Missions</h2><div class="mission-strip" id="missionStrip"></div><div class="mission-info" id="missionInfo"></div><div class="mission-help">Select an unlocked mission, then tap Deploy below. Hostile formations grow more varied and dangerous as you advance.</div></div>
+          <div class="missions-body"><h2>Campaign — 10 Missions</h2><div class="mission-strip" id="missionStrip"></div><div class="mission-info" id="missionInfo"></div><div class="mission-help">Select an unlocked mission, then tap Deploy below. Undeployed units carry forward, while units destroyed in battle are permanently lost.</div></div>
           <footer class="missions-footer"><button class="primary full-btn" id="btnGoDeploy">Deploy Mission 1</button></footer>
         </section>
         <section id="screenBattle" class="screen">
           <div class="phase-strip" id="phaseLabel"></div>
           <div class="battle-topbar">
-            <div class="topbar-row" id="deployTopbar"><div class="budget-mini"><div class="budget-mini-label"><span>BUDGET</span><span id="budgetSpent"></span></div><div class="budget-bar"><div class="budget-fill" id="budgetFill"></div></div></div><button class="primary mini-btn" id="btnLaunch" disabled>Launch</button></div>
+            <div class="topbar-row" id="deployTopbar"><div class="budget-mini"><div class="budget-mini-label"><span>SUPPLY</span><span id="budgetSpent"></span></div></div><button class="primary mini-btn" id="btnLaunch" disabled>Launch</button></div>
             <div class="topbar-row" id="resolveTopbar" hidden><div class="base-mini player"><div class="base-mini-label">Your Base</div><div class="base-bar-track"><div class="base-bar-fill" id="playerHpFill"></div></div><div class="base-mini-text" id="playerHpText"></div></div><div class="base-mini enemy"><div class="base-mini-label">Hostile Base</div><div class="base-bar-track"><div class="base-bar-fill" id="enemyHpFill"></div></div><div class="base-mini-text" id="enemyHpText"></div></div><button class="mini-btn danger" id="btnRedesign">Redesign</button></div>
           </div>
           <div class="battle-status-line" id="battleStatus" hidden></div>
-          <div class="deploy-hint" id="deployHint">Choose a roster unit, then tap an open blue cell. Expand the roster for full unit details, or tap a hostile unit to inspect it.</div>
+          <div class="deploy-hint" id="deployHint">Choose a roster unit, then tap an open blue cell. Each placement uses one unit from your available supply until it is removed or survives the mission.</div>
           <div class="battle-content">
-            <aside class="roster-panel"><div class="roster-heading"><span>Unit Roster</span><button id="rosterExpand" class="roster-expand" aria-label="Expand unit roster" title="Expand roster">›</button></div><div class="roster-scroll" id="rosterList"></div><div class="roster-footer"><button class="clear-link" id="clearLink">Clear formation</button></div></aside>
+            <aside class="roster-panel"><div class="roster-heading"><span>Unit Supply</span><button id="rosterExpand" class="roster-expand" aria-label="Expand unit roster" title="Expand roster">›</button></div><div class="roster-scroll" id="rosterList"></div><div class="roster-footer"><button class="clear-link" id="clearLink">Clear formation</button></div></aside>
             <div class="field-wrap" id="fieldWrap"><canvas id="field"></canvas><div id="unitInspector" class="unit-inspector" hidden></div><div class="fab-row"><button class="fab" id="btnOpenLog" hidden>Log</button></div><div class="banner-overlay" id="bannerOverlay"></div></div>
           </div>
         </section>
@@ -52,11 +52,11 @@
     </div>
 
     <section id="rosterOverlay" class="roster-overlay" hidden>
-      <div class="roster-overlay-header"><div><div class="draft-kicker">Deployment Roster</div><h2>Choose a unit</h2></div><button id="rosterClose" class="roster-close" aria-label="Close expanded roster">×</button></div>
+      <div class="roster-overlay-header"><div><div class="draft-kicker">Deployment Supply</div><h2>Choose a unit</h2></div><button id="rosterClose" class="roster-close" aria-label="Close expanded roster">×</button></div>
       <div id="rosterFullList" class="roster-full-list"></div>
     </section>
     <section id="draftOverlay" class="draft-overlay" hidden>
-      <div class="draft-dialog"><div class="draft-kicker">Reinforcement Draft</div><h2>Choose one unit</h2><div id="draftProgress" class="draft-progress"></div><div id="draftChoices" class="draft-choices"></div></div>
+      <div class="draft-dialog"><div class="draft-kicker">Reinforcement Draft</div><h2>Choose one unit set</h2><div id="draftProgress" class="draft-progress"></div><div id="draftChoices" class="draft-choices"></div></div>
     </section>
     <aside class="sheet" id="logSheet"><div class="sheet-header">Combat Log<button class="sheet-close" id="logClose">&times;</button></div><div class="sheet-body log" id="log"></div></aside>
     <div class="sheet-backdrop" id="sheetBackdrop"></div>
