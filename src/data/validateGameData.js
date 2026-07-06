@@ -1,7 +1,8 @@
 import { GAME_CONFIG, UNIT_ROLE, UNIT_TAG, UNIT_TYPES } from './gameConfig.js';
+import { ATTACK_EFFECT, UNIT_ACTION } from './gameTypes.js';
 
-const VALID_ACTIONS = new Set(['attack', 'heal']);
-const VALID_ON_ATTACK = new Set(['detonate']);
+const VALID_ACTIONS = new Set(Object.values(UNIT_ACTION));
+const VALID_ON_ATTACK = new Set(Object.values(ATTACK_EFFECT));
 const VALID_TAGS = new Set(Object.values(UNIT_TAG));
 const VALID_ROLES = new Set(Object.values(UNIT_ROLE));
 
@@ -31,6 +32,7 @@ function validateConfig() {
   assertPositiveNumber(GAME_CONFIG.baseHp, 'baseHp', { integer: true });
   assertPositiveNumber(GAME_CONFIG.missionCount, 'missionCount', { integer: true });
   assertPositiveNumber(GAME_CONFIG.tickIntervalMs, 'tickIntervalMs', { integer: true });
+  assertPositiveNumber(GAME_CONFIG.maxLogEntries, 'maxLogEntries', { integer: true });
   assertPositiveNumber(GAME_CONFIG.startingBudget, 'startingBudget', { integer: true });
   assertPositiveNumber(GAME_CONFIG.budgetStep, 'budgetStep', { integer: true, allowZero: true });
   assertPositiveNumber(GAME_CONFIG.enemyBudgetBonus, 'enemyBudgetBonus', { integer: true, allowZero: true });
@@ -59,11 +61,16 @@ function validateUnit(mapKey, type) {
   assert(Array.isArray(type.tags), `${label} tags must be an array`);
   assert(new Set(type.tags).size === type.tags.length, `${label} cannot contain duplicate tags`);
 
+  assert(type.campaign && typeof type.campaign === 'object', `${label} must define campaign availability`);
+  assertPositiveNumber(type.campaign.unlockMission, `${label} campaign.unlockMission`, { integer: true, allowZero: true });
+  assertPositiveNumber(type.campaign.initialWeight, `${label} campaign.initialWeight`, { allowZero: true });
+  assertPositiveNumber(type.campaign.weightGrowth, `${label} campaign.weightGrowth`, { allowZero: true });
+
   for (const tag of type.tags) assert(VALID_TAGS.has(tag), `${label} has unknown tag ${tag}`);
 
-  const action = type.action ?? 'attack';
+  const action = type.action ?? UNIT_ACTION.ATTACK;
   assert(VALID_ACTIONS.has(action), `${label} has unknown action ${action}`);
-  if (action === 'heal') {
+  if (action === UNIT_ACTION.HEAL) {
     assert(type.attack === 0, `${label} healers must have zero attack`);
     assertPositiveNumber(type.healAmount, `${label} healAmount`, { integer: true });
   }
