@@ -61,7 +61,7 @@ export class CombatEventPresenter {
       case COMBAT_EVENT.UNIT_DESTROYED: {
         const definition = UNIT_TYPES[event.unit.type];
         addDeathEffect(model, event.unit, at, duration);
-        model.addLog(`${definition.name} #${event.unit.id} destroyed.`, event.unit.team === TEAM.PLAYER ? LOG_TYPE.PLAYER_LOSS : LOG_TYPE.KILL);
+        if (!event.silent) model.addLog(`${definition.name} #${event.unit.id} destroyed.`, event.unit.team === TEAM.PLAYER ? LOG_TYPE.PLAYER_LOSS : LOG_TYPE.KILL);
         break;
       }
       case COMBAT_EVENT.BATTLE_FINISHED:
