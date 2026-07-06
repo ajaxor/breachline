@@ -3,11 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>BREACH LINE — Formation Combat</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./assets/styles.css">
+  <link rel="stylesheet" href="./assets/styles.css?v=__BUILD_ID__">
 </head>
 <body>
   <main class="app">
@@ -48,7 +51,26 @@
     <aside class="sheet" id="logSheet"><div class="sheet-header">Combat Log<button class="sheet-close" id="logClose">&times;</button></div><div class="sheet-body log" id="log"></div></aside>
     <div class="sheet-backdrop" id="sheetBackdrop"></div>
   </main>
-  <script src="./build-info.js"></script>
-  <script type="module" src="./src/main.js"></script>
+  <script type="module">
+    const fallbackBuild = { version: 'dev', commit: 'local' };
+    let build = fallbackBuild;
+
+    try {
+      const response = await fetch(`./build-info.json?probe=${Date.now()}`, { cache: 'no-store' });
+      if (response.ok) build = await response.json();
+    } catch (error) {
+      console.warn('Build metadata unavailable; using local fallback.', error);
+    }
+
+    const currentUrl = new URL(window.location.href);
+    const loadedBuild = currentUrl.searchParams.get('build');
+    if (build.commit !== 'local' && loadedBuild !== build.commit) {
+      currentUrl.searchParams.set('build', build.commit);
+      window.location.replace(currentUrl.toString());
+    } else {
+      window.BREACH_LINE_BUILD = Object.freeze(build);
+      await import(`./src-__BUILD_ID__/main.js`);
+    }
+  </script>
 </body>
 </html>
