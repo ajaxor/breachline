@@ -1,18 +1,34 @@
 import { GAME_CONFIG, MODE, UNIT_TYPES } from '../data/gameConfig.js';
 
+const defaultScheduler = Object.freeze({
+  setInterval: (callback, delay) => window.setInterval(callback, delay),
+  clearInterval: (handle) => window.clearInterval(handle),
+  requestAnimationFrame: (callback) => window.requestAnimationFrame(callback),
+  cancelAnimationFrame: (handle) => window.cancelAnimationFrame(handle),
+  setTimeout: (callback, delay) => window.setTimeout(callback, delay),
+  clearTimeout: (handle) => window.clearTimeout(handle),
+});
+
 export class GameController {
-  constructor(model, view, renderer, buildInfo = {}) {
+  constructor(model, view, renderer, buildInfo = {}, { scheduler = defaultScheduler, browser = window } = {}) {
     this.model = model;
     this.view = view;
     this.renderer = renderer;
     this.buildInfo = buildInfo;
+    this.scheduler = scheduler;
+    this.browser = browser;
     this.timer = null;
     this.animationFrame = null;
+    this.orientationTimer = null;
     this.afterDraft = null;
     this.inspectedEnemyCell = null;
+    this.listeners = [];
+    this.initialized = false;
   }
 
   initialize() {
+    if (this.initialized) return;
+    this.initialized = true;
     this.bindEvents();
     this.view.renderBuildInfo(this.buildInfo);
     this.model.beginDrafts(3);
@@ -21,85 +37,115 @@ export class GameController {
     this.refresh();
   }
 
+  listen(target, type, handler, options) {
+    target.addEventListener(type, handler, options);
+    this.listeners.push(() => target.removeEventListener(type, handler, options));
+  }
+
   bindEvents() {
-    const { document } = this.view;
-    this.view.elements.btnStartGame.addEventListener('click', () => {
+    const { document, elements } = this.view;
+
+    this.listen(elements.btnStartGame, 'click', () => {
       this.view.enterGame();
       this.afterDraft = () => {
         this.activateTab('battle');
-        requestAnimationFrame(() => this.renderer.resize(this.model));
+        this.scheduler.requestAnimationFrame(() => this.renderer.resize(this.model));
       };
       this.view.renderDraft(this.model);
       this.view.openDraft();
     });
-    document.querySelectorAll('.tab-btn').forEach((button) => button.addEventListener('click', () => this.activateTab(button.dataset.tab)));
-    this.view.elements.btnGoDeploy.addEventListener('click', () => this.activateTab('battle'));
-    this.view.elements.missionStrip.addEventListener('click', (event) => {
-      const button = event.target.closest('[data-mission]');
-      if (button && this.model.selectMission(Number(button.dataset.mission))) this.refresh();
+
+    document.querySelectorAll('.tab-btn').forEach((button) => {
+      this.listen(button, 'click', () => this.activateTab(button.dataset.tab));
     });
-    this.view.elements.rosterList.addEventListener('click', (event) => {
-      const button = event.target.closest('[data-unit-type]');
-      if (!button) return;
-      this.model.setSelectedUnitType(button.dataset.unitType);
-      this.view.renderRoster(this.model);
+    this.listen(elements.btnGoDeploy, 'click', () => this.activateTab('battle'));
+    this.listen(elements.missionStrip, 'click', (event) => this.handleMissionClick(event));
+    this.listen(elements.rosterList, 'click', (event) => this.handleRosterClick(event));
+    this.listen(elements.rosterExpand, 'click', () => this.view.openRoster(this.model));
+    this.listen(elements.rosterClose, 'click', () => this.view.closeRoster());
+    this.listen(elements.rosterOverlay, 'click', (event) => this.handleExpandedRosterClick(event));
+    this.listen(elements.draftChoices, 'click', (event) => this.handleDraftClick(event));
+    this.listen(elements.field, 'click', (event) => this.handleFieldClick(event));
+    this.listen(elements.clearLink, 'click', () => {
+      this.model.clearPlacement();
       this.clearUnitInspection();
+      this.refresh();
     });
-    this.view.elements.rosterExpand.addEventListener('click', () => this.view.openRoster(this.model));
-    this.view.elements.rosterClose.addEventListener('click', () => this.view.closeRoster());
-    this.view.elements.rosterOverlay.addEventListener('click', (event) => {
-      const button = event.target.closest('[data-full-roster-unit]');
-      if (!button) return;
-      this.model.setSelectedUnitType(button.dataset.fullRosterUnit);
-      this.view.renderRoster(this.model);
-      this.view.closeRoster();
-      this.clearUnitInspection();
+    this.listen(elements.btnLaunch, 'click', () => this.startBattle());
+    this.listen(elements.btnRedesign, 'click', () => this.returnToDeployment(this.model.selectedMission));
+    this.listen(elements.btnOpenLog, 'click', () => this.view.openSheet(elements.logSheet));
+    this.listen(elements.logClose, 'click', () => this.view.closeSheets());
+    this.listen(elements.sheetBackdrop, 'click', () => this.view.closeSheets());
+    this.listen(elements.bannerOverlay, 'click', (event) => this.handleResultAction(event));
+    this.listen(this.browser, 'resize', () => this.resizeIfBattleVisible());
+    this.listen(this.browser, 'orientationchange', () => {
+      if (this.orientationTimer) this.scheduler.clearTimeout(this.orientationTimer);
+      this.orientationTimer = this.scheduler.setTimeout(() => {
+        this.orientationTimer = null;
+        this.resizeIfBattleVisible();
+      }, 60);
     });
-    this.view.elements.draftChoices.addEventListener('click', (event) => {
-      const button = event.target.closest('[data-draft-unit]');
-      if (!button || !this.model.chooseDraft(button.dataset.draftUnit)) return;
-      this.view.renderRoster(this.model);
-      if (this.model.pendingDrafts > 0) {
-        this.view.renderDraft(this.model);
-        return;
+  }
+
+  handleMissionClick(event) {
+    const button = event.target.closest('[data-mission]');
+    if (button && this.model.selectMission(Number(button.dataset.mission))) this.refresh();
+  }
+
+  handleRosterClick(event) {
+    const button = event.target.closest('[data-unit-type]');
+    if (!button) return;
+    this.model.setSelectedUnitType(button.dataset.unitType);
+    this.view.renderRoster(this.model);
+    this.clearUnitInspection();
+  }
+
+  handleExpandedRosterClick(event) {
+    const button = event.target.closest('[data-full-roster-unit]');
+    if (!button) return;
+    this.model.setSelectedUnitType(button.dataset.fullRosterUnit);
+    this.view.renderRoster(this.model);
+    this.view.closeRoster();
+    this.clearUnitInspection();
+  }
+
+  handleDraftClick(event) {
+    const button = event.target.closest('[data-draft-unit]');
+    if (!button || !this.model.chooseDraft(button.dataset.draftUnit)) return;
+    this.view.renderRoster(this.model);
+    if (this.model.pendingDrafts > 0) {
+      this.view.renderDraft(this.model);
+      return;
+    }
+    this.view.closeDraft();
+    const continuation = this.afterDraft;
+    this.afterDraft = null;
+    continuation?.();
+  }
+
+  handleFieldClick(event) {
+    const cell = this.renderer.cellFromPointer(event);
+    if (!cell) return;
+    const enemy = this.model.enemyPlanAt(cell.row, cell.column);
+    if (enemy) {
+      const key = `${cell.row}:${cell.column}`;
+      if (this.inspectedEnemyCell === key) this.clearUnitInspection();
+      else {
+        this.inspectedEnemyCell = key;
+        this.view.showUnitInspector(UNIT_TYPES[enemy.type], 'Hostile unit', 'enemy');
       }
-      this.view.closeDraft();
-      const continuation = this.afterDraft;
-      this.afterDraft = null;
-      continuation?.();
-    });
-    this.view.elements.field.addEventListener('click', (event) => {
-      const cell = this.renderer.cellFromPointer(event);
-      if (!cell) return;
-      const enemy = this.model.enemyPlanAt(cell.row, cell.column);
-      if (enemy) {
-        const key = `${cell.row}:${cell.column}`;
-        if (this.inspectedEnemyCell === key) {
-          this.clearUnitInspection();
-        } else {
-          this.inspectedEnemyCell = key;
-          this.view.showUnitInspector(UNIT_TYPES[enemy.type], 'Hostile unit', 'enemy');
-        }
-        return;
-      }
-      this.clearUnitInspection();
-      if (this.model.togglePlacement(cell.row, cell.column)) this.refresh();
-    });
-    document.getElementById('clearLink').addEventListener('click', () => { this.model.clearPlacement(); this.clearUnitInspection(); this.refresh(); });
-    this.view.elements.btnLaunch.addEventListener('click', () => this.startBattle());
-    document.getElementById('btnRedesign').addEventListener('click', () => this.returnToDeployment(this.model.selectedMission));
-    this.view.elements.btnOpenLog.addEventListener('click', () => this.view.openSheet(this.view.elements.logSheet));
-    document.getElementById('logClose').addEventListener('click', () => this.view.closeSheets());
-    this.view.elements.sheetBackdrop.addEventListener('click', () => this.view.closeSheets());
-    this.view.elements.bannerOverlay.addEventListener('click', (event) => {
-      if (!event.target.closest('[data-result-action]')) return;
-      const won = Boolean(this.model.result?.playerWon);
-      const next = won ? Math.min(this.model.selectedMission + 1, this.model.campaign.length - 1) : this.model.selectedMission;
-      if (won) this.startDraftSequence(1, () => this.returnToDeployment(next));
-      else this.returnToDeployment(next);
-    });
-    window.addEventListener('resize', () => this.resizeIfBattleVisible());
-    window.addEventListener('orientationchange', () => setTimeout(() => this.resizeIfBattleVisible(), 60));
+      return;
+    }
+    this.clearUnitInspection();
+    if (this.model.togglePlacement(cell.row, cell.column)) this.refresh();
+  }
+
+  handleResultAction(event) {
+    if (!event.target.closest('[data-result-action]')) return;
+    const won = Boolean(this.model.result?.playerWon);
+    const next = won ? Math.min(this.model.selectedMission + 1, this.model.campaign.length - 1) : this.model.selectedMission;
+    if (won) this.startDraftSequence(1, () => this.returnToDeployment(next));
+    else this.returnToDeployment(next);
   }
 
   clearUnitInspection() {
@@ -117,7 +163,7 @@ export class GameController {
   activateTab(tab) {
     this.view.closeRoster();
     this.view.setActiveTab(tab);
-    if (tab === 'battle') requestAnimationFrame(() => this.renderer.resize(this.model));
+    if (tab === 'battle') this.scheduler.requestAnimationFrame(() => this.renderer.resize(this.model));
   }
 
   startBattle() {
@@ -128,7 +174,7 @@ export class GameController {
     this.refresh();
     this.startAnimationLoop();
     this.stopTimer();
-    this.timer = window.setInterval(() => {
+    this.timer = this.scheduler.setInterval(() => {
       const result = this.model.tick();
       this.refresh(false);
       if (result) {
@@ -160,13 +206,34 @@ export class GameController {
     const frame = () => {
       if (this.model.mode !== MODE.BATTLE) return;
       this.renderer.render(this.model);
-      this.animationFrame = requestAnimationFrame(frame);
+      this.animationFrame = this.scheduler.requestAnimationFrame(frame);
     };
     this.stopAnimationLoop();
-    this.animationFrame = requestAnimationFrame(frame);
+    this.animationFrame = this.scheduler.requestAnimationFrame(frame);
   }
 
-  stopAnimationLoop() { if (this.animationFrame) cancelAnimationFrame(this.animationFrame); this.animationFrame = null; }
-  stopTimer() { if (this.timer) window.clearInterval(this.timer); this.timer = null; }
-  resizeIfBattleVisible() { if (!this.view.elements.gameShell.hidden && this.view.document.getElementById('screenBattle').classList.contains('active')) this.renderer.resize(this.model); }
+  stopAnimationLoop() {
+    if (this.animationFrame !== null) this.scheduler.cancelAnimationFrame(this.animationFrame);
+    this.animationFrame = null;
+  }
+
+  stopTimer() {
+    if (this.timer !== null) this.scheduler.clearInterval(this.timer);
+    this.timer = null;
+  }
+
+  resizeIfBattleVisible() {
+    if (!this.view.elements.gameShell.hidden && this.view.elements.screenBattle.classList.contains('active')) this.renderer.resize(this.model);
+  }
+
+  dispose() {
+    this.stopTimer();
+    this.stopAnimationLoop();
+    if (this.orientationTimer !== null) this.scheduler.clearTimeout(this.orientationTimer);
+    this.orientationTimer = null;
+    this.listeners.splice(0).forEach((remove) => remove());
+    this.view.dispose?.();
+    this.afterDraft = null;
+    this.initialized = false;
+  }
 }
