@@ -1,7 +1,8 @@
-import { GAME_CONFIG, MODE, TEAM, UNIT_TYPES } from '../data/gameConfig.js';
+import { GAME_CONFIG, MODE, PLAYER_UNIT_TYPES, TEAM, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
 import { createCampaign } from './CampaignFactory.js';
 
-const distance = (a, b) => Math.max(Math.abs(a.row - b.row), Math.abs(a.column - b.column));
+const gridDistance = (a, b) => Math.max(Math.abs(a.row - b.row), Math.abs(a.column - b.column));
+const laneDistance = (a, b) => Math.abs(a.column - b.column);
 
 export class GameModel {
   constructor({ random = Math.random, now = () => performance.now() } = {}) {
@@ -9,7 +10,7 @@ export class GameModel {
     this.now = now;
     this.campaign = createCampaign(random);
     this.selectedMission = 0;
-    this.selectedUnitType = 'grunt';
+    this.selectedUnitType = PLAYER_UNIT_TYPES[0].key;
     this.placement = [];
     this.resetBattle();
   }
@@ -42,7 +43,7 @@ export class GameModel {
   }
 
   setSelectedUnitType(type) {
-    if (!UNIT_TYPES[type]) return false;
+    if (!UNIT_TYPES[type] || hasUnitTag(type, UNIT_TAG.AI_ONLY)) return false;
     this.selectedUnitType = type;
     return true;
   }
@@ -54,8 +55,8 @@ export class GameModel {
       this.placement.splice(existing, 1);
       return true;
     }
-    const cost = UNIT_TYPES[this.selectedUnitType].cost;
-    if (this.spentBudget + cost > this.budget) return false;
+    const type = UNIT_TYPES[this.selectedUnitType];
+    if (!type || hasUnitTag(type, UNIT_TAG.AI_ONLY) || this.spentBudget + type.cost > this.budget) return false;
     this.placement.push({ row, column, type: this.selectedUnitType });
     return true;
   }
@@ -73,12 +74,14 @@ export class GameModel {
         id: this.nextUnitId++, team, type: plan.type, row: plan.row, column: plan.column,
         previousRow: plan.row, previousColumn: plan.column, animationStartedAt: startedAt,
         animationDuration: 1, breached: false, hp: type.hp, maxHp: type.hp, alive: true,
+        stealthed: hasUnitTag(type, UNIT_TAG.STEALTH),
       };
     };
     this.units = [
       ...this.placement.map((plan) => createUnit(plan, TEAM.PLAYER)),
       ...this.mission.enemyFormation.map((plan) => createUnit(plan, TEAM.ENEMY)),
     ];
+    this.refreshStealth();
     this.addLog(`Mission ${this.selectedMission + 1} begins. Your force: ${this.livingPlayerCount} units. Hostile force: ${this.livingEnemyCount} units.`, 'sys');
     return true;
   }
@@ -95,6 +98,7 @@ export class GameModel {
       unit.animationDuration = duration;
     });
     this.shuffle(this.units.filter((unit) => unit.alive)).forEach((unit) => this.processUnit(unit, now, duration));
+    this.refreshStealth();
     this.result = this.determineResult();
     if (this.result) this.finishBattle(this.result);
     return this.result;
@@ -107,21 +111,41 @@ export class GameModel {
     const enemies = this.units.filter((candidate) => candidate.alive && candidate.team !== unit.team);
     const allies = this.units.filter((candidate) => candidate.alive && candidate.team === unit.team && candidate.id !== unit.id);
 
-    if (unit.type === 'healer') {
-      const target = allies.filter((ally) => ally.hp < ally.maxHp && distance(unit, ally) <= type.range).sort((a, b) => distance(unit, a) - distance(unit, b))[0];
+    if (type.action === 'heal') {
+      const target = allies
+        .filter((ally) => ally.hp < ally.maxHp && this.isInAttackPattern(unit, ally, type))
+        .sort((a, b) => gridDistance(unit, a) - gridDistance(unit, b))[0];
       if (target) {
         const healed = Math.min(type.healAmount, target.maxHp - target.hp);
         target.hp += healed;
-        this.effects.push({ type: 'heal', from: this.point(unit), to: this.point(target), start: now, duration }, { type: 'text', ...this.point(target), text: `+${healed}`, color: '#4ade80', start: now, duration: duration * 1.3 });
-        this.addLog(`Medic #${unit.id} restores ${healed} HP to ${UNIT_TYPES[target.type].name} #${target.id}.`, 'hit');
+        this.effects.push(
+          { type: 'heal', from: this.point(unit), to: this.point(target), start: now, duration },
+          { type: 'text', ...this.point(target), text: `+${healed}`, color: '#4ade80', start: now, duration: duration * 1.3 },
+        );
+        this.addLog(`${type.name} #${unit.id} restores ${healed} HP to ${UNIT_TYPES[target.type].name} #${target.id}.`, 'hit');
         return;
       }
-    } else {
-      const target = enemies.filter((enemy) => distance(unit, enemy) <= type.range).sort((a, b) => distance(unit, a) - distance(unit, b))[0];
+    } else if (type.attack > 0) {
+      const target = enemies
+        .filter((enemy) => this.canTarget(unit, enemy, type))
+        .sort((a, b) => gridDistance(unit, a) - gridDistance(unit, b))[0];
       if (target) return this.attackUnit(unit, target, enemies, now, duration);
     }
 
     if (this.tickCount % type.moveInterval === 0) this.moveUnit(unit, now, duration);
+  }
+
+  isInAttackPattern(attacker, target, type = UNIT_TYPES[attacker.type]) {
+    if (hasUnitTag(type, UNIT_TAG.ATTACK_RADIUS)) return gridDistance(attacker, target) <= type.range;
+    if (hasUnitTag(type, UNIT_TAG.ATTACK_SIDEWAYS)) {
+      return Math.abs(attacker.row - target.row) <= 1 && gridDistance(attacker, target) <= type.range;
+    }
+    return attacker.row === target.row && laneDistance(attacker, target) <= type.range;
+  }
+
+  canTarget(attacker, target, type = UNIT_TYPES[attacker.type]) {
+    if (!this.isInAttackPattern(attacker, target, type)) return false;
+    return !hasUnitTag(target.type, UNIT_TAG.STEALTH) || gridDistance(attacker, target) <= 1;
   }
 
   attackUnit(attacker, target, enemies, now, duration) {
@@ -131,10 +155,10 @@ export class GameModel {
     this.effects.push({ type: 'text', ...this.point(target), text: `-${type.attack}`, color: '#ff5d5d', start: now, duration: duration * 1.3 });
     this.addLog(`${type.name} #${attacker.id} hits ${UNIT_TYPES[target.type].name} #${target.id} for ${type.attack}.`, 'hit');
 
-    if (attacker.type === 'bomber') {
+    if (type.onAttack === 'detonate') {
       this.effects.push({ type: 'explosion', ...this.point(attacker), start: now, duration: Math.max(duration, 320) });
       for (const enemy of enemies) {
-        if (enemy.id === target.id || !enemy.alive || distance(attacker, enemy) > 1) continue;
+        if (enemy.id === target.id || !enemy.alive || gridDistance(attacker, enemy) > 1) continue;
         const splash = Math.round(type.attack * 0.55);
         enemy.hp -= splash;
         this.effects.push({ type: 'text', ...this.point(enemy), text: `-${splash}`, color: '#ff5d5d', start: now, duration: duration * 1.3 });
@@ -142,29 +166,49 @@ export class GameModel {
         if (enemy.hp <= 0) this.killUnit(enemy, now, duration);
       }
       attacker.alive = false;
-      this.addLog(`Bomber #${attacker.id} detonates and is destroyed.`, attacker.team === TEAM.PLAYER ? 'kill p-kill' : 'kill');
+      this.addLog(`${type.name} #${attacker.id} detonates and is destroyed.`, attacker.team === TEAM.PLAYER ? 'kill p-kill' : 'kill');
     }
     if (target.alive && target.hp <= 0) this.killUnit(target, now, duration);
   }
 
   moveUnit(unit, now, duration) {
+    const type = UNIT_TYPES[unit.type];
+    if (hasUnitTag(type, UNIT_TAG.STATIONARY)) return;
+
     const direction = unit.team === TEAM.PLAYER ? 1 : -1;
     const nextColumn = unit.column + direction;
-    if (nextColumn < 0 || nextColumn >= GAME_CONFIG.columns) {
-      unit.breached = true;
-      unit.column = direction > 0 ? GAME_CONFIG.columns - 1 : 0;
-      this.effects.push({ type: 'text', ...this.point(unit), text: 'BREACH!', color: '#fbbf24', start: now, duration: Math.max(duration * 1.6, 400) });
-      this.addLog(`${UNIT_TYPES[unit.type].name} #${unit.id} breaks through and begins sieging the ${unit.team === TEAM.PLAYER ? 'hostile' : 'home'} base!`, 'sys');
-      this.attackBase(unit, now, duration);
+    if (nextColumn < 0 || nextColumn >= GAME_CONFIG.columns) return this.breach(unit, direction, now, duration);
+
+    if (!this.occupantAt(unit.row, nextColumn)) {
+      unit.column = nextColumn;
       return;
     }
-    for (const row of [unit.row, unit.row - 1, unit.row + 1]) {
-      if (row >= 0 && row < GAME_CONFIG.rows && !this.occupantAt(row, nextColumn)) {
-        unit.row = row;
-        unit.column = nextColumn;
-        return;
+
+    if (hasUnitTag(type, UNIT_TAG.FLYING)) {
+      let landingColumn = nextColumn + direction;
+      while (landingColumn >= 0 && landingColumn < GAME_CONFIG.columns && this.occupantAt(unit.row, landingColumn)) landingColumn += direction;
+      if (landingColumn < 0 || landingColumn >= GAME_CONFIG.columns) return this.breach(unit, direction, now, duration);
+      unit.column = landingColumn;
+      return;
+    }
+
+    if (hasUnitTag(type, UNIT_TAG.GO_AROUND)) {
+      for (const row of [unit.row - 1, unit.row + 1]) {
+        if (row >= 0 && row < GAME_CONFIG.rows && !this.occupantAt(row, nextColumn)) {
+          unit.row = row;
+          unit.column = nextColumn;
+          return;
+        }
       }
     }
+  }
+
+  breach(unit, direction, now, duration) {
+    unit.breached = true;
+    unit.column = direction > 0 ? GAME_CONFIG.columns - 1 : 0;
+    this.effects.push({ type: 'text', ...this.point(unit), text: 'BREACH!', color: '#fbbf24', start: now, duration: Math.max(duration * 1.6, 400) });
+    this.addLog(`${UNIT_TYPES[unit.type].name} #${unit.id} breaks through and begins sieging the ${unit.team === TEAM.PLAYER ? 'hostile' : 'home'} base!`, 'sys');
+    this.attackBase(unit, now, duration);
   }
 
   attackBase(unit, now, duration) {
@@ -174,6 +218,17 @@ export class GameModel {
     else this.playerBaseHp = Math.max(0, this.playerBaseHp - damage);
     this.effects.push({ type: 'text', ...this.point(unit), text: `-${damage}`, color: '#fbbf24', start: now, duration: duration * 1.2 });
     this.addLog(`${type.name} #${unit.id} strikes the ${unit.team === TEAM.PLAYER ? 'hostile' : 'home'} base for ${damage}.`, unit.team === TEAM.PLAYER ? 'kill' : 'kill p-kill');
+  }
+
+  refreshStealth() {
+    const living = this.units.filter((unit) => unit.alive);
+    for (const unit of living) {
+      if (!hasUnitTag(unit.type, UNIT_TAG.STEALTH)) {
+        unit.stealthed = false;
+        continue;
+      }
+      unit.stealthed = !living.some((other) => other.team !== unit.team && gridDistance(unit, other) <= 1);
+    }
   }
 
   killUnit(unit, now, duration) {
@@ -209,7 +264,7 @@ export class GameModel {
 
   addLog(message, cssClass = '') { this.logEntries.push({ message, cssClass }); }
   point(unit) { return { row: unit.row, column: unit.column }; }
-  occupantAt(row, column) { return this.units.find((unit) => unit.alive && unit.row === row && unit.column === column); }
+  occupantAt(row, column) { return this.units.find((unit) => unit.alive && !unit.breached && unit.row === row && unit.column === column); }
   shuffle(items) {
     const copy = items.slice();
     for (let i = copy.length - 1; i > 0; i -= 1) {
