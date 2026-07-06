@@ -31,8 +31,17 @@ export class StrategyGameModel extends GameModel {
       return this.draftChoices;
     }
     const lockedTypes = PLAYER_UNIT_TYPES.filter((type) => !this.roster[type.key]);
-    const pool = lockedTypes.length ? lockedTypes : PLAYER_UNIT_TYPES;
-    this.draftChoices = this.shuffle(pool).slice(0, 3).map((type) => ({
+    const preferredPool = lockedTypes.length ? lockedTypes : PLAYER_UNIT_TYPES;
+    const choices = [];
+    const addDistinctRoles = (pool) => {
+      for (const type of this.shuffle(pool)) {
+        if (choices.length >= 3) break;
+        if (!choices.some((choice) => choice.role === type.role)) choices.push(type);
+      }
+    };
+    addDistinctRoles(preferredPool);
+    if (choices.length < 3) addDistinctRoles(PLAYER_UNIT_TYPES);
+    this.draftChoices = choices.map((type) => ({
       ...type,
       draftCount: this.calculateDraftCount(type),
     }));
