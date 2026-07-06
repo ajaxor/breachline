@@ -10,6 +10,7 @@ export class GameController {
     this.animationFrame = null;
     this.afterDraft = null;
     this.inspectedEnemyCell = null;
+    this.inspectedRosterType = null;
   }
 
   initialize() {
@@ -39,11 +40,23 @@ export class GameController {
       if (button && this.model.selectMission(Number(button.dataset.mission))) this.refresh();
     });
     this.view.elements.rosterList.addEventListener('click', (event) => {
+      const details = event.target.closest('[data-roster-inspect]');
+      if (details) {
+        const typeKey = details.dataset.rosterInspect;
+        if (this.inspectedRosterType === typeKey) {
+          this.clearUnitInspection();
+        } else {
+          this.inspectedEnemyCell = null;
+          this.inspectedRosterType = typeKey;
+          this.view.showUnitInspector(UNIT_TYPES[typeKey], 'Roster unit', 'player');
+        }
+        return;
+      }
       const button = event.target.closest('[data-unit-type]');
       if (!button) return;
       this.model.setSelectedUnitType(button.dataset.unitType);
       this.view.renderRoster(this.model);
-      this.clearEnemyInspection();
+      this.clearUnitInspection();
     });
     this.view.elements.draftChoices.addEventListener('click', (event) => {
       const button = event.target.closest('[data-draft-unit]');
@@ -65,17 +78,18 @@ export class GameController {
       if (enemy) {
         const key = `${cell.row}:${cell.column}`;
         if (this.inspectedEnemyCell === key) {
-          this.clearEnemyInspection();
+          this.clearUnitInspection();
         } else {
+          this.inspectedRosterType = null;
           this.inspectedEnemyCell = key;
-          this.view.showUnitInspector(UNIT_TYPES[enemy.type], 'Hostile unit');
+          this.view.showUnitInspector(UNIT_TYPES[enemy.type], 'Hostile unit', 'enemy');
         }
         return;
       }
-      this.clearEnemyInspection();
+      this.clearUnitInspection();
       if (this.model.togglePlacement(cell.row, cell.column)) this.refresh();
     });
-    document.getElementById('clearLink').addEventListener('click', () => { this.model.clearPlacement(); this.clearEnemyInspection(); this.refresh(); });
+    document.getElementById('clearLink').addEventListener('click', () => { this.model.clearPlacement(); this.clearUnitInspection(); this.refresh(); });
     this.view.elements.btnLaunch.addEventListener('click', () => this.startBattle());
     document.getElementById('btnRedesign').addEventListener('click', () => this.returnToDeployment(this.model.selectedMission));
     this.view.elements.btnOpenLog.addEventListener('click', () => this.view.openSheet(this.view.elements.logSheet));
@@ -92,8 +106,9 @@ export class GameController {
     window.addEventListener('orientationchange', () => setTimeout(() => this.resizeIfBattleVisible(), 60));
   }
 
-  clearEnemyInspection() {
+  clearUnitInspection() {
     this.inspectedEnemyCell = null;
+    this.inspectedRosterType = null;
     this.view.clearUnitInspector();
   }
 
@@ -112,7 +127,7 @@ export class GameController {
   startBattle() {
     if (!this.model.startBattle()) return;
     this.view.clearBanner();
-    this.clearEnemyInspection();
+    this.clearUnitInspection();
     this.refresh();
     this.startAnimationLoop();
     this.stopTimer();
@@ -132,7 +147,7 @@ export class GameController {
     this.model.returnToDeployment(missionIndex);
     this.view.closeSheets();
     this.view.clearBanner();
-    this.clearEnemyInspection();
+    this.clearUnitInspection();
     this.activateTab('battle');
     this.refresh();
   }
