@@ -10,7 +10,7 @@ export class GameModel {
     this.now = now;
     this.campaign = createCampaign(random);
     this.selectedMission = 0;
-    this.roster = Object.fromEntries(PLAYER_UNIT_TYPES.map((type) => [type.key, 0]));
+    this.roster = Object.fromEntries(PLAYER_UNIT_TYPES.map((type) => [type.key, false]));
     this.selectedUnitType = null;
     this.pendingDrafts = 0;
     this.draftChoices = [];
@@ -24,7 +24,7 @@ export class GameModel {
   get canLaunch() { return this.placement.length > 0 && this.spentBudget <= this.budget; }
   get livingPlayerCount() { return this.units.filter((unit) => unit.alive && unit.team === TEAM.PLAYER).length; }
   get livingEnemyCount() { return this.units.filter((unit) => unit.alive && unit.team === TEAM.ENEMY).length; }
-  get rosterTypes() { return PLAYER_UNIT_TYPES.filter((type) => this.roster[type.key] > 0); }
+  get rosterTypes() { return PLAYER_UNIT_TYPES.filter((type) => this.roster[type.key]); }
 
   resetBattle() {
     this.mode = MODE.DEPLOY;
@@ -51,13 +51,15 @@ export class GameModel {
       this.draftChoices = [];
       return this.draftChoices;
     }
-    this.draftChoices = this.shuffle(PLAYER_UNIT_TYPES).slice(0, 3);
+    const lockedTypes = PLAYER_UNIT_TYPES.filter((type) => !this.roster[type.key]);
+    const pool = lockedTypes.length ? lockedTypes : PLAYER_UNIT_TYPES;
+    this.draftChoices = this.shuffle(pool).slice(0, 3);
     return this.draftChoices;
   }
 
   chooseDraft(typeKey) {
     if (!this.draftChoices.some((type) => type.key === typeKey) || this.pendingDrafts <= 0) return false;
-    this.roster[typeKey] += 1;
+    this.roster[typeKey] = true;
     this.pendingDrafts -= 1;
     if (!this.selectedUnitType) this.selectedUnitType = typeKey;
     this.rollDraftChoices();
@@ -65,7 +67,7 @@ export class GameModel {
   }
 
   deployedCount(typeKey) { return this.placement.filter((unit) => unit.type === typeKey).length; }
-  availableCount(typeKey) { return Math.max(0, (this.roster[typeKey] ?? 0) - this.deployedCount(typeKey)); }
+  availableCount(typeKey) { return this.roster[typeKey] ? Number.POSITIVE_INFINITY : 0; }
 
   selectMission(index) {
     const mission = this.campaign[index];
@@ -93,7 +95,7 @@ export class GameModel {
       return true;
     }
     const type = UNIT_TYPES[this.selectedUnitType];
-    if (!type || hasUnitTag(type, UNIT_TAG.AI_ONLY) || this.availableCount(type.key) <= 0 || this.spentBudget + type.cost > this.budget) return false;
+    if (!type || hasUnitTag(type, UNIT_TAG.AI_ONLY) || !this.roster[type.key] || this.spentBudget + type.cost > this.budget) return false;
     this.placement.push({ row, column, type: this.selectedUnitType });
     return true;
   }
@@ -138,12 +140,22 @@ export class GameModel {
       unit.animationDuration = duration;
       unit.movedThisTurn = false;
     });
-    this.shuffle(actingUnits).forEach((unit) => this.processUnit(unit, now, duration));
+    this.orderUnitsFrontToBack(actingUnits, actingTeam).forEach((unit) => this.processUnit(unit, now, duration));
     this.refreshStealth();
     this.result = this.determineResult();
     if (this.result) this.finishBattle(this.result);
     else this.activeTeam = actingTeam === TEAM.PLAYER ? TEAM.ENEMY : TEAM.PLAYER;
     return this.result;
+  }
+
+  orderUnitsFrontToBack(units, team) {
+    const direction = team === TEAM.PLAYER ? 1 : -1;
+    return units.slice().sort((a, b) => {
+      const frontOrder = direction * (b.column - a.column);
+      if (frontOrder !== 0) return frontOrder;
+      if (a.row !== b.row) return a.row - b.row;
+      return a.id - b.id;
+    });
   }
 
   processUnit(unit, now, duration) {
