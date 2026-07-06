@@ -1,13 +1,13 @@
 import { UNIT_ROLE } from '../data/gameConfig.js';
 import { drawUnitGraphic } from './UnitGraphics.js';
 
-const ROLE_PRESENTATION = Object.freeze({
-  [UNIT_ROLE.GRUNT]: Object.freeze({ label: 'Grunt', shape: 'square' }),
-  [UNIT_ROLE.RANGED]: Object.freeze({ label: 'Ranged', shape: 'triangle' }),
-  [UNIT_ROLE.SUPPORT]: Object.freeze({ label: 'Support', shape: 'circle' }),
-  [UNIT_ROLE.FLYING]: Object.freeze({ label: 'Flying', shape: 'wing' }),
-  [UNIT_ROLE.SPECIALIST]: Object.freeze({ label: 'Specialist', shape: 'diamond' }),
-  [UNIT_ROLE.STRUCTURE]: Object.freeze({ label: 'Structure', shape: 'hex' }),
+const ROLE_LABEL = Object.freeze({
+  [UNIT_ROLE.GRUNT]: 'Grunt',
+  [UNIT_ROLE.RANGED]: 'Ranged',
+  [UNIT_ROLE.SUPPORT]: 'Support',
+  [UNIT_ROLE.FLYING]: 'Flying',
+  [UNIT_ROLE.SPECIALIST]: 'Specialist',
+  [UNIT_ROLE.STRUCTURE]: 'Structure',
 });
 
 export class UnitPresentation {
@@ -22,23 +22,15 @@ export class UnitPresentation {
     canvas.width = size;
     canvas.height = size;
     canvas.setAttribute('aria-hidden', 'true');
-    drawUnitGraphic(canvas.getContext('2d'), type.graphic ?? type.shape, size / 2, size / 2, size * 0.3, color);
+    drawUnitGraphic(canvas.getContext('2d'), type.graphic ?? type.shape, size / 2, size / 2, size * 0.3, color, type.role);
     symbol.appendChild(canvas);
     return symbol;
   }
 
   createRole(type) {
-    const presentation = ROLE_PRESENTATION[type.role] ?? { label: type.role, shape: 'square' };
     const role = this.document.createElement('div');
     role.className = 'unit-description-role';
-
-    const icon = this.document.createElement('span');
-    icon.className = `unit-role-icon ${presentation.shape}`;
-    icon.setAttribute('aria-hidden', 'true');
-
-    const label = this.document.createElement('span');
-    label.textContent = presentation.label;
-    role.append(icon, label);
+    role.textContent = ROLE_LABEL[type.role] ?? type.role;
     return role;
   }
 
