@@ -18,7 +18,7 @@ export class UnitPresentation {
     return symbol;
   }
 
-  createDescription(type, { label = '', tone = 'player', includeCost = true } = {}) {
+  createDescription(type, { label = '', tone = 'player', includeCost = true, quantity = null } = {}) {
     const description = this.document.createElement('div');
     description.className = `unit-description ${tone}`;
 
@@ -40,7 +40,13 @@ export class UnitPresentation {
     identity.appendChild(name);
     header.appendChild(identity);
 
-    if (includeCost) {
+    if (quantity !== null) {
+      const count = this.document.createElement('div');
+      count.className = 'unit-description-quantity';
+      count.textContent = `×${quantity}`;
+      count.setAttribute('aria-label', `${quantity} units`);
+      header.appendChild(count);
+    } else if (includeCost) {
       const cost = this.document.createElement('div');
       cost.className = 'unit-description-cost';
       cost.innerHTML = `<strong>${type.cost}</strong><span>PTS</span>`;
@@ -77,6 +83,7 @@ export class UnitPresentation {
     const select = this.document.createElement('button');
     select.className = `roster-card${selected ? ' selected' : ''}${availableCount <= 0 ? ' depleted' : ''}`;
     select.dataset.unitType = type.key;
+    select.disabled = availableCount <= 0;
     select.setAttribute('aria-pressed', String(selected));
     select.setAttribute('aria-label', `${type.name}, ${availableCount} available`);
     select.appendChild(this.createGraphic(type, { size: 38 }));
