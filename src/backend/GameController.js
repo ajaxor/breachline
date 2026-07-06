@@ -15,7 +15,6 @@ export class GameController {
   initialize() {
     this.bindEvents();
     this.view.renderBuildInfo(this.buildInfo);
-    this.model.availableCount = (typeKey) => this.model.roster[typeKey] > 0 ? Number.POSITIVE_INFINITY : 0;
     this.model.beginDrafts(3);
     this.view.renderDraft(this.model);
     this.view.renderRoster(this.model);
