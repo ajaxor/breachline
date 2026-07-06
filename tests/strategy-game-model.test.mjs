@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { GAME_CONFIG } from '../src/data/gameConfig.js';
+import { GAME_CONFIG, TEAM, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../src/data/gameConfig.js';
+import { GameModel } from '../src/model/GameModel.js';
 import { StrategyGameModel } from '../src/model/StrategyGameModel.js';
 
 const createModel = () => new StrategyGameModel({ random: () => 0.5, now: () => 0 });
@@ -58,6 +59,33 @@ const createModel = () => new StrategyGameModel({ random: () => 0.5, now: () => 
   const enemyIncrease = model.campaign[1].enemyBudget - model.campaign[0].enemyBudget;
   const draftIncrease = model.campaign[1].draftBudget - model.campaign[0].draftBudget;
   assert.ok(draftIncrease > enemyIncrease, 'reinforcement draft growth should outpace enemy budget growth to absorb casualties');
+}
+
+{
+  assert.equal(hasUnitTag('flyer', UNIT_TAG.FLYING), true);
+  assert.equal(hasUnitTag('flyer', UNIT_TAG.FAST_ATTACK), false, 'flying should provide move-and-attack behavior without the fast-attack tag');
+  assert.equal(hasUnitTag('flyer', UNIT_TAG.CAN_MOVE_SIDEWAYS), false, 'flying units should never carry sideways pathfinding');
+
+  const model = new GameModel({ random: () => 0.5, now: () => 0 });
+  const flyer = {
+    id: 1, team: TEAM.PLAYER, type: 'flyer', row: 2, column: 0,
+    previousRow: 2, previousColumn: 0, animationStartedAt: 0, animationDuration: 1,
+    breached: false, movedThisTurn: false, hp: UNIT_TYPES.flyer.hp, maxHp: UNIT_TYPES.flyer.hp, alive: true,
+  };
+  const allyBlocker = {
+    id: 2, team: TEAM.PLAYER, type: 'grunt', row: 2, column: 1,
+    breached: false, movedThisTurn: false, hp: UNIT_TYPES.grunt.hp, maxHp: UNIT_TYPES.grunt.hp, alive: true,
+  };
+  const enemy = {
+    id: 3, team: TEAM.ENEMY, type: 'grunt', row: 2, column: 2,
+    breached: false, movedThisTurn: false, hp: UNIT_TYPES.grunt.hp, maxHp: UNIT_TYPES.grunt.hp, alive: true,
+  };
+  model.units = [flyer, allyBlocker, enemy];
+
+  assert.equal(model.processUnit(flyer, 0, 100), true);
+  assert.equal(flyer.column, 1, 'flying units should advance exactly one cell through an occupied position');
+  assert.equal(allyBlocker.column, flyer.column, 'flying units should be allowed to overlap ground units');
+  assert.equal(enemy.hp, UNIT_TYPES.grunt.hp - UNIT_TYPES.flyer.attack, 'flying units should attack after moving');
 }
 
 console.log('Strategy game model tests passed.');
