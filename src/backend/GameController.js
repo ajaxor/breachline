@@ -1,22 +1,28 @@
 import { GAME_CONFIG, MODE } from '../data/gameConfig.js';
 
 export class GameController {
-  constructor(model, view, renderer) {
+  constructor(model, view, renderer, buildInfo = {}) {
     this.model = model;
     this.view = view;
     this.renderer = renderer;
+    this.buildInfo = buildInfo;
     this.timer = null;
     this.animationFrame = null;
   }
 
   initialize() {
     this.bindEvents();
+    this.view.renderBuildInfo(this.buildInfo);
     this.view.renderRoster(this.model);
     this.refresh();
   }
 
   bindEvents() {
     const { document } = this.view;
+    this.view.elements.btnStartGame.addEventListener('click', () => {
+      this.view.enterGame();
+      requestAnimationFrame(() => this.renderer.resize(this.model));
+    });
     document.querySelectorAll('.tab-btn').forEach((button) => button.addEventListener('click', () => this.activateTab(button.dataset.tab)));
     this.view.elements.btnGoDeploy.addEventListener('click', () => this.activateTab('battle'));
     this.view.elements.missionStrip.addEventListener('click', (event) => {
@@ -107,6 +113,6 @@ export class GameController {
   }
 
   resizeIfBattleVisible() {
-    if (this.view.document.getElementById('screenBattle').classList.contains('active')) this.renderer.resize(this.model);
+    if (!this.view.elements.gameShell.hidden && this.view.document.getElementById('screenBattle').classList.contains('active')) this.renderer.resize(this.model);
   }
 }
