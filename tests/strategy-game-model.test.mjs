@@ -29,13 +29,28 @@ const createModel = () => new StrategyGameModel({ random: () => 0.5, now: () => 
   model.togglePlacement(0, 0);
   model.togglePlacement(1, 0);
   assert.equal(model.startBattle(), true);
-  model.units.find((unit) => unit.team === 'player').alive = false;
-  model.finishBattle({ cssClass: 'enemy-win', text: 'test defeat', playerWon: false });
-  assert.equal(model.supply.grunt, 2, 'destroyed player units should be permanently removed from supply');
+  assert.equal(model.supply.grunt, 1, 'every deployed unit should be consumed when the battle launches');
+
+  model.finishBattle({ cssClass: 'player-win', text: 'test victory', playerWon: true });
+  assert.equal(model.supply.grunt, 1, 'surviving deployed units should not return to supply');
+  assert.equal(model.roster.grunt, true, 'a unit type with reserve supply should remain in the roster');
 
   model.returnToDeployment();
   assert.equal(model.placement.length, 0, 'returning to deployment should clear the previous formation');
-  assert.equal(model.supply.grunt, 2, 'surviving deployed units should return to supply without further loss');
+  assert.equal(model.supply.grunt, 1, 'clearing the completed mission formation should not refund committed units');
+}
+
+{
+  const model = createModel();
+  model.roster.grunt = true;
+  model.supply.grunt = 1;
+  model.setSelectedUnitType('grunt');
+  model.togglePlacement(0, 0);
+  assert.equal(model.availableCount('grunt'), 0, 'a fully committed type should show zero remaining during deployment');
+  assert.equal(model.startBattle(), true);
+  model.finishBattle({ cssClass: 'enemy-win', text: 'test defeat', playerWon: false });
+  assert.equal(model.roster.grunt, false, 'a depleted type should be removed from the roster when the mission ends');
+  assert.equal(model.selectedUnitType, null, 'selection should clear when the selected type is depleted');
 }
 
 {
