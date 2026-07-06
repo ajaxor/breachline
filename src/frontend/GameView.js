@@ -1,9 +1,10 @@
 import { GAME_CONFIG, MODE } from '../data/gameConfig.js';
-import { CanvasRenderer } from './CanvasRenderer.js';
+import { UnitPresentation } from './UnitPresentation.js';
 
 export class GameView {
   constructor(documentRef = document) {
     this.document = documentRef;
+    this.unitPresentation = new UnitPresentation(documentRef);
     this.elements = Object.fromEntries(['screenTitle','gameShell','btnStartGame','buildInfo','field','fieldWrap','missionStrip','missionInfo','btnGoDeploy','budgetSpent','budgetFill','btnLaunch','deployTopbar','resolveTopbar','deployHint','battleStatus','btnOpenLog','phaseLabel','log','bannerOverlay','logSheet','sheetBackdrop','rosterList','playerHpText','enemyHpText','playerHpFill','enemyHpFill','draftOverlay','draftChoices','draftProgress','unitInspector'].map((id) => [id, documentRef.getElementById(id)]));
   }
 
@@ -29,60 +30,47 @@ export class GameView {
   renderRoster(model) {
     const list = this.elements.rosterList;
     list.innerHTML = '';
-    model.rosterTypes.forEach((type) => {
-      const card = this.createUnitCard(type, 'roster');
-      card.classList.toggle('selected', type.key === model.selectedUnitType);
-      card.dataset.unitType = type.key;
-      list.appendChild(card);
-    });
+    model.rosterTypes.forEach((type) => list.appendChild(this.unitPresentation.createRosterRow(type, type.key === model.selectedUnitType)));
     if (!model.rosterTypes.length) list.innerHTML = '<div class="empty-roster">Complete your opening drafts to assemble a roster.</div>';
   }
 
   renderDraft(model) {
     this.elements.draftProgress.textContent = model.pendingDrafts > 1 ? `${model.pendingDrafts} selections remaining` : 'Final selection';
     this.elements.draftChoices.innerHTML = '';
-    model.draftChoices.forEach((type) => {
-      const card = this.createUnitCard(type, 'draft');
+    model.draftChoices.forEach((type, index) => {
+      const card = this.document.createElement('button');
+      card.className = 'draft-card';
       card.dataset.draftUnit = type.key;
+      card.style.setProperty('--draft-index', String(index));
+      card.appendChild(this.unitPresentation.createDescription(type, { label: 'Draft option' }));
       this.elements.draftChoices.appendChild(card);
     });
+    this.elements.draftChoices.classList.remove('refreshing');
+    void this.elements.draftChoices.offsetWidth;
+    this.elements.draftChoices.classList.add('refreshing');
   }
 
-  createUnitCard(type, variant) {
-    const card = this.document.createElement('button');
-    card.className = `${variant}-card unit-card`;
-    const actionStat = type.action === 'heal' ? `HEAL ${type.healAmount}` : `ATK ${type.attack}`;
-    const rangeStat = type.range > 1 ? ` · RNG ${type.range}` : '';
-    const prefix = variant === 'draft' ? 'draft' : 'rc';
-    const tags = type.tags.length ? `<span class="${prefix}-tags">${type.tags.join(' · ')}</span>` : '';
-    const cost = variant === 'draft' ? `<span class="draft-cost">${type.cost} pts</span>` : `<span class="rc-cost">${type.cost}</span>`;
-    const behavior = variant === 'draft' ? `<span class="draft-behavior">${type.behavior}</span>` : '';
-    card.innerHTML = `<span class="${prefix}-info"><span class="${prefix}-name">${type.name}</span><span class="${prefix}-stats">HP ${type.hp} · ${actionStat}${rangeStat}</span>${tags}${behavior}</span>${cost}`;
-    card.prepend(this.createUnitGraphic(type));
-    return card;
+  openDraft() {
+    this.elements.draftOverlay.hidden = false;
+    requestAnimationFrame(() => this.elements.draftOverlay.classList.add('open'));
   }
 
-  openDraft() { this.elements.draftOverlay.hidden = false; }
-  closeDraft() { this.elements.draftOverlay.hidden = true; }
+  closeDraft() {
+    this.elements.draftOverlay.classList.remove('open');
+    this.elements.draftOverlay.hidden = true;
+  }
 
-  showUnitInspector(type, label) {
-    const actionStat = type.action === 'heal' ? `HEAL ${type.healAmount}` : `ATK ${type.attack}`;
-    const rangeStat = type.range > 1 ? ` · RNG ${type.range}` : '';
-    this.elements.unitInspector.innerHTML = `<div class="inspector-label">${label}</div><div class="inspector-name">${type.name}</div><div class="inspector-stats">HP ${type.hp} · ${actionStat}${rangeStat}</div><div class="inspector-tags">${type.tags.join(' · ')}</div><div class="inspector-behavior">${type.behavior}</div>`;
+  showUnitInspector(type, label, tone = 'enemy') {
+    this.elements.unitInspector.innerHTML = '';
+    this.elements.unitInspector.className = `unit-inspector ${tone}`;
+    this.elements.unitInspector.appendChild(this.unitPresentation.createDescription(type, { label, tone }));
     this.elements.unitInspector.hidden = false;
   }
-  clearUnitInspector() { this.elements.unitInspector.hidden = true; this.elements.unitInspector.innerHTML = ''; }
 
-  createUnitGraphic(type) {
-    const symbol = this.document.createElement('span');
-    symbol.className = 'unit-symbol';
-    const canvas = this.document.createElement('canvas');
-    const size = 48;
-    canvas.width = size; canvas.height = size; canvas.setAttribute('aria-hidden', 'true');
-    const renderer = new CanvasRenderer(canvas, { clientWidth: size, clientHeight: size });
-    renderer.drawUnitGraphic(type.graphic ?? type.shape, size / 2, size / 2, size * 0.3, '#38bdf8');
-    symbol.appendChild(canvas);
-    return symbol;
+  clearUnitInspector() {
+    this.elements.unitInspector.hidden = true;
+    this.elements.unitInspector.innerHTML = '';
+    this.elements.unitInspector.className = 'unit-inspector';
   }
 
   renderBudget(model) { this.elements.budgetSpent.textContent = `${model.spentBudget} / ${model.budget}`; this.elements.budgetFill.style.width = `${Math.min(100, model.spentBudget / model.budget * 100)}%`; this.elements.budgetFill.classList.toggle('over', model.spentBudget > model.budget); this.elements.btnLaunch.disabled = !model.canLaunch; }
