@@ -3,7 +3,7 @@ import { GAME_CONFIG, MODE, UNIT_TYPES } from '../data/gameConfig.js';
 export class GameView {
   constructor(documentRef = document) {
     this.document = documentRef;
-    this.elements = Object.fromEntries(['field','fieldWrap','missionStrip','missionInfo','btnGoDeploy','budgetSpent','budgetFill','btnLaunch','deployTopbar','resolveTopbar','deployHint','battleStatus','btnOpenPalette','btnOpenLog','phaseLabel','log','bannerOverlay','paletteSheet','logSheet','sheetBackdrop','rosterList','playerHpText','enemyHpText','playerHpFill','enemyHpFill'].map((id) => [id, documentRef.getElementById(id)]));
+    this.elements = Object.fromEntries(['screenTitle','gameShell','btnStartGame','buildInfo','field','fieldWrap','missionStrip','missionInfo','btnGoDeploy','budgetSpent','budgetFill','btnLaunch','deployTopbar','resolveTopbar','deployHint','battleStatus','btnOpenPalette','btnOpenLog','phaseLabel','log','bannerOverlay','paletteSheet','logSheet','sheetBackdrop','rosterList','playerHpText','enemyHpText','playerHpFill','enemyHpFill'].map((id) => [id, documentRef.getElementById(id)]));
   }
 
   render(model) {
@@ -12,6 +12,18 @@ export class GameView {
     this.renderBattleChrome(model);
     this.renderBases(model);
     this.renderLog(model);
+  }
+
+  renderBuildInfo(buildInfo) {
+    const version = buildInfo?.version || 'dev';
+    const commit = buildInfo?.commit || 'local';
+    this.elements.buildInfo.textContent = `v${version} · ${commit}`;
+  }
+
+  enterGame() {
+    this.elements.screenTitle.hidden = true;
+    this.elements.gameShell.hidden = false;
+    this.setActiveTab('missions');
   }
 
   renderCampaign(model) {
