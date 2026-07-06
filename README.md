@@ -27,12 +27,4 @@ Serve the repository root with any static HTTP server. ES modules generally do n
 
 ## Agent workflow
 
-Before implementing any task, spend deliberate time evaluating the best architecture for the change. Identify the responsibilities involved, the correct layer for each responsibility, dependency direction, extension points, and long-term maintenance costs. Prefer a coherent design that supports future development over the fastest local patch, while avoiding abstractions that have no concrete responsibility or variation to isolate.
-
-Preserve the separation between the front end, backend/application layer, game model, and data. Keep game rules independent of the DOM, canvas, persistence, networking, and other delivery mechanisms. Consider likely future needs such as persistence, multiplayer transport, alternate renderers, additional content, replay/debug tooling, and automated tests when selecting boundaries.
-
-Maintain `TECH_DEBT.md` as an active to-do list of concrete technical debt. Add newly discovered debt even when it is outside the current task, using actionable unchecked Markdown tasks that describe the affected area, impact, and a practical resolution direction. Do not add ordinary feature requests, speculative rewrites, or vague wishes. Remove an item only when the underlying debt is resolved.
-
-At the end of every task, the final response must include a **Tech debt noticed** section that lists all new debt discovered during the task or explicitly states that none was found. It must also always include the deployed game link: https://ajaxor.github.io/breachline/
-
-Completed changes must be pushed directly to `main` after validation.
+Repository-wide instructions for coding agents are maintained in [`AGENTS.md`](AGENTS.md). Technical debt is tracked in [`TECH_DEBT.md`](TECH_DEBT.md).
