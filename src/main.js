@@ -1,7 +1,10 @@
 import { GameController } from './backend/GameController.js';
+import { validateGameData } from './data/validateGameData.js';
 import { BattlefieldRenderer } from './frontend/BattlefieldRenderer.js';
 import { GameView } from './frontend/GameView.js';
 import { StrategyGameModel } from './model/StrategyGameModel.js';
+
+validateGameData();
 
 const view = new GameView();
 const model = new StrategyGameModel();
