@@ -42,20 +42,24 @@ async function run() {
   await sleep(120);
   const rect = canvas.getBoundingClientRect();
   assert(rect.width > 0 && rect.height > 0, 'Battlefield canvas has no layout size');
+  const portrait = rect.height > rect.width;
   let inspected = false;
   for (let row = 0; row < 8 && !inspected; row += 1) {
     for (let column = 9; column < 14 && !inspected; column += 1) {
-      canvas.dispatchEvent(new MouseEvent('click', {
-        bubbles: true,
-        clientX: rect.left + (column + 0.5) / 14 * rect.width,
-        clientY: rect.top + (row + 0.5) / 8 * rect.height,
-      }));
+      const clientX = portrait
+        ? rect.left + (row + 0.5) / 8 * rect.width
+        : rect.left + (column + 0.5) / 14 * rect.width;
+      const clientY = portrait
+        ? rect.top + (14 - column - 0.5) / 14 * rect.height
+        : rect.top + (row + 0.5) / 8 * rect.height;
+      canvas.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX, clientY }));
       await sleep(15);
       inspected = !document.querySelector('#unitInspector').hidden;
     }
   }
   assert(inspected, 'Could not inspect a hostile unit on the deployment grid');
   assert(document.querySelector('#unitInspector .unit-description'), 'Hostile inspector did not render a full unit description');
+  assert(document.querySelector('#unitInspector .unit-description-role'), 'Hostile inspector did not render the unit role');
 
   const result = document.createElement('pre');
   result.id = 'smoke-result';
