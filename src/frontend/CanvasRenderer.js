@@ -65,10 +65,8 @@ export class CanvasRenderer {
     const ctx = this.context;
     const cell = this.cellSize;
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    ctx.fillStyle = 'rgba(56,189,248,.06)';
-    ctx.fillRect(0, 0, 3 * cell, GAME_CONFIG.rows * cell);
-    ctx.fillStyle = 'rgba(255,93,93,.06)';
-    ctx.fillRect((GAME_CONFIG.columns - 3) * cell, 0, 3 * cell, GAME_CONFIG.rows * cell);
+    this.drawDeploymentZone(GAME_CONFIG.playerZone, 'rgba(56,189,248,.06)');
+    this.drawDeploymentZone(GAME_CONFIG.enemyZone, 'rgba(255,93,93,.06)');
     ctx.strokeStyle = '#16202a';
     ctx.lineWidth = 1;
     for (let column = 0; column <= GAME_CONFIG.columns; column += 1) this.line(column * cell + 0.5, 0, column * cell + 0.5, GAME_CONFIG.rows * cell);
@@ -80,14 +78,20 @@ export class CanvasRenderer {
     ctx.restore();
   }
 
+  drawDeploymentZone(columns, color) {
+    const ctx = this.context;
+    ctx.fillStyle = color;
+    columns.forEach((column) => ctx.fillRect(column * this.cellSize, 0, this.cellSize, GAME_CONFIG.rows * this.cellSize));
+  }
+
   drawUnit(unit, ghost, row = unit.row, column = unit.column) {
     const type = UNIT_TYPES[unit.type];
     const color = unit.team === TEAM.PLAYER ? '#38bdf8' : '#ff5d5d';
     const x = column * this.cellSize + this.cellSize / 2;
     const y = row * this.cellSize + this.cellSize / 2;
     this.context.save();
-    this.context.globalAlpha = unit.stealthed ? 0.28 : 1;
-    this.drawShape(type.shape, x, y, this.cellSize * 0.32, ghost ? `${color}80` : color);
+    this.context.globalAlpha = (unit.stealthed ? 0.28 : 1) * (ghost ? 0.55 : 1);
+    this.drawUnitGraphic(type.graphic ?? type.shape, x, y, this.cellSize * 0.32, color);
     if (!ghost) {
       const width = this.cellSize * 0.7;
       const health = Math.max(0, unit.hp / unit.maxHp);
@@ -97,6 +101,97 @@ export class CanvasRenderer {
       this.context.fillRect(x - width / 2, y - this.cellSize / 2 + 5, width * health, 4);
     }
     this.context.restore();
+  }
+
+  drawUnitGraphic(graphic, x, y, radius, color) {
+    const ctx = this.context;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = Math.max(1.5, radius * 0.12);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    ctx.save();
+    ctx.globalAlpha *= 0.18;
+    ctx.beginPath();
+    this.unitBodyPath(ctx, graphic, radius);
+    ctx.fill();
+    ctx.restore();
+    ctx.beginPath();
+    this.unitBodyPath(ctx, graphic, radius);
+    ctx.stroke();
+
+    ctx.lineWidth = Math.max(1.2, radius * 0.09);
+    this.drawUnitDetails(ctx, graphic, radius);
+    ctx.restore();
+  }
+
+  unitBodyPath(ctx, graphic, radius) {
+    if (graphic === 'rifleman') ctx.roundRect(-radius * 0.72, -radius * 0.82, radius * 1.44, radius * 1.64, radius * 0.2);
+    else if (graphic === 'bulwark') this.polygon(ctx, radius, 6, Math.PI / 6);
+    else if (graphic === 'marksman') this.polygon(ctx, radius, 3, -Math.PI / 2);
+    else if (graphic === 'demolisher') this.polygon(ctx, radius * 1.05, 4, -Math.PI / 2);
+    else if (graphic === 'medic') ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    else if (graphic === 'ranger') { ctx.moveTo(-radius, -radius * 0.85); ctx.lineTo(radius * 0.2, 0); ctx.lineTo(-radius, radius * 0.85); ctx.lineTo(radius, radius * 0.85); ctx.lineTo(radius * 0.35, 0); ctx.lineTo(radius, -radius * 0.85); ctx.closePath(); }
+    else if (graphic === 'infiltrator') { ctx.moveTo(0, -radius * 1.15); ctx.lineTo(radius * 0.78, 0); ctx.lineTo(0, radius); ctx.lineTo(-radius * 0.78, 0); ctx.closePath(); }
+    else if (graphic === 'wasp') { ctx.moveTo(-radius, 0); ctx.quadraticCurveTo(-radius * 0.35, -radius, 0, -radius * 0.2); ctx.quadraticCurveTo(radius * 0.35, -radius, radius, 0); ctx.quadraticCurveTo(radius * 0.35, radius, 0, radius * 0.2); ctx.quadraticCurveTo(-radius * 0.35, radius, -radius, 0); ctx.closePath(); }
+    else if (graphic === 'artillery') this.polygon(ctx, radius, 8, Math.PI / 8);
+    else if (graphic === 'barricade') ctx.roundRect(-radius, -radius * 0.72, radius * 2, radius * 1.44, radius * 0.12);
+    else if (graphic === 'turret') ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    else ctx.rect(-radius, -radius, radius * 2, radius * 2);
+  }
+
+  drawUnitDetails(ctx, graphic, radius) {
+    ctx.beginPath();
+    if (graphic === 'rifleman') {
+      ctx.arc(-radius * 0.18, -radius * 0.22, radius * 0.2, 0, Math.PI * 2);
+      ctx.moveTo(-radius * 0.1, 0); ctx.lineTo(radius * 0.52, radius * 0.42);
+      ctx.moveTo(radius * 0.25, radius * 0.25); ctx.lineTo(radius * 0.72, -radius * 0.18);
+    } else if (graphic === 'bulwark') {
+      ctx.rect(-radius * 0.48, -radius * 0.52, radius * 0.96, radius * 1.04);
+      ctx.moveTo(-radius * 0.7, -radius * 0.1); ctx.lineTo(radius * 0.7, -radius * 0.1);
+      ctx.moveTo(0, -radius * 0.52); ctx.lineTo(0, radius * 0.52);
+    } else if (graphic === 'marksman') {
+      ctx.moveTo(-radius * 0.62, radius * 0.38); ctx.lineTo(radius * 0.7, -radius * 0.15);
+      ctx.moveTo(radius * 0.08, radius * 0.08); ctx.lineTo(radius * 0.25, radius * 0.45);
+      ctx.arc(-radius * 0.2, radius * 0.18, radius * 0.16, 0, Math.PI * 2);
+    } else if (graphic === 'demolisher') {
+      ctx.arc(0, radius * 0.08, radius * 0.42, 0, Math.PI * 2);
+      ctx.moveTo(radius * 0.18, -radius * 0.34); ctx.quadraticCurveTo(radius * 0.65, -radius * 0.75, radius * 0.72, -radius * 0.2);
+      ctx.moveTo(-radius * 0.24, radius * 0.08); ctx.lineTo(radius * 0.24, radius * 0.08);
+    } else if (graphic === 'medic') {
+      ctx.moveTo(-radius * 0.48, 0); ctx.lineTo(radius * 0.48, 0);
+      ctx.moveTo(0, -radius * 0.48); ctx.lineTo(0, radius * 0.48);
+      ctx.arc(0, 0, radius * 0.68, 0, Math.PI * 2);
+    } else if (graphic === 'ranger') {
+      ctx.moveTo(-radius * 0.55, -radius * 0.48); ctx.lineTo(radius * 0.25, 0); ctx.lineTo(-radius * 0.55, radius * 0.48);
+      ctx.moveTo(radius * 0.15, -radius * 0.52); ctx.lineTo(radius * 0.72, 0); ctx.lineTo(radius * 0.15, radius * 0.52);
+    } else if (graphic === 'infiltrator') {
+      ctx.moveTo(-radius * 0.5, radius * 0.05); ctx.quadraticCurveTo(0, -radius * 0.45, radius * 0.5, radius * 0.05);
+      ctx.moveTo(-radius * 0.28, radius * 0.2); ctx.lineTo(radius * 0.28, radius * 0.2);
+    } else if (graphic === 'wasp') {
+      ctx.ellipse(0, 0, radius * 0.24, radius * 0.65, 0, 0, Math.PI * 2);
+      ctx.moveTo(-radius * 0.18, -radius * 0.2); ctx.lineTo(radius * 0.18, -radius * 0.2);
+      ctx.moveTo(-radius * 0.2, radius * 0.15); ctx.lineTo(radius * 0.2, radius * 0.15);
+      ctx.moveTo(0, -radius * 0.65); ctx.lineTo(0, -radius * 0.95);
+    } else if (graphic === 'artillery') {
+      ctx.arc(0, radius * 0.08, radius * 0.48, 0, Math.PI * 2);
+      ctx.moveTo(0, -radius * 0.1); ctx.lineTo(radius * 0.76, -radius * 0.68);
+      ctx.moveTo(-radius * 0.52, radius * 0.62); ctx.lineTo(radius * 0.52, radius * 0.62);
+    } else if (graphic === 'barricade') {
+      ctx.moveTo(-radius * 0.78, -radius * 0.48); ctx.lineTo(radius * 0.15, radius * 0.48);
+      ctx.moveTo(-radius * 0.15, -radius * 0.48); ctx.lineTo(radius * 0.78, radius * 0.48);
+      ctx.moveTo(-radius * 0.72, radius * 0.75); ctx.lineTo(-radius * 0.5, radius * 0.42);
+      ctx.moveTo(radius * 0.72, radius * 0.75); ctx.lineTo(radius * 0.5, radius * 0.42);
+    } else if (graphic === 'turret') {
+      ctx.arc(0, 0, radius * 0.55, 0, Math.PI * 2);
+      ctx.moveTo(0, 0); ctx.lineTo(radius * 0.9, -radius * 0.42);
+      ctx.moveTo(-radius * 0.42, radius * 0.55); ctx.lineTo(-radius * 0.7, radius * 0.88);
+      ctx.moveTo(radius * 0.42, radius * 0.55); ctx.lineTo(radius * 0.7, radius * 0.88);
+    }
+    ctx.stroke();
   }
 
   drawEffect(effect, now) {
@@ -213,9 +308,21 @@ export class CanvasRenderer {
     ctx.save();
     ctx.translate(x, y);
     ctx.strokeStyle = color;
-    ctx.fillStyle = `${color}33`;
+    ctx.fillStyle = color;
     ctx.lineWidth = 2;
+    ctx.save();
+    ctx.globalAlpha *= 0.2;
     ctx.beginPath();
+    this.shapePath(ctx, shape, radius);
+    ctx.fill();
+    ctx.restore();
+    ctx.beginPath();
+    this.shapePath(ctx, shape, radius);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  shapePath(ctx, shape, radius) {
     if (shape === 'square') ctx.rect(-radius, -radius, radius * 2, radius * 2);
     else if (shape === 'triangle') this.polygon(ctx, radius, 3, -Math.PI / 2);
     else if (shape === 'diamond' || shape === 'kite') this.polygon(ctx, radius * 1.2, 4, -Math.PI / 2);
@@ -225,15 +332,6 @@ export class CanvasRenderer {
     else if (shape === 'chevron') { ctx.moveTo(-radius, -radius); ctx.lineTo(0, 0); ctx.lineTo(-radius, radius); ctx.moveTo(0, -radius); ctx.lineTo(radius, 0); ctx.lineTo(0, radius); }
     else if (shape === 'wing') { ctx.moveTo(-radius, 0); ctx.quadraticCurveTo(0, -radius, radius, 0); ctx.quadraticCurveTo(0, radius * 0.45, -radius, 0); ctx.closePath(); }
     else ctx.arc(0, 0, radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    if (shape === 'circle') {
-      ctx.beginPath();
-      ctx.moveTo(-radius * 0.5, 0); ctx.lineTo(radius * 0.5, 0);
-      ctx.moveTo(0, -radius * 0.5); ctx.lineTo(0, radius * 0.5);
-      ctx.stroke();
-    }
-    ctx.restore();
   }
 
   polygon(ctx, radius, sides, offset = 0) {
