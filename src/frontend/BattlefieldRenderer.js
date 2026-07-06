@@ -1,24 +1,102 @@
-import { TEAM, UNIT_TYPES } from '../data/gameConfig.js';
+import { GAME_CONFIG, TEAM, UNIT_TYPES } from '../data/gameConfig.js';
 import { CanvasRenderer } from './CanvasRenderer.js';
 
 export class BattlefieldRenderer extends CanvasRenderer {
+  resize(model) {
+    const width = this.container.clientWidth;
+    const height = this.container.clientHeight;
+    if (width <= 0 || height <= 0) return;
+    this.isPortrait = height > width;
+    const visualColumns = this.isPortrait ? GAME_CONFIG.rows : GAME_CONFIG.columns;
+    const visualRows = this.isPortrait ? GAME_CONFIG.columns : GAME_CONFIG.rows;
+    this.cellSize = Math.max(16, Math.floor(Math.min(width / visualColumns, height / visualRows)));
+    this.canvas.width = visualColumns * this.cellSize;
+    this.canvas.height = visualRows * this.cellSize;
+    this.render(model);
+  }
+
+  render(model) {
+    if (!this.isPortrait) {
+      super.render(model);
+      return;
+    }
+    this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.context.save();
+    this.context.transform(0, -1, 1, 0, 0, GAME_CONFIG.columns * this.cellSize);
+    super.render(model);
+    this.context.restore();
+  }
+
+  cellFromPointer(event) {
+    if (!this.isPortrait) return super.cellFromPointer(event);
+    const rect = this.canvas.getBoundingClientRect();
+    const visualX = (event.clientX - rect.left) * this.canvas.width / rect.width;
+    const visualY = (event.clientY - rect.top) * this.canvas.height / rect.height;
+    const row = Math.floor(visualX / this.cellSize);
+    const column = GAME_CONFIG.columns - 1 - Math.floor(visualY / this.cellSize);
+    return row >= 0 && row < GAME_CONFIG.rows && column >= 0 && column < GAME_CONFIG.columns ? { row, column } : null;
+  }
+
+  drawGrid() {
+    const ctx = this.context;
+    const cell = this.cellSize;
+    const logicalWidth = GAME_CONFIG.columns * cell;
+    const logicalHeight = GAME_CONFIG.rows * cell;
+    if (!this.isPortrait) ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.drawDeploymentZone(GAME_CONFIG.playerZone, 'rgba(56,189,248,.06)');
+    this.drawDeploymentZone(GAME_CONFIG.enemyZone, 'rgba(255,93,93,.06)');
+    ctx.strokeStyle = '#16202a';
+    ctx.lineWidth = 1;
+    for (let column = 0; column <= GAME_CONFIG.columns; column += 1) this.line(column * cell + 0.5, 0, column * cell + 0.5, logicalHeight);
+    for (let row = 0; row <= GAME_CONFIG.rows; row += 1) this.line(0, row * cell + 0.5, logicalWidth, row * cell + 0.5);
+    ctx.save();
+    ctx.strokeStyle = '#2a3846';
+    ctx.setLineDash([4, 4]);
+    this.line(logicalWidth / 2, 0, logicalWidth / 2, logicalHeight);
+    ctx.restore();
+  }
+
+  drawDeploymentZone(columns, color) {
+    this.context.fillStyle = color;
+    columns.forEach((column) => this.context.fillRect(column * this.cellSize, 0, this.cellSize, GAME_CONFIG.rows * this.cellSize));
+  }
+
   drawUnit(unit, ghost, row = unit.row, column = unit.column) {
     const type = UNIT_TYPES[unit.type];
     const color = unit.team === TEAM.PLAYER ? '#38bdf8' : '#ff5d5d';
     const x = column * this.cellSize + this.cellSize / 2;
     const y = row * this.cellSize + this.cellSize / 2;
     this.context.save();
+    this.context.translate(x, y);
+    if (this.isPortrait) this.context.rotate(Math.PI / 2);
     this.context.globalAlpha = (unit.stealthed ? 0.28 : 1) * (ghost ? 0.55 : 1);
-    this.drawUnitGraphic(type.graphic ?? type.shape, x, y, this.cellSize * 0.32, color);
+    this.drawUnitGraphic(type.graphic ?? type.shape, 0, 0, this.cellSize * 0.32, color);
     if (!ghost && unit.hp < unit.maxHp) {
       const width = this.cellSize * 0.7;
       const health = Math.max(0, unit.hp / unit.maxHp);
       this.context.fillStyle = '#0d141b';
-      this.context.fillRect(x - width / 2, y - this.cellSize / 2 + 5, width, 4);
+      this.context.fillRect(-width / 2, -this.cellSize / 2 + 5, width, 4);
       this.context.fillStyle = health > 0.5 ? '#4ade80' : health > 0.2 ? '#fbbf24' : '#ff5d5d';
-      this.context.fillRect(x - width / 2, y - this.cellSize / 2 + 5, width * health, 4);
+      this.context.fillRect(-width / 2, -this.cellSize / 2 + 5, width * health, 4);
     }
     this.context.restore();
+  }
+
+  drawText(effect, progress) {
+    if (!this.isPortrait) {
+      super.drawText(effect, progress);
+      return;
+    }
+    const ctx = this.context;
+    ctx.save();
+    ctx.translate(this.x(effect.column), this.y(effect.row));
+    ctx.rotate(Math.PI / 2);
+    ctx.globalAlpha = 1 - progress;
+    ctx.fillStyle = effect.color;
+    ctx.textAlign = 'center';
+    ctx.font = '700 12px "Space Mono", monospace';
+    ctx.fillText(effect.text, 0, -6 - progress * 16);
+    ctx.restore();
   }
 
   drawDeath(effect, progress) {
@@ -32,6 +110,7 @@ export class BattlefieldRenderer extends CanvasRenderer {
     ctx.save();
     ctx.globalAlpha = fade;
     ctx.translate(x, y);
+    if (this.isPortrait) ctx.rotate(Math.PI / 2);
     ctx.rotate(progress * Math.PI * 0.65);
     ctx.scale(1 + burst * 0.28, Math.max(0.08, 1 - progress * 0.92));
     this.drawUnitGraphic(effect.graphic ?? effect.shape, 0, 0, radius, effect.color);
