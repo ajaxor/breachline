@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GAME_CONFIG, TEAM, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../src/data/gameConfig.js';
 import { GameModel } from '../src/model/GameModel.js';
+import { SpatialIndex } from '../src/model/SpatialIndex.js';
 import { StrategyGameModel } from '../src/model/StrategyGameModel.js';
 import { createBattleUnit } from './helpers/createBattleUnit.mjs';
 
@@ -81,6 +82,7 @@ test('flying units overlap ground units and attack after moving', () => {
   const allyBlocker = createBattleUnit({ id: 2, type: 'grunt', row: 2, column: 1 });
   const enemy = createBattleUnit({ id: 3, team: TEAM.ENEMY, type: 'grunt', row: 2, column: 2 });
   model.units = [flyer, allyBlocker, enemy];
+  model.spatialIndex = new SpatialIndex(model.units);
 
   assert.equal(model.processUnit(flyer, 0, 100), true);
   assert.equal(flyer.column, 1);
