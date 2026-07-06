@@ -1,11 +1,20 @@
 import { GAME_CONFIG, MODE, PLAYER_UNIT_TYPES, TEAM, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
-import { EFFECT_TYPE, LOG_TYPE, RESULT_TYPE } from '../data/gameTypes.js';
+import { COMBAT_EVENT, RESULT_TYPE } from '../data/gameTypes.js';
 import { BattleUnitFactory } from './BattleUnitFactory.js';
 import { CampaignProgression } from './CampaignProgression.js';
 import { createCampaign } from './CampaignFactory.js';
 import { CombatActionResolver } from './CombatActionResolver.js';
 import { BudgetDeploymentPolicy } from './DeploymentPolicies.js';
 import { SpatialIndex } from './SpatialIndex.js';
+import { gridDistance } from './TargetingPolicy.js';
+
+const snapshot = (unit) => ({
+  id: unit.id,
+  team: unit.team,
+  type: unit.type,
+  row: unit.row,
+  column: unit.column,
+});
 
 export class GameModel {
   constructor({
@@ -14,6 +23,7 @@ export class GameModel {
     unitFactory = new BattleUnitFactory(),
     actionResolver = new CombatActionResolver(),
     campaignProgression = new CampaignProgression(),
+    eventPresenter = null,
     createDeploymentPolicy = (model) => new BudgetDeploymentPolicy(model),
   } = {}) {
     this.random = random;
@@ -21,6 +31,7 @@ export class GameModel {
     this.unitFactory = unitFactory;
     this.actionResolver = actionResolver;
     this.campaignProgression = campaignProgression;
+    this.eventPresenter = eventPresenter;
     this.campaign = createCampaign(random);
     this.selectedMission = 0;
     this.roster = Object.fromEntries(PLAYER_UNIT_TYPES.map((type) => [type.key, false]));
@@ -45,6 +56,7 @@ export class GameModel {
     this.units = [];
     this.effects = [];
     this.logEntries = [];
+    this.combatEvents = [];
     this.tickCount = 0;
     this.activeTeam = TEAM.PLAYER;
     this.battleOver = false;
@@ -122,7 +134,13 @@ export class GameModel {
     ];
     this.spatialIndex = new SpatialIndex(this.units);
     this.refreshStealth();
-    this.addLog(`${missionLabel} begins. Your force: ${this.livingPlayerCount} units. Hostile force: ${this.livingEnemyCount} units.`, LOG_TYPE.SYSTEM);
+    this.emitCombatEvent({
+      type: COMBAT_EVENT.BATTLE_STARTED,
+      label: missionLabel,
+      playerCount: this.livingPlayerCount,
+      enemyCount: this.livingEnemyCount,
+      at: startedAt,
+    });
     return true;
   }
 
@@ -158,21 +176,30 @@ export class GameModel {
   attackUnit(attacker, target, enemies, now, duration) { return this.actionResolver.attackUnit(this, attacker, target, enemies, now, duration); }
   moveUnit(unit, now, duration) { return this.actionResolver.movement.move(this, unit, now, duration); }
 
-  breach(unit, direction, now, duration) {
+  breach(unit, direction, now) {
     this.spatialIndex.remove(unit);
     unit.breached = true;
     unit.column = direction > 0 ? GAME_CONFIG.columns - 1 : 0;
-    this.effects.push({ type: EFFECT_TYPE.TEXT, ...this.point(unit), text: 'BREACH!', color: '#fbbf24', start: now, duration: Math.max(duration * 1.6, 400) });
-    this.addLog(`${UNIT_TYPES[unit.type].name} #${unit.id} breaks through and begins sieging the ${unit.team === TEAM.PLAYER ? 'hostile' : 'home'} base!`, LOG_TYPE.SYSTEM);
+    this.emitCombatEvent({
+      type: COMBAT_EVENT.UNIT_BREACHED,
+      unit: snapshot(unit),
+      targetBase: unit.team === TEAM.PLAYER ? 'hostile' : 'home',
+      at: now,
+    });
   }
 
-  attackBase(unit, now, duration) {
+  attackBase(unit, now) {
     const type = UNIT_TYPES[unit.type];
     const damage = Math.max(type.attack, 4);
     if (unit.team === TEAM.PLAYER) this.enemyBaseHp = Math.max(0, this.enemyBaseHp - damage);
     else this.playerBaseHp = Math.max(0, this.playerBaseHp - damage);
-    this.effects.push({ type: EFFECT_TYPE.TEXT, ...this.point(unit), text: `-${damage}`, color: '#fbbf24', start: now, duration: duration * 1.2 });
-    this.addLog(`${type.name} #${unit.id} strikes the ${unit.team === TEAM.PLAYER ? 'hostile' : 'home'} base for ${damage}.`, unit.team === TEAM.PLAYER ? LOG_TYPE.KILL : LOG_TYPE.PLAYER_LOSS);
+    this.emitCombatEvent({
+      type: COMBAT_EVENT.BASE_ATTACKED,
+      unit: snapshot(unit),
+      targetBase: unit.team === TEAM.PLAYER ? 'hostile' : 'home',
+      damage,
+      at: now,
+    });
   }
 
   refreshStealth() {
@@ -183,22 +210,19 @@ export class GameModel {
         continue;
       }
       unit.stealthed = !this.spatialIndex.nearby(unit.row, unit.column, 1).some((other) => (
-        other.team !== unit.team
-        && this.actionResolver.targeting.isInAttackPattern(unit, other, { range: 1, tags: [UNIT_TAG.ATTACKS_OTHER_LANES] })
+        other.team !== unit.team && gridDistance(unit, other) <= 1
       ));
     }
   }
 
-  addDeathEffect(unit, now, duration) {
-    const type = UNIT_TYPES[unit.type];
-    this.effects.push({ type: EFFECT_TYPE.DEATH, ...this.point(unit), shape: type.shape, graphic: type.graphic, color: unit.team === TEAM.PLAYER ? '#38bdf8' : '#ff5d5d', seed: unit.id * 2.399963229728653, start: now, duration: Math.max(duration * 1.25, 450) });
+  addDeathEffect(unit, now) {
+    this.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DESTROYED, unit: snapshot(unit), at: now, silent: true });
   }
 
-  killUnit(unit, now, duration) {
+  killUnit(unit, now) {
     unit.alive = false;
     this.spatialIndex.remove(unit);
-    this.addDeathEffect(unit, now, duration);
-    this.addLog(`${UNIT_TYPES[unit.type].name} #${unit.id} destroyed.`, unit.team === TEAM.PLAYER ? LOG_TYPE.PLAYER_LOSS : LOG_TYPE.KILL);
+    this.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DESTROYED, unit: snapshot(unit), at: now });
   }
 
   determineResult() {
@@ -216,6 +240,11 @@ export class GameModel {
   returnToDeployment(missionIndex = this.selectedMission) {
     this.resetBattle();
     this.selectedMission = missionIndex;
+  }
+
+  emitCombatEvent(event) {
+    this.combatEvents.push(event);
+    this.eventPresenter?.present(this, event);
   }
 
   addLog(message, cssClass = '') {
