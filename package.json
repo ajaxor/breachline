@@ -2,6 +2,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "balance": "node scripts/balance-units.mjs"
+    "balance": "node scripts/balance-units.mjs",
+    "balance:check": "node scripts/check-balance.mjs",
+    "balance:accept": "node scripts/check-balance.mjs --accept"
   }
 }
