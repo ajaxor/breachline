@@ -12,4 +12,4 @@ Do not add ordinary feature requests, vague cleanup wishes, or speculative rewri
 
 ## Open items
 
-_No known technical debt is currently recorded._
+- [ ] Extract unit-icon drawing from `CanvasRenderer` into a small shared frontend graphics module. `GameView` currently instantiates `CanvasRenderer` solely to draw roster icons, which couples DOM presentation to the battlefield renderer and creates one renderer object per roster card. Move the pure canvas path functions into a reusable helper consumed by both views.
