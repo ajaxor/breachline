@@ -1,4 +1,14 @@
+import { UNIT_ROLE } from '../data/gameConfig.js';
 import { drawUnitGraphic } from './UnitGraphics.js';
+
+const ROLE_PRESENTATION = Object.freeze({
+  [UNIT_ROLE.GRUNT]: Object.freeze({ label: 'Grunt', shape: 'square' }),
+  [UNIT_ROLE.RANGED]: Object.freeze({ label: 'Ranged', shape: 'triangle' }),
+  [UNIT_ROLE.SUPPORT]: Object.freeze({ label: 'Support', shape: 'circle' }),
+  [UNIT_ROLE.FLYING]: Object.freeze({ label: 'Flying', shape: 'wing' }),
+  [UNIT_ROLE.SPECIALIST]: Object.freeze({ label: 'Specialist', shape: 'diamond' }),
+  [UNIT_ROLE.STRUCTURE]: Object.freeze({ label: 'Structure', shape: 'hex' }),
+});
 
 export class UnitPresentation {
   constructor(documentRef) {
@@ -17,7 +27,22 @@ export class UnitPresentation {
     return symbol;
   }
 
-  createDescription(type, { label = '', tone = 'player', includeCost = true, quantity = null } = {}) {
+  createRole(type) {
+    const presentation = ROLE_PRESENTATION[type.role] ?? { label: type.role, shape: 'square' };
+    const role = this.document.createElement('div');
+    role.className = 'unit-description-role';
+
+    const icon = this.document.createElement('span');
+    icon.className = `unit-role-icon ${presentation.shape}`;
+    icon.setAttribute('aria-hidden', 'true');
+
+    const label = this.document.createElement('span');
+    label.textContent = presentation.label;
+    role.append(icon, label);
+    return role;
+  }
+
+  createDescription(type, { tone = 'player', includeCost = true, quantity = null, meta = '' } = {}) {
     const description = this.document.createElement('div');
     description.className = `unit-description ${tone}`;
 
@@ -27,16 +52,16 @@ export class UnitPresentation {
 
     const identity = this.document.createElement('div');
     identity.className = 'unit-description-identity';
-    if (label) {
-      const eyebrow = this.document.createElement('div');
-      eyebrow.className = 'unit-description-label';
-      eyebrow.textContent = label;
-      identity.appendChild(eyebrow);
-    }
     const name = this.document.createElement('div');
     name.className = 'unit-description-name';
     name.textContent = type.name;
-    identity.appendChild(name);
+    identity.append(name, this.createRole(type));
+    if (meta) {
+      const detail = this.document.createElement('div');
+      detail.className = 'unit-description-meta';
+      detail.textContent = meta;
+      identity.appendChild(detail);
+    }
     header.appendChild(identity);
 
     if (quantity !== null) {
