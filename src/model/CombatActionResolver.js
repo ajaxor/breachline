@@ -1,7 +1,15 @@
-import { TEAM, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
-import { ATTACK_EFFECT, EFFECT_TYPE, LOG_TYPE, UNIT_ACTION } from '../data/gameTypes.js';
+import { UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
+import { ATTACK_EFFECT, COMBAT_EVENT, UNIT_ACTION } from '../data/gameTypes.js';
 import { MovementPolicy } from './MovementPolicy.js';
 import { TargetingPolicy, gridDistance } from './TargetingPolicy.js';
+
+const snapshot = (unit) => ({
+  id: unit.id,
+  team: unit.team,
+  type: unit.type,
+  row: unit.row,
+  column: unit.column,
+});
 
 export class CombatActionResolver {
   constructor({ targeting = new TargetingPolicy(), movement = new MovementPolicy() } = {}) {
@@ -66,11 +74,13 @@ export class CombatActionResolver {
       if (!target) return false;
       const healed = Math.min(type.healAmount, target.maxHp - target.hp);
       target.hp += healed;
-      model.effects.push(
-        { type: EFFECT_TYPE.HEAL, from: model.point(unit), to: model.point(target), start: now, duration },
-        { type: EFFECT_TYPE.TEXT, ...model.point(target), text: `+${healed}`, color: '#4ade80', start: now, duration: duration * 1.3 },
-      );
-      model.addLog(`${type.name} #${unit.id} restores ${healed} HP to ${UNIT_TYPES[target.type].name} #${target.id}.`, LOG_TYPE.HIT);
+      model.emitCombatEvent({
+        type: COMBAT_EVENT.UNIT_HEALED,
+        source: snapshot(unit),
+        target: snapshot(target),
+        amount: healed,
+        at: now,
+      });
       return true;
     }
 
@@ -83,25 +93,33 @@ export class CombatActionResolver {
 
   attackUnit(model, attacker, target, enemies, now, duration) {
     const type = UNIT_TYPES[attacker.type];
-    model.effects.push({ type: type.range > 1 ? EFFECT_TYPE.RANGED : EFFECT_TYPE.MELEE, attackerId: attacker.id, team: attacker.team, from: model.point(attacker), to: model.point(target), start: now, duration });
     target.hp -= type.attack;
-    model.effects.push({ type: EFFECT_TYPE.TEXT, ...model.point(target), text: `-${type.attack}`, color: '#ff5d5d', start: now, duration: duration * 1.3 });
-    model.addLog(`${type.name} #${attacker.id} hits ${UNIT_TYPES[target.type].name} #${target.id} for ${type.attack}.`, LOG_TYPE.HIT);
+    model.emitCombatEvent({
+      type: COMBAT_EVENT.UNIT_ATTACKED,
+      attacker: snapshot(attacker),
+      target: snapshot(target),
+      damage: type.attack,
+      range: type.range,
+      at: now,
+    });
 
     if (type.onAttack === ATTACK_EFFECT.DETONATE) {
-      model.effects.push({ type: EFFECT_TYPE.EXPLOSION, ...model.point(attacker), start: now, duration: Math.max(duration, 320) });
       for (const enemy of enemies) {
         if (enemy.id === target.id || !enemy.alive || gridDistance(attacker, enemy) > 1) continue;
         const splash = Math.round(type.attack * 0.55);
         enemy.hp -= splash;
-        model.effects.push({ type: EFFECT_TYPE.TEXT, ...model.point(enemy), text: `-${splash}`, color: '#ff5d5d', start: now, duration: duration * 1.3 });
-        model.addLog(`Splash blast hits ${UNIT_TYPES[enemy.type].name} #${enemy.id} for ${splash}.`, LOG_TYPE.HIT);
+        model.emitCombatEvent({
+          type: COMBAT_EVENT.SPLASH_HIT,
+          source: snapshot(attacker),
+          target: snapshot(enemy),
+          damage: splash,
+          at: now,
+        });
         if (enemy.hp <= 0) model.killUnit(enemy, now, duration);
       }
       attacker.alive = false;
       model.spatialIndex.remove(attacker);
-      model.addDeathEffect(attacker, now, duration);
-      model.addLog(`${type.name} #${attacker.id} detonates and is destroyed.`, attacker.team === TEAM.PLAYER ? LOG_TYPE.PLAYER_LOSS : LOG_TYPE.KILL);
+      model.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DETONATED, unit: snapshot(attacker), at: now });
     }
 
     if (target.alive && target.hp <= 0) model.killUnit(target, now, duration);
