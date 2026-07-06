@@ -51,3 +51,5 @@ Serve the repository root with any static HTTP server. ES modules generally do n
 ## Agent workflow
 
 Repository-wide instructions for coding agents are maintained in [`AGENTS.md`](AGENTS.md). Technical debt is tracked in [`TECH_DEBT.md`](TECH_DEBT.md).
+
+After pushing a task to `main`, the agent must check the GitHub Actions run for that exact commit and must not report the task as complete while tests or deployment validation are pending. A failed check must be diagnosed and corrected, and the replacement commit's checks must finish successfully before the final response.
