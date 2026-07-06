@@ -73,21 +73,22 @@ export class UnitPresentation {
     return description;
   }
 
-  createRosterRow(type, selected) {
+  createRosterRow(type, selected, availableCount) {
     const select = this.document.createElement('button');
-    select.className = `roster-card${selected ? ' selected' : ''}`;
+    select.className = `roster-card${selected ? ' selected' : ''}${availableCount <= 0 ? ' depleted' : ''}`;
     select.dataset.unitType = type.key;
     select.setAttribute('aria-pressed', String(selected));
+    select.setAttribute('aria-label', `${type.name}, ${availableCount} available`);
     select.appendChild(this.createGraphic(type, { size: 38 }));
 
     const name = this.document.createElement('span');
     name.className = 'rc-name';
     name.textContent = type.name;
-    const cost = this.document.createElement('span');
-    cost.className = 'rc-cost';
-    cost.textContent = String(type.cost);
-    cost.setAttribute('aria-label', `${type.cost} points`);
-    select.append(name, cost);
+    const count = this.document.createElement('span');
+    count.className = 'rc-cost';
+    count.textContent = `×${availableCount}`;
+    count.setAttribute('aria-label', `${availableCount} available`);
+    select.append(name, count);
     return select;
   }
 }
