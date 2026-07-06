@@ -74,7 +74,7 @@ export class GameModel {
       return {
         id: this.nextUnitId++, team, type: plan.type, row: plan.row, column: plan.column,
         previousRow: plan.row, previousColumn: plan.column, animationStartedAt: startedAt,
-        animationDuration: 1, breached: false, movedThisTurn: false,
+        animationDuration: 1, breached: false, movedThisTurn: false, turnCount: 0,
         hp: type.hp, maxHp: type.hp, alive: true,
         stealthed: hasUnitTag(type, UNIT_TAG.STEALTH),
       };
@@ -101,6 +101,7 @@ export class GameModel {
       unit.animationStartedAt = now;
       unit.animationDuration = duration;
       unit.movedThisTurn = false;
+      unit.turnCount += 1;
     });
     this.shuffle(actingUnits).forEach((unit) => this.processUnit(unit, now, duration));
     this.refreshStealth();
@@ -120,7 +121,7 @@ export class GameModel {
 
     if (this.tryCombatAction(unit, type, now, duration)) return;
 
-    if (this.tickCount % type.moveInterval === 0) {
+    if (unit.turnCount % type.moveInterval === 0) {
       unit.movedThisTurn = this.moveUnit(unit, now, duration);
       if (unit.movedThisTurn && hasUnitTag(type, UNIT_TAG.FAST_ATTACK)) {
         if (unit.breached) this.attackBase(unit, now, duration);
