@@ -2,13 +2,19 @@ import { GAME_CONFIG, MODE, PLAYER_UNIT_TYPES, TEAM, UNIT_TAG, UNIT_TYPES, hasUn
 import { ATTACK_EFFECT, EFFECT_TYPE, LOG_TYPE, MISSION_STATUS, RESULT_TYPE, UNIT_ACTION } from '../data/gameTypes.js';
 import { BattleUnitFactory } from './BattleUnitFactory.js';
 import { createCampaign } from './CampaignFactory.js';
+import { BudgetDeploymentPolicy } from './DeploymentPolicies.js';
 import { SpatialIndex } from './SpatialIndex.js';
 
 const gridDistance = (a, b) => Math.max(Math.abs(a.row - b.row), Math.abs(a.column - b.column));
 const laneDistance = (a, b) => Math.abs(a.column - b.column);
 
 export class GameModel {
-  constructor({ random = Math.random, now = () => performance.now(), unitFactory = new BattleUnitFactory() } = {}) {
+  constructor({
+    random = Math.random,
+    now = () => performance.now(),
+    unitFactory = new BattleUnitFactory(),
+    createDeploymentPolicy = (model) => new BudgetDeploymentPolicy(model),
+  } = {}) {
     this.random = random;
     this.now = now;
     this.unitFactory = unitFactory;
@@ -19,13 +25,14 @@ export class GameModel {
     this.pendingDrafts = 0;
     this.draftChoices = [];
     this.placement = [];
+    this.deploymentPolicy = createDeploymentPolicy(this);
     this.resetBattle();
   }
 
   get mission() { return this.campaign[this.selectedMission]; }
   get budget() { return this.mission.playerBudget; }
   get spentBudget() { return this.placement.reduce((sum, unit) => sum + UNIT_TYPES[unit.type].cost, 0); }
-  get canLaunch() { return this.placement.length > 0 && this.spentBudget <= this.budget; }
+  get canLaunch() { return this.deploymentPolicy.canLaunch; }
   get livingPlayerCount() { return this.units.filter((unit) => unit.alive && unit.team === TEAM.PLAYER).length; }
   get livingEnemyCount() { return this.units.filter((unit) => unit.alive && unit.team === TEAM.ENEMY).length; }
   get rosterTypes() { return PLAYER_UNIT_TYPES.filter((type) => this.roster[type.key]); }
@@ -72,7 +79,7 @@ export class GameModel {
   }
 
   deployedCount(typeKey) { return this.placement.filter((unit) => unit.type === typeKey).length; }
-  availableCount(typeKey) { return this.roster[typeKey] ? Number.POSITIVE_INFINITY : 0; }
+  availableCount(typeKey) { return this.deploymentPolicy.availableCount(typeKey); }
 
   selectMission(index) {
     const mission = this.campaign[index];
@@ -93,27 +100,21 @@ export class GameModel {
   }
 
   togglePlacement(row, column) {
-    if (this.mode !== MODE.DEPLOY || !GAME_CONFIG.playerZone.includes(column)) return false;
-    const existing = this.placement.findIndex((unit) => unit.row === row && unit.column === column);
-    if (existing >= 0) {
-      this.placement.splice(existing, 1);
-      return true;
-    }
-    const type = UNIT_TYPES[this.selectedUnitType];
-    if (!type || hasUnitTag(type, UNIT_TAG.AI_ONLY) || !this.roster[type.key] || this.spentBudget + type.cost > this.budget) return false;
-    this.placement.push({ row, column, type: this.selectedUnitType });
-    return true;
+    return this.deploymentPolicy.togglePlacement(row, column);
   }
 
   clearPlacement() { this.placement = []; }
 
   startBattle() {
     if (!this.canLaunch) return false;
-    return this.setupBattle({
-      playerFormation: this.placement,
+    const committedFormation = this.placement.map((unit) => ({ ...unit }));
+    const started = this.setupBattle({
+      playerFormation: committedFormation,
       enemyFormation: this.mission.enemyFormation,
       missionLabel: `Mission ${this.selectedMission + 1}`,
     });
+    if (started) this.deploymentPolicy.commitBattle(committedFormation);
+    return started;
   }
 
   setupBattle({ playerFormation, enemyFormation, missionLabel = 'Battle' }) {
