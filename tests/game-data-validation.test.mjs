@@ -3,17 +3,6 @@ import assert from 'node:assert/strict';
 import { GAME_CONFIG, UNIT_ROLE, UNIT_TAG, UNIT_TYPES } from '../src/data/gameConfig.js';
 import { validateGameData } from '../src/data/validateGameData.js';
 
-const withTemporaryProperty = (target, key, value, callback) => {
-  const descriptor = Object.getOwnPropertyDescriptor(target, key);
-  Object.defineProperty(target, key, { configurable: true, enumerable: true, writable: true, value });
-  try {
-    callback();
-  } finally {
-    if (descriptor) Object.defineProperty(target, key, descriptor);
-    else delete target[key];
-  }
-};
-
 test('current game data passes validation', () => {
   assert.equal(validateGameData(), true);
 });
