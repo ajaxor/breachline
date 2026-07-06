@@ -1,4 +1,4 @@
-import { CanvasRenderer } from './CanvasRenderer.js';
+import { drawUnitGraphic } from './UnitGraphics.js';
 
 export class UnitPresentation {
   constructor(documentRef) {
@@ -12,8 +12,7 @@ export class UnitPresentation {
     canvas.width = size;
     canvas.height = size;
     canvas.setAttribute('aria-hidden', 'true');
-    const renderer = new CanvasRenderer(canvas, { clientWidth: size, clientHeight: size });
-    renderer.drawUnitGraphic(type.graphic ?? type.shape, size / 2, size / 2, size * 0.3, color);
+    drawUnitGraphic(canvas.getContext('2d'), type.graphic ?? type.shape, size / 2, size / 2, size * 0.3, color);
     symbol.appendChild(canvas);
     return symbol;
   }
