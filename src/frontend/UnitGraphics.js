@@ -1,4 +1,14 @@
+const GRAPHIC_ROLE = Object.freeze({
+  rifleman: 'grunt', gunner: 'grunt', bulwark: 'grunt',
+  marksman: 'ranged', flak: 'ranged', artillery: 'ranged',
+  medic: 'support',
+  midge: 'flying', wasp: 'flying', kite: 'flying', firefly: 'flying',
+  demolisher: 'specialist', ranger: 'specialist', infiltrator: 'specialist',
+  barricade: 'structure', turret: 'structure',
+});
+
 export const drawUnitGraphic = (context, graphic, x, y, radius, color, role = null) => {
+  const silhouetteRole = role ?? GRAPHIC_ROLE[graphic] ?? null;
   context.save();
   context.translate(x, y);
   context.strokeStyle = color;
@@ -10,11 +20,11 @@ export const drawUnitGraphic = (context, graphic, x, y, radius, color, role = nu
   context.save();
   context.globalAlpha *= 0.18;
   context.beginPath();
-  unitBodyPath(context, role, graphic, radius);
+  unitBodyPath(context, silhouetteRole, radius);
   context.fill();
   context.restore();
   context.beginPath();
-  unitBodyPath(context, role, graphic, radius);
+  unitBodyPath(context, silhouetteRole, radius);
   context.stroke();
 
   context.lineWidth = Math.max(1.2, radius * 0.09);
@@ -22,14 +32,13 @@ export const drawUnitGraphic = (context, graphic, x, y, radius, color, role = nu
   context.restore();
 };
 
-const unitBodyPath = (ctx, role, graphic, radius) => {
+const unitBodyPath = (ctx, role, radius) => {
   if (role === 'grunt') ctx.roundRect(-radius * 0.78, -radius * 0.78, radius * 1.56, radius * 1.56, radius * 0.18);
   else if (role === 'ranged') polygon(ctx, radius, 3, -Math.PI / 2);
   else if (role === 'support') ctx.arc(0, 0, radius, 0, Math.PI * 2);
   else if (role === 'flying') { ctx.moveTo(-radius, 0); ctx.quadraticCurveTo(-radius * 0.35, -radius, 0, -radius * 0.2); ctx.quadraticCurveTo(radius * 0.35, -radius, radius, 0); ctx.quadraticCurveTo(radius * 0.35, radius, 0, radius * 0.2); ctx.quadraticCurveTo(-radius * 0.35, radius, -radius, 0); ctx.closePath(); }
   else if (role === 'specialist') polygon(ctx, radius * 1.05, 4, -Math.PI / 2);
   else if (role === 'structure') polygon(ctx, radius, 6, Math.PI / 6);
-  else if (graphic === 'wasp') { ctx.moveTo(-radius, 0); ctx.quadraticCurveTo(-radius * 0.35, -radius, 0, -radius * 0.2); ctx.quadraticCurveTo(radius * 0.35, -radius, radius, 0); ctx.quadraticCurveTo(radius * 0.35, radius, 0, radius * 0.2); ctx.quadraticCurveTo(-radius * 0.35, radius, -radius, 0); ctx.closePath(); }
   else ctx.rect(-radius, -radius, radius * 2, radius * 2);
 };
 
