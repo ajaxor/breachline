@@ -12,4 +12,4 @@ Do not add ordinary feature requests, vague cleanup wishes, or speculative rewri
 
 ## Open items
 
-- [ ] **Repository guidance duplication:** Agent workflow rules now exist in both `AGENTS.md` and `README.md`. This can drift and cause conflicting instructions. Keep `AGENTS.md` as the authoritative source and reduce the README section to a short pointer during a future documentation cleanup.
+_No known technical debt is currently recorded._
