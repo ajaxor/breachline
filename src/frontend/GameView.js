@@ -5,10 +5,10 @@ export class GameView {
   constructor(documentRef = document) {
     this.document = documentRef;
     this.unitPresentation = new UnitPresentation(documentRef);
-    this.elements = Object.fromEntries(['screenTitle','gameShell','btnStartGame','buildInfo','field','fieldWrap','missionStrip','missionInfo','btnGoDeploy','budgetSpent','budgetFill','btnLaunch','deployTopbar','resolveTopbar','deployHint','battleStatus','btnOpenLog','phaseLabel','log','bannerOverlay','logSheet','sheetBackdrop','rosterList','rosterExpand','rosterOverlay','rosterFullList','rosterClose','playerHpText','enemyHpText','playerHpFill','enemyHpFill','draftOverlay','draftChoices','draftProgress','unitInspector'].map((id) => [id, documentRef.getElementById(id)]));
+    this.elements = Object.fromEntries(['screenTitle','gameShell','btnStartGame','buildInfo','field','fieldWrap','missionStrip','missionInfo','btnGoDeploy','budgetSpent','btnLaunch','deployTopbar','resolveTopbar','deployHint','battleStatus','btnOpenLog','phaseLabel','log','bannerOverlay','logSheet','sheetBackdrop','rosterList','rosterExpand','rosterOverlay','rosterFullList','rosterClose','playerHpText','enemyHpText','playerHpFill','enemyHpFill','draftOverlay','draftChoices','draftProgress','unitInspector'].map((id) => [id, documentRef.getElementById(id)]));
   }
 
-  render(model) { this.renderCampaign(model); this.renderBudget(model); this.renderBattleChrome(model); this.renderBases(model); this.renderLog(model); }
+  render(model) { this.renderCampaign(model); this.renderSupply(model); this.renderBattleChrome(model); this.renderBases(model); this.renderLog(model); }
   renderBuildInfo(buildInfo) { this.elements.buildInfo.textContent = `v${buildInfo?.version || 'dev'} · ${buildInfo?.commit || 'local'}`; }
   enterGame() { this.elements.screenTitle.hidden = true; this.elements.gameShell.hidden = false; }
 
@@ -20,17 +20,17 @@ export class GameView {
       chip.className = `mission-chip ${mission.status}${index === model.selectedMission ? ' selected' : ''}`;
       chip.disabled = mission.status === 'locked';
       chip.dataset.mission = String(index);
-      chip.innerHTML = `<span class="mc-num">${index + 1}</span><span>${mission.status === 'cleared' ? '✓ done' : mission.status === 'locked' ? 'locked' : `${mission.playerBudget}pt`}</span>`;
+      chip.innerHTML = `<span class="mc-num">${index + 1}</span><span>${mission.status === 'cleared' ? '✓ done' : mission.status === 'locked' ? 'locked' : 'available'}</span>`;
       strip.appendChild(chip);
     });
-    this.elements.missionInfo.textContent = `Mission ${model.selectedMission + 1} of ${GAME_CONFIG.missionCount} — your budget ${model.mission.playerBudget} pts · hostile force budget ${model.mission.enemyBudget} pts.`;
+    this.elements.missionInfo.textContent = `Mission ${model.selectedMission + 1} of ${GAME_CONFIG.missionCount} — ${model.totalSupply} units in supply · hostile force budget ${model.mission.enemyBudget} pts.`;
     this.elements.btnGoDeploy.textContent = `Deploy Mission ${model.selectedMission + 1}`;
   }
 
   renderRoster(model) {
     const list = this.elements.rosterList;
     list.innerHTML = '';
-    model.rosterTypes.forEach((type) => list.appendChild(this.unitPresentation.createRosterRow(type, type.key === model.selectedUnitType)));
+    model.rosterTypes.forEach((type) => list.appendChild(this.unitPresentation.createRosterRow(type, type.key === model.selectedUnitType, model.availableCount(type.key))));
     if (!model.rosterTypes.length) list.innerHTML = '<div class="empty-roster">Complete your opening drafts to assemble a roster.</div>';
     requestAnimationFrame(() => this.fitRosterNames());
   }
@@ -53,7 +53,7 @@ export class GameView {
       const card = this.document.createElement('button');
       card.className = `roster-full-card${type.key === model.selectedUnitType ? ' selected' : ''}`;
       card.dataset.fullRosterUnit = type.key;
-      card.appendChild(this.unitPresentation.createDescription(type, { label: 'Roster unit' }));
+      card.appendChild(this.unitPresentation.createDescription(type, { label: `${model.availableCount(type.key)} available · ${model.supply[type.key]} total`, includeCost: false }));
       list.appendChild(card);
     });
   }
@@ -77,7 +77,7 @@ export class GameView {
       card.className = 'draft-card';
       card.dataset.draftUnit = type.key;
       card.style.setProperty('--draft-index', String(index));
-      card.appendChild(this.unitPresentation.createDescription(type, { label: 'Draft option' }));
+      card.appendChild(this.unitPresentation.createDescription(type, { label: `Draft ${type.draftCount} units`, includeCost: false }));
       this.elements.draftChoices.appendChild(card);
     });
     this.elements.draftChoices.classList.remove('refreshing');
@@ -108,7 +108,7 @@ export class GameView {
     this.elements.unitInspector.className = 'unit-inspector';
   }
 
-  renderBudget(model) { this.elements.budgetSpent.textContent = `${model.spentBudget} / ${model.budget}`; this.elements.budgetFill.style.width = `${Math.min(100, model.spentBudget / model.budget * 100)}%`; this.elements.budgetFill.classList.toggle('over', model.spentBudget > model.budget); this.elements.btnLaunch.disabled = !model.canLaunch; }
+  renderSupply(model) { this.elements.budgetSpent.textContent = `${model.deployedSupply} deployed · ${model.totalSupply - model.deployedSupply} reserve`; this.elements.btnLaunch.disabled = !model.canLaunch; }
   renderBattleChrome(model) { const battling = model.mode === MODE.BATTLE; this.elements.deployTopbar.hidden = battling; this.elements.resolveTopbar.hidden = !battling; this.elements.deployHint.hidden = battling; this.elements.battleStatus.hidden = !battling; this.elements.btnOpenLog.hidden = !battling; this.elements.rosterExpand.disabled = battling; this.elements.phaseLabel.textContent = `PHASE: ${battling ? 'BATTLE' : 'DEPLOYMENT'} — MISSION ${model.selectedMission + 1}/${GAME_CONFIG.missionCount}`; this.elements.battleStatus.textContent = `TICK ${model.tickCount} · YOU ${model.livingPlayerCount} · HOSTILE ${model.livingEnemyCount}`; }
   renderBases(model) { this.elements.playerHpText.textContent = `${model.playerBaseHp}/${GAME_CONFIG.baseHp}`; this.elements.enemyHpText.textContent = `${model.enemyBaseHp}/${GAME_CONFIG.baseHp}`; this.elements.playerHpFill.style.width = `${model.playerBaseHp / GAME_CONFIG.baseHp * 100}%`; this.elements.enemyHpFill.style.width = `${model.enemyBaseHp / GAME_CONFIG.baseHp * 100}%`; }
   renderLog(model) { this.elements.log.innerHTML = ''; model.logEntries.forEach((entry) => { const row = this.document.createElement('div'); row.className = entry.cssClass; row.textContent = entry.message; this.elements.log.appendChild(row); }); this.elements.log.scrollTop = this.elements.log.scrollHeight; }
