@@ -1,6 +1,7 @@
 {
   "type": "module",
   "scripts": {
+    "test": "node tests/strategy-game-model.test.mjs",
     "balance": "node scripts/balance-units.mjs"
   }
 }
