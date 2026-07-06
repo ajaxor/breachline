@@ -13,8 +13,10 @@ export class StrategyGameModel extends GameModel {
   get totalSupply() { return Object.values(this.supply).reduce((sum, count) => sum + count, 0); }
   get deployedSupply() { return this.placement.length; }
 
-  beginDrafts(count = 1, draftBudget = this.mission.draftBudget) {
-    this.currentDraftBudget = draftBudget;
+  beginDrafts(count = 1, draftBudget = null) {
+    const nextMission = this.campaign[Math.min(this.selectedMission + 1, this.campaign.length - 1)];
+    const defaultBudget = this.mission.status === 'cleared' ? nextMission.draftBudget : this.mission.draftBudget;
+    this.currentDraftBudget = draftBudget ?? defaultBudget;
     this.pendingDrafts += count;
     this.rollDraftChoices();
     return this.draftChoices;
