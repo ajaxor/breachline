@@ -30,15 +30,9 @@ export class GameView {
     const list = this.elements.rosterList;
     list.innerHTML = '';
     model.rosterTypes.forEach((type) => {
-      const available = model.availableCount(type.key);
-      const card = this.document.createElement('button');
-      card.className = `roster-card${type.key === model.selectedUnitType ? ' selected' : ''}${available === 0 ? ' exhausted' : ''}`;
+      const card = this.createUnitCard(type, 'roster');
+      card.classList.toggle('selected', type.key === model.selectedUnitType);
       card.dataset.unitType = type.key;
-      const actionStat = type.action === 'heal' ? `HEAL ${type.healAmount}` : `ATK ${type.attack}`;
-      const rangeStat = type.range > 1 ? ` · RNG ${type.range}` : '';
-      const tags = type.tags.length ? `<span class="rc-tags">${type.tags.join(' · ')}</span>` : '';
-      card.innerHTML = `<span class="rc-info"><span class="rc-name">${type.name}</span><span class="rc-stats">HP ${type.hp} · ${actionStat}${rangeStat}</span>${tags}<span class="rc-behavior">${type.behavior}</span></span><span class="rc-cost">${type.cost}<small>${available}/${model.roster[type.key]}</small></span>`;
-      card.prepend(this.createUnitGraphic(type));
       list.appendChild(card);
     });
     if (!model.rosterTypes.length) list.innerHTML = '<div class="empty-roster">Complete your opening drafts to assemble a roster.</div>';
@@ -48,15 +42,24 @@ export class GameView {
     this.elements.draftProgress.textContent = model.pendingDrafts > 1 ? `${model.pendingDrafts} selections remaining` : 'Final selection';
     this.elements.draftChoices.innerHTML = '';
     model.draftChoices.forEach((type) => {
-      const card = this.document.createElement('button');
-      card.className = 'draft-card';
+      const card = this.createUnitCard(type, 'draft');
       card.dataset.draftUnit = type.key;
-      const actionStat = type.action === 'heal' ? `HEAL ${type.healAmount}` : `ATK ${type.attack}`;
-      const rangeStat = type.range > 1 ? ` · RNG ${type.range}` : '';
-      card.innerHTML = `<span class="draft-name">${type.name}</span><span class="draft-stats">${type.cost} pts · HP ${type.hp} · ${actionStat}${rangeStat}</span><span class="draft-behavior">${type.behavior}</span>`;
-      card.prepend(this.createUnitGraphic(type));
       this.elements.draftChoices.appendChild(card);
     });
+  }
+
+  createUnitCard(type, variant) {
+    const card = this.document.createElement('button');
+    card.className = `${variant}-card unit-card`;
+    const actionStat = type.action === 'heal' ? `HEAL ${type.healAmount}` : `ATK ${type.attack}`;
+    const rangeStat = type.range > 1 ? ` · RNG ${type.range}` : '';
+    const prefix = variant === 'draft' ? 'draft' : 'rc';
+    const tags = type.tags.length ? `<span class="${prefix}-tags">${type.tags.join(' · ')}</span>` : '';
+    const cost = variant === 'draft' ? `<span class="draft-cost">${type.cost} pts</span>` : `<span class="rc-cost">${type.cost}</span>`;
+    const behavior = variant === 'draft' ? `<span class="draft-behavior">${type.behavior}</span>` : '';
+    card.innerHTML = `<span class="${prefix}-info"><span class="${prefix}-name">${type.name}</span><span class="${prefix}-stats">HP ${type.hp} · ${actionStat}${rangeStat}</span>${tags}${behavior}</span>${cost}`;
+    card.prepend(this.createUnitGraphic(type));
+    return card;
   }
 
   openDraft() { this.elements.draftOverlay.hidden = false; }
