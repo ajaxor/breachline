@@ -11,28 +11,44 @@
 </head>
 <body>
   <main class="app">
-    <div class="screens">
-      <section id="screenMissions" class="screen active">
-        <header class="top-header"><div><div class="title"><span class="dot"></span>BREACH LINE</div><div class="sub">Autonomous Formation Combat</div></div></header>
-        <div class="missions-body"><h2>Campaign — 10 Missions</h2><div class="mission-strip" id="missionStrip"></div><div class="mission-info" id="missionInfo"></div><div class="mission-help">Select an unlocked mission, then tap Deploy below. Hostile formations grow more varied and dangerous as you advance.</div></div>
-        <footer class="missions-footer"><button class="primary full-btn" id="btnGoDeploy">Deploy Mission 1</button></footer>
-      </section>
-      <section id="screenBattle" class="screen">
-        <div class="phase-strip" id="phaseLabel"></div>
-        <div class="battle-topbar">
-          <div class="topbar-row" id="deployTopbar"><div class="budget-mini"><div class="budget-mini-label"><span>BUDGET</span><span id="budgetSpent"></span></div><div class="budget-bar"><div class="budget-fill" id="budgetFill"></div></div></div><button class="primary mini-btn" id="btnLaunch" disabled>Launch</button></div>
-          <div class="topbar-row" id="resolveTopbar" hidden><div class="base-mini player"><div class="base-mini-label">Your Base</div><div class="base-bar-track"><div class="base-bar-fill" id="playerHpFill"></div></div><div class="base-mini-text" id="playerHpText"></div></div><div class="base-mini enemy"><div class="base-mini-label">Hostile Base</div><div class="base-bar-track"><div class="base-bar-fill" id="enemyHpFill"></div></div><div class="base-mini-text" id="enemyHpText"></div></div><button class="mini-btn danger" id="btnRedesign">Redesign</button></div>
-        </div>
-        <div class="battle-status-line" id="battleStatus" hidden></div>
-        <div class="deploy-hint" id="deployHint">Tap <b>UNITS</b> to pick a robot, then tap an open cell in your zone (left, blue) to place it. Tap a placed unit to remove and refund it.</div>
-        <div class="field-wrap" id="fieldWrap"><canvas id="field"></canvas><div class="fab-row"><button class="fab" id="btnOpenLog" hidden>Log</button><button class="fab" id="btnOpenPalette">Units</button></div><div class="banner-overlay" id="bannerOverlay"></div></div>
-      </section>
+    <section id="screenTitle" class="title-screen">
+      <div class="title-grid" aria-hidden="true"></div>
+      <div class="title-content">
+        <div class="title-kicker"><span class="dot"></span>Autonomous Formation Combat</div>
+        <h1>BREACH<br>LINE</h1>
+        <div class="title-rule"></div>
+        <p>Design the formation. Break the line. Destroy the base.</p>
+        <button class="primary title-start" id="btnStartGame">Enter Command</button>
+        <div class="build-info" id="buildInfo">Version loading…</div>
+      </div>
+    </section>
+
+    <div id="gameShell" class="game-shell" hidden>
+      <div class="screens">
+        <section id="screenMissions" class="screen active">
+          <header class="top-header"><div><div class="title"><span class="dot"></span>BREACH LINE</div><div class="sub">Autonomous Formation Combat</div></div></header>
+          <div class="missions-body"><h2>Campaign — 10 Missions</h2><div class="mission-strip" id="missionStrip"></div><div class="mission-info" id="missionInfo"></div><div class="mission-help">Select an unlocked mission, then tap Deploy below. Hostile formations grow more varied and dangerous as you advance.</div></div>
+          <footer class="missions-footer"><button class="primary full-btn" id="btnGoDeploy">Deploy Mission 1</button></footer>
+        </section>
+        <section id="screenBattle" class="screen">
+          <div class="phase-strip" id="phaseLabel"></div>
+          <div class="battle-topbar">
+            <div class="topbar-row" id="deployTopbar"><div class="budget-mini"><div class="budget-mini-label"><span>BUDGET</span><span id="budgetSpent"></span></div><div class="budget-bar"><div class="budget-fill" id="budgetFill"></div></div></div><button class="primary mini-btn" id="btnLaunch" disabled>Launch</button></div>
+            <div class="topbar-row" id="resolveTopbar" hidden><div class="base-mini player"><div class="base-mini-label">Your Base</div><div class="base-bar-track"><div class="base-bar-fill" id="playerHpFill"></div></div><div class="base-mini-text" id="playerHpText"></div></div><div class="base-mini enemy"><div class="base-mini-label">Hostile Base</div><div class="base-bar-track"><div class="base-bar-fill" id="enemyHpFill"></div></div><div class="base-mini-text" id="enemyHpText"></div></div><button class="mini-btn danger" id="btnRedesign">Redesign</button></div>
+          </div>
+          <div class="battle-status-line" id="battleStatus" hidden></div>
+          <div class="deploy-hint" id="deployHint">Tap <b>UNITS</b> to pick a robot, then tap an open cell in your zone (left, blue) to place it. Tap a placed unit to remove and refund it.</div>
+          <div class="field-wrap" id="fieldWrap"><canvas id="field"></canvas><div class="fab-row"><button class="fab" id="btnOpenLog" hidden>Log</button><button class="fab" id="btnOpenPalette">Units</button></div><div class="banner-overlay" id="bannerOverlay"></div></div>
+        </section>
+      </div>
+      <nav class="tabbar"><button class="tab-btn active" data-tab="missions"><span class="tdot"></span>Missions</button><button class="tab-btn" data-tab="battle"><span class="tdot"></span>Battle</button></nav>
     </div>
-    <nav class="tabbar"><button class="tab-btn active" data-tab="missions"><span class="tdot"></span>Missions</button><button class="tab-btn" data-tab="battle"><span class="tdot"></span>Battle</button></nav>
+
     <aside class="sheet" id="paletteSheet"><div class="sheet-header">Unit Roster<button class="sheet-close" id="paletteClose">&times;</button></div><div class="sheet-body" id="rosterList"></div><div class="sheet-footer"><button class="clear-link" id="clearLink">Clear my formation</button></div></aside>
     <aside class="sheet" id="logSheet"><div class="sheet-header">Combat Log<button class="sheet-close" id="logClose">&times;</button></div><div class="sheet-body log" id="log"></div></aside>
     <div class="sheet-backdrop" id="sheetBackdrop"></div>
   </main>
+  <script src="./build-info.js"></script>
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>
