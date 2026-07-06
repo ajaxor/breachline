@@ -1,5 +1,6 @@
-import { GameModel } from '../model/GameModel.js';
 import { TEAM, UNIT_TYPES } from '../data/gameConfig.js';
+import { RESULT_TYPE } from '../data/gameTypes.js';
+import { GameModel } from '../model/GameModel.js';
 
 export class BattleSimulator {
   constructor({ maxTicks = 500 } = {}) {
@@ -9,15 +10,9 @@ export class BattleSimulator {
   run({ playerFormation, enemyFormation, random = Math.random }) {
     let clock = 0;
     const model = new GameModel({ random, now: () => clock++ });
-    model.campaign[0] = {
-      ...model.campaign[0],
-      playerBudget: Number.MAX_SAFE_INTEGER,
-      enemyFormation,
-      status: 'available',
-    };
-    model.selectedMission = 0;
-    model.placement = playerFormation.map((unit) => ({ ...unit }));
-    if (!model.startBattle()) throw new Error('Could not start simulated battle.');
+    if (!model.setupBattle({ playerFormation, enemyFormation, missionLabel: 'Simulation' })) {
+      throw new Error('Could not start simulated battle.');
+    }
 
     while (!model.battleOver && model.tickCount < this.maxTicks) model.tick();
 
@@ -27,11 +22,11 @@ export class BattleSimulator {
 
     return {
       winner: model.battleOver
-        ? model.result?.cssClass === 'player-win'
+        ? model.result?.cssClass === RESULT_TYPE.PLAYER_WIN
           ? TEAM.PLAYER
-          : model.result?.cssClass === 'enemy-win'
+          : model.result?.cssClass === RESULT_TYPE.ENEMY_WIN
             ? TEAM.ENEMY
-            : 'draw'
+            : RESULT_TYPE.DRAW
         : 'timeout',
       ticks: model.tickCount,
       playerBaseHp: model.playerBaseHp,
