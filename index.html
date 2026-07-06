@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./assets/styles.css?v=__BUILD_ID__">
+  <link rel="stylesheet" href="./assets/draft.css?v=__BUILD_ID__">
 </head>
 <body>
   <main class="app">
@@ -40,28 +41,29 @@
             <div class="topbar-row" id="resolveTopbar" hidden><div class="base-mini player"><div class="base-mini-label">Your Base</div><div class="base-bar-track"><div class="base-bar-fill" id="playerHpFill"></div></div><div class="base-mini-text" id="playerHpText"></div></div><div class="base-mini enemy"><div class="base-mini-label">Hostile Base</div><div class="base-bar-track"><div class="base-bar-fill" id="enemyHpFill"></div></div><div class="base-mini-text" id="enemyHpText"></div></div><button class="mini-btn danger" id="btnRedesign">Redesign</button></div>
           </div>
           <div class="battle-status-line" id="battleStatus" hidden></div>
-          <div class="deploy-hint" id="deployHint">Tap <b>UNITS</b> to pick a robot, then tap an open cell in your zone (left, blue) to place it. Tap a placed unit to remove and refund it.</div>
-          <div class="field-wrap" id="fieldWrap"><canvas id="field"></canvas><div class="fab-row"><button class="fab" id="btnOpenLog" hidden>Log</button><button class="fab" id="btnOpenPalette">Units</button></div><div class="banner-overlay" id="bannerOverlay"></div></div>
+          <div class="deploy-hint" id="deployHint">Choose a unit on the left, then tap an open blue cell. Tap a hostile unit during deployment to inspect it.</div>
+          <div class="battle-content">
+            <aside class="roster-panel"><div class="roster-heading">Unit Roster</div><div class="roster-scroll" id="rosterList"></div><div class="roster-footer"><button class="clear-link" id="clearLink">Clear formation</button></div></aside>
+            <div class="field-wrap" id="fieldWrap"><canvas id="field"></canvas><div id="unitInspector" class="unit-inspector" hidden></div><div class="fab-row"><button class="fab" id="btnOpenLog" hidden>Log</button></div><div class="banner-overlay" id="bannerOverlay"></div></div>
+          </div>
         </section>
       </div>
       <nav class="tabbar"><button class="tab-btn active" data-tab="missions"><span class="tdot"></span>Missions</button><button class="tab-btn" data-tab="battle"><span class="tdot"></span>Battle</button></nav>
     </div>
 
-    <aside class="sheet" id="paletteSheet"><div class="sheet-header">Unit Roster<button class="sheet-close" id="paletteClose">&times;</button></div><div class="sheet-body" id="rosterList"></div><div class="sheet-footer"><button class="clear-link" id="clearLink">Clear my formation</button></div></aside>
+    <section id="draftOverlay" class="draft-overlay" hidden>
+      <div class="draft-dialog"><div class="draft-kicker">Reinforcement Draft</div><h2>Choose one unit</h2><div id="draftProgress" class="draft-progress"></div><div id="draftChoices" class="draft-choices"></div></div>
+    </section>
     <aside class="sheet" id="logSheet"><div class="sheet-header">Combat Log<button class="sheet-close" id="logClose">&times;</button></div><div class="sheet-body log" id="log"></div></aside>
     <div class="sheet-backdrop" id="sheetBackdrop"></div>
   </main>
   <script type="module">
     const fallbackBuild = { version: 'dev', commit: 'local' };
     let build = fallbackBuild;
-
     try {
       const response = await fetch(`./build-info.json?probe=${Date.now()}`, { cache: 'no-store' });
       if (response.ok) build = await response.json();
-    } catch (error) {
-      console.warn('Build metadata unavailable; using local fallback.', error);
-    }
-
+    } catch (error) { console.warn('Build metadata unavailable; using local fallback.', error); }
     const currentUrl = new URL(window.location.href);
     const loadedBuild = currentUrl.searchParams.get('build');
     if (build.commit !== 'local' && loadedBuild !== build.commit) {
