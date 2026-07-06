@@ -1,9 +1,12 @@
+import { ATTACK_EFFECT, UNIT_ACTION } from './gameTypes.js';
+
 export const GAME_CONFIG = Object.freeze({
   columns: 14,
   rows: 8,
   baseHp: 150,
   missionCount: 10,
   tickIntervalMs: 600,
+  maxLogEntries: 250,
   startingBudget: 200,
   budgetStep: 25,
   enemyBudgetBonus: 20,
@@ -40,24 +43,25 @@ const unit = (definition) => {
     tags.delete(UNIT_TAG.FAST_ATTACK);
     tags.delete(UNIT_TAG.CAN_MOVE_SIDEWAYS);
   }
-  return Object.freeze({ ...definition, tags: Object.freeze([...tags]) });
+  const campaign = Object.freeze({ unlockMission: 0, initialWeight: 0, weightGrowth: 0, ...(definition.campaign ?? {}) });
+  return Object.freeze({ ...definition, campaign, tags: Object.freeze([...tags]) });
 };
 
 export const UNIT_TYPES = Object.freeze({
-  grunt: unit({ key: 'grunt', name: 'Rifleman', role: UNIT_ROLE.TROOPER, cost: 20, hp: 40, attack: 9, range: 1, behavior: 'A dependable lane fighter who stops behind anything in the way.', shape: 'square', graphic: 'rifleman' }),
-  tank: unit({ key: 'tank', name: 'Bulwark', role: UNIT_ROLE.TROOPER, cost: 40, hp: 100, attack: 15, range: 1, behavior: 'A heavily armored front-line unit built to hold a lane.', shape: 'hex', graphic: 'bulwark' }),
-  sniper: unit({ key: 'sniper', name: 'Marksman', role: UNIT_ROLE.TROOPER, cost: 32, hp: 22, attack: 14, range: 4, behavior: 'Engages distant targets that remain in the same lane.', shape: 'triangle', graphic: 'marksman' }),
-  bomber: unit({ key: 'bomber', name: 'Demolisher', role: UNIT_ROLE.TROOPER, cost: 29, hp: 25, attack: 26, range: 1, onAttack: 'detonate', behavior: 'Detonates on contact and damages every adjacent foe.', shape: 'diamond', graphic: 'demolisher' }),
-  healer: unit({ key: 'healer', name: 'Medic', role: UNIT_ROLE.SUPPORT, cost: 22, hp: 34, attack: 0, range: 2, healAmount: 12, action: 'heal', tags: [UNIT_TAG.ATTACKS_OTHER_LANES], behavior: 'Repairs the nearest damaged ally within range, regardless of lane.', shape: 'circle', graphic: 'medic' }),
-  sidestepper: unit({ key: 'sidestepper', name: 'Ranger', role: UNIT_ROLE.TROOPER, cost: 25, hp: 38, attack: 10, range: 2, tags: [UNIT_TAG.CAN_MOVE_SIDEWAYS, UNIT_TAG.ATTACKS_OTHER_LANES], behavior: 'Moves sideways around blockers and can strike targets in other lanes.', shape: 'chevron', graphic: 'ranger' }),
-  infiltrator: unit({ key: 'infiltrator', name: 'Infiltrator', role: UNIT_ROLE.TROOPER, cost: 29, hp: 28, attack: 14, range: 1, tags: [UNIT_TAG.CAN_MOVE_SIDEWAYS, UNIT_TAG.STEALTH], behavior: 'Moves sideways around blockers and remains untargetable until an enemy becomes adjacent.', shape: 'kite', graphic: 'infiltrator' }),
-  midge: unit({ key: 'midge', name: 'Midge', role: UNIT_ROLE.TROOPER, cost: 18, hp: 12, attack: 5, range: 1, tags: [UNIT_TAG.FLYING], behavior: 'A cheap swarm flyer that slips through formations and pecks at targets in its lane.', shape: 'wing', graphic: 'wasp' }),
-  flyer: unit({ key: 'flyer', name: 'Wasp', role: UNIT_ROLE.TROOPER, cost: 36, hp: 24, attack: 11, range: 2, tags: [UNIT_TAG.FLYING, UNIT_TAG.ATTACKS_OTHER_LANES], behavior: 'A flexible aerial skirmisher that advances through units and attacks nearby lanes.', shape: 'wing', graphic: 'wasp' }),
-  kite: unit({ key: 'kite', name: 'Kite', role: UNIT_ROLE.TROOPER, cost: 38, hp: 16, attack: 12, range: 4, tags: [UNIT_TAG.FLYING], behavior: 'A fragile long-range flyer that fires down its lane while continuously advancing.', shape: 'wing', graphic: 'wasp' }),
-  firefly: unit({ key: 'firefly', name: 'Firefly', role: UNIT_ROLE.TROOPER, cost: 28, hp: 14, attack: 24, range: 1, onAttack: 'detonate', tags: [UNIT_TAG.FLYING, UNIT_TAG.ATTACKS_OTHER_LANES], behavior: 'A disposable flying charge that detonates against an adjacent target in any lane.', shape: 'wing', graphic: 'wasp' }),
-  mortar: unit({ key: 'mortar', name: 'Artillery', role: UNIT_ROLE.TROOPER, cost: 40, hp: 28, attack: 19, range: 3, tags: [UNIT_TAG.ATTACKS_OTHER_LANES], behavior: 'Bombards any target within range, regardless of lane.', shape: 'star', graphic: 'artillery' }),
-  tollbooth: unit({ key: 'tollbooth', name: 'Barricade', role: UNIT_ROLE.STRUCTURE, cost: 35, hp: 85, attack: 8, range: 1, behavior: 'An enemy-only obstacle that blocks and strikes its lane.', shape: 'octagon', graphic: 'barricade' }),
-  sentry: unit({ key: 'sentry', name: 'Turret', role: UNIT_ROLE.STRUCTURE, cost: 50, hp: 55, attack: 12, range: 3, tags: [UNIT_TAG.ATTACKS_OTHER_LANES], behavior: 'An enemy-only stationary weapon that can target other lanes.', shape: 'burst', graphic: 'turret' }),
+  grunt: unit({ key: 'grunt', name: 'Rifleman', role: UNIT_ROLE.TROOPER, cost: 20, hp: 40, attack: 9, range: 1, campaign: { unlockMission: 0, initialWeight: 1 }, behavior: 'A dependable lane fighter who stops behind anything in the way.', shape: 'square', graphic: 'rifleman' }),
+  tank: unit({ key: 'tank', name: 'Bulwark', role: UNIT_ROLE.TROOPER, cost: 40, hp: 100, attack: 15, range: 1, campaign: { unlockMission: 2, initialWeight: 0.24, weightGrowth: 0.04 }, behavior: 'A heavily armored front-line unit built to hold a lane.', shape: 'hex', graphic: 'bulwark' }),
+  sniper: unit({ key: 'sniper', name: 'Marksman', role: UNIT_ROLE.TROOPER, cost: 32, hp: 22, attack: 14, range: 4, campaign: { unlockMission: 1, initialWeight: 0.34, weightGrowth: 0.04 }, behavior: 'Engages distant targets that remain in the same lane.', shape: 'triangle', graphic: 'marksman' }),
+  bomber: unit({ key: 'bomber', name: 'Demolisher', role: UNIT_ROLE.TROOPER, cost: 29, hp: 25, attack: 26, range: 1, onAttack: ATTACK_EFFECT.DETONATE, campaign: { unlockMission: 3, initialWeight: 0.2, weightGrowth: 0.04 }, behavior: 'Detonates on contact and damages every adjacent foe.', shape: 'diamond', graphic: 'demolisher' }),
+  healer: unit({ key: 'healer', name: 'Medic', role: UNIT_ROLE.SUPPORT, cost: 22, hp: 34, attack: 0, range: 2, healAmount: 12, action: UNIT_ACTION.HEAL, tags: [UNIT_TAG.ATTACKS_OTHER_LANES], campaign: { unlockMission: 4, initialWeight: 0.14, weightGrowth: 0.03 }, behavior: 'Repairs the nearest damaged ally within range, regardless of lane.', shape: 'circle', graphic: 'medic' }),
+  sidestepper: unit({ key: 'sidestepper', name: 'Ranger', role: UNIT_ROLE.TROOPER, cost: 25, hp: 38, attack: 10, range: 2, tags: [UNIT_TAG.CAN_MOVE_SIDEWAYS, UNIT_TAG.ATTACKS_OTHER_LANES], campaign: { unlockMission: 3, initialWeight: 0.2, weightGrowth: 0.04 }, behavior: 'Moves sideways around blockers and can strike targets in other lanes.', shape: 'chevron', graphic: 'ranger' }),
+  infiltrator: unit({ key: 'infiltrator', name: 'Infiltrator', role: UNIT_ROLE.TROOPER, cost: 29, hp: 28, attack: 14, range: 1, tags: [UNIT_TAG.CAN_MOVE_SIDEWAYS, UNIT_TAG.STEALTH], campaign: { unlockMission: 5, initialWeight: 0.16, weightGrowth: 0.03 }, behavior: 'Moves sideways around blockers and remains untargetable until an enemy becomes adjacent.', shape: 'kite', graphic: 'infiltrator' }),
+  midge: unit({ key: 'midge', name: 'Midge', role: UNIT_ROLE.TROOPER, cost: 18, hp: 12, attack: 5, range: 1, tags: [UNIT_TAG.FLYING], campaign: { unlockMission: 5, initialWeight: 0.13, weightGrowth: 0.025 }, behavior: 'A cheap swarm flyer that slips through formations and pecks at targets in its lane.', shape: 'wing', graphic: 'wasp' }),
+  flyer: unit({ key: 'flyer', name: 'Wasp', role: UNIT_ROLE.TROOPER, cost: 36, hp: 24, attack: 11, range: 2, tags: [UNIT_TAG.FLYING, UNIT_TAG.ATTACKS_OTHER_LANES], campaign: { unlockMission: 6, initialWeight: 0.16, weightGrowth: 0.03 }, behavior: 'A flexible aerial skirmisher that advances through units and attacks nearby lanes.', shape: 'wing', graphic: 'wasp' }),
+  kite: unit({ key: 'kite', name: 'Kite', role: UNIT_ROLE.TROOPER, cost: 38, hp: 16, attack: 12, range: 4, tags: [UNIT_TAG.FLYING], campaign: { unlockMission: 7, initialWeight: 0.13, weightGrowth: 0.025 }, behavior: 'A fragile long-range flyer that fires down its lane while continuously advancing.', shape: 'wing', graphic: 'wasp' }),
+  firefly: unit({ key: 'firefly', name: 'Firefly', role: UNIT_ROLE.TROOPER, cost: 28, hp: 14, attack: 24, range: 1, onAttack: ATTACK_EFFECT.DETONATE, tags: [UNIT_TAG.FLYING, UNIT_TAG.ATTACKS_OTHER_LANES], campaign: { unlockMission: 7, initialWeight: 0.12, weightGrowth: 0.025 }, behavior: 'A disposable flying charge that detonates against an adjacent target in any lane.', shape: 'wing', graphic: 'wasp' }),
+  mortar: unit({ key: 'mortar', name: 'Artillery', role: UNIT_ROLE.TROOPER, cost: 40, hp: 28, attack: 19, range: 3, tags: [UNIT_TAG.ATTACKS_OTHER_LANES], campaign: { unlockMission: 7, initialWeight: 0.14, weightGrowth: 0.03 }, behavior: 'Bombards any target within range, regardless of lane.', shape: 'star', graphic: 'artillery' }),
+  tollbooth: unit({ key: 'tollbooth', name: 'Barricade', role: UNIT_ROLE.STRUCTURE, cost: 35, hp: 85, attack: 8, range: 1, campaign: { unlockMission: 4, initialWeight: 0.16, weightGrowth: 0.03 }, behavior: 'An enemy-only obstacle that blocks and strikes its lane.', shape: 'octagon', graphic: 'barricade' }),
+  sentry: unit({ key: 'sentry', name: 'Turret', role: UNIT_ROLE.STRUCTURE, cost: 50, hp: 55, attack: 12, range: 3, tags: [UNIT_TAG.ATTACKS_OTHER_LANES], campaign: { unlockMission: 8, initialWeight: 0.12, weightGrowth: 0.03 }, behavior: 'An enemy-only stationary weapon that can target other lanes.', shape: 'burst', graphic: 'turret' }),
 });
 
 export const hasUnitTag = (typeOrKey, tag) => {
