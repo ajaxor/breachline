@@ -36,6 +36,10 @@ const unit = (definition) => {
     tags.add(UNIT_TAG.STATIONARY);
     tags.add(UNIT_TAG.AI_ONLY);
   }
+  if (tags.has(UNIT_TAG.FLYING)) {
+    tags.delete(UNIT_TAG.FAST_ATTACK);
+    tags.delete(UNIT_TAG.CAN_MOVE_SIDEWAYS);
+  }
   return Object.freeze({ ...definition, tags: Object.freeze([...tags]) });
 };
 
@@ -47,7 +51,7 @@ export const UNIT_TYPES = Object.freeze({
   healer: unit({ key: 'healer', name: 'Medic', role: UNIT_ROLE.SUPPORT, cost: 22, hp: 34, attack: 0, range: 2, healAmount: 12, action: 'heal', tags: [UNIT_TAG.ATTACKS_OTHER_LANES], behavior: 'Repairs the nearest damaged ally within range, regardless of lane.', shape: 'circle', graphic: 'medic' }),
   sidestepper: unit({ key: 'sidestepper', name: 'Ranger', role: UNIT_ROLE.TROOPER, cost: 25, hp: 38, attack: 10, range: 2, tags: [UNIT_TAG.CAN_MOVE_SIDEWAYS, UNIT_TAG.ATTACKS_OTHER_LANES], behavior: 'Moves sideways around blockers and can strike targets in other lanes.', shape: 'chevron', graphic: 'ranger' }),
   infiltrator: unit({ key: 'infiltrator', name: 'Infiltrator', role: UNIT_ROLE.TROOPER, cost: 29, hp: 28, attack: 14, range: 1, tags: [UNIT_TAG.CAN_MOVE_SIDEWAYS, UNIT_TAG.STEALTH], behavior: 'Moves sideways around blockers and remains untargetable until an enemy becomes adjacent.', shape: 'kite', graphic: 'infiltrator' }),
-  flyer: unit({ key: 'flyer', name: 'Wasp', role: UNIT_ROLE.TROOPER, cost: 40, hp: 28, attack: 11, range: 2, tags: [UNIT_TAG.FLYING, UNIT_TAG.ATTACKS_OTHER_LANES, UNIT_TAG.FAST_ATTACK], behavior: 'Flies over occupied cells, attacks other lanes, and can attack after moving.', shape: 'wing', graphic: 'wasp' }),
+  flyer: unit({ key: 'flyer', name: 'Wasp', role: UNIT_ROLE.TROOPER, cost: 40, hp: 28, attack: 11, range: 2, tags: [UNIT_TAG.FLYING, UNIT_TAG.ATTACKS_OTHER_LANES], behavior: 'Advances every turn through occupied cells and attacks after moving.', shape: 'wing', graphic: 'wasp' }),
   mortar: unit({ key: 'mortar', name: 'Artillery', role: UNIT_ROLE.TROOPER, cost: 40, hp: 28, attack: 19, range: 3, tags: [UNIT_TAG.ATTACKS_OTHER_LANES], behavior: 'Bombards any target within range, regardless of lane.', shape: 'star', graphic: 'artillery' }),
   tollbooth: unit({ key: 'tollbooth', name: 'Barricade', role: UNIT_ROLE.STRUCTURE, cost: 35, hp: 85, attack: 8, range: 1, behavior: 'An enemy-only obstacle that blocks and strikes its lane.', shape: 'octagon', graphic: 'barricade' }),
   sentry: unit({ key: 'sentry', name: 'Turret', role: UNIT_ROLE.STRUCTURE, cost: 50, hp: 55, attack: 12, range: 3, tags: [UNIT_TAG.ATTACKS_OTHER_LANES], behavior: 'An enemy-only stationary weapon that can target other lanes.', shape: 'burst', graphic: 'turret' }),
