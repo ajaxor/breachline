@@ -11,6 +11,9 @@ export class TargetingPolicy {
 
   canTarget(attacker, target, type = UNIT_TYPES[attacker.type]) {
     if (!this.isInAttackPattern(attacker, target, type)) return false;
+    if (hasUnitTag(target.type, UNIT_TAG.FLYING)
+      && !hasUnitTag(type, UNIT_TAG.FLYING)
+      && !hasUnitTag(type, UNIT_TAG.ANTI_AIR)) return false;
     return !hasUnitTag(target.type, UNIT_TAG.STEALTH) || gridDistance(attacker, target) <= 1;
   }
 
