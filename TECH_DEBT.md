@@ -17,7 +17,6 @@ Do not add ordinary feature requests, vague cleanup wishes, or speculative rewri
 - [ ] Split the broad responsibilities currently concentrated in `src/model/GameModel.js`. The class owns campaign state, drafting defaults, deployment, battle initialization, turn scheduling, movement, targeting, attacks, healing, effects, logging, result calculation, and mission progression, so every new mechanic increases branching and makes isolated testing harder. Extract focused collaborators incrementally—starting with action resolution, targeting/movement policies, and campaign progression—while retaining a small orchestration facade for callers.
 - [ ] Separate shared combat state from player deployment policy in `GameModel` and `StrategyGameModel`. The supply strategy currently overrides budget-era deployment methods and duplicates placement validation; future placement-rule changes could drift between the two classes. Extract a combat-focused base plus explicit deployment-policy collaborators, then have both campaign play and budget-based callers compose the policy they need.
 - [ ] Move presentation-specific effect payloads out of the core rules boundary. `GameModel` currently emits CSS color values, animation durations, and user-facing log strings while otherwise serving as a headless rules model; alternate renderers, localization, and deterministic replay tooling will inherit those presentation assumptions. Emit semantic combat events from the model and let frontend adapters choose colors, wording, and animation timing.
-- [ ] Finish centralizing effect type literals in renderer code. Shared mission, result, action, attack-effect, log, and effect constants now exist in `src/data/gameTypes.js`, and model/campaign/simulation consumers use them, but canvas effect dispatch still contains legacy string comparisons. Migrate renderer consumers and validate exhaustive effect handling.
 
 ### Configuration and campaign generation
 
@@ -35,9 +34,7 @@ No open items.
 
 ### Rendering and performance
 
-- [ ] Complete the unit-icon graphics extraction in `CanvasRenderer`. `UnitPresentation` now draws icons directly through `src/frontend/UnitGraphics.js` and no longer creates a battlefield renderer per icon, but `CanvasRenderer` still owns a duplicate copy of the same path definitions. Delegate battlefield unit graphics to the shared module and remove the duplicated renderer methods so future icon changes cannot drift.
-- [ ] Consolidate unit and health-bar drawing between `CanvasRenderer` and `BattlefieldRenderer`. The conditional full-health-bar behavior currently requires `BattlefieldRenderer` to duplicate `drawUnit`, so later visual changes can drift between the two implementations. Extract unit-body drawing and health-bar drawing into protected helpers or make health-bar visibility a policy hook on the base renderer.
-- [ ] Avoid searching the active-effect list independently for every unit during rendering. `drawAnimatedUnit` calls `find` on active effects for each living unit, producing avoidable repeated work. Index attack effects by attacker ID once per frame and pass the relevant effect directly.
+No open items.
 
 ## Review record
 
