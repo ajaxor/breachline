@@ -129,10 +129,9 @@ export class GameModel {
   tick() {
     if (this.mode !== MODE.BATTLE || this.battleOver) return this.result;
     this.tickCount += 1;
-    const actingTeam = this.activeTeam;
     const now = this.now();
     const duration = Math.max(110, Math.min(480, GAME_CONFIG.tickIntervalMs * 0.85));
-    const actingUnits = this.units.filter((unit) => unit.alive && unit.team === actingTeam);
+    const actingUnits = this.units.filter((unit) => unit.alive);
     actingUnits.forEach((unit) => {
       unit.previousRow = unit.row;
       unit.previousColumn = unit.column;
@@ -140,37 +139,43 @@ export class GameModel {
       unit.animationDuration = duration;
       unit.movedThisTurn = false;
     });
-    this.orderUnitsFrontToBack(actingUnits, actingTeam).forEach((unit) => this.processUnit(unit, now, duration));
+    this.processActionQueue(this.shuffle(actingUnits), now, duration);
     this.refreshStealth();
     this.result = this.determineResult();
     if (this.result) this.finishBattle(this.result);
-    else this.activeTeam = actingTeam === TEAM.PLAYER ? TEAM.ENEMY : TEAM.PLAYER;
     return this.result;
   }
 
-  orderUnitsFrontToBack(units, team) {
-    const direction = team === TEAM.PLAYER ? 1 : -1;
-    return units.slice().sort((a, b) => {
-      const frontOrder = direction * (b.column - a.column);
-      if (frontOrder !== 0) return frontOrder;
-      if (a.row !== b.row) return a.row - b.row;
-      return a.id - b.id;
-    });
+  processActionQueue(units, now, duration) {
+    const queue = units.slice();
+    let consecutivePasses = 0;
+    while (queue.length > 0 && consecutivePasses < queue.length) {
+      const unit = queue.shift();
+      if (!unit.alive) continue;
+      if (this.processUnit(unit, now, duration)) {
+        consecutivePasses = 0;
+      } else {
+        queue.push(unit);
+        consecutivePasses += 1;
+      }
+    }
   }
 
   processUnit(unit, now, duration) {
-    if (!unit.alive) return;
+    if (!unit.alive) return true;
     const type = UNIT_TYPES[unit.type];
     if (unit.breached) {
       if (this.canActAfterMovement(unit, type)) this.attackBase(unit, now, duration);
-      return;
+      return true;
     }
-    if (this.tryCombatAction(unit, type, now, duration)) return;
+    if (this.tryCombatAction(unit, type, now, duration)) return true;
     unit.movedThisTurn = this.moveUnit(unit, now, duration);
-    if (unit.movedThisTurn && hasUnitTag(type, UNIT_TAG.FAST_ATTACK)) {
+    if (!unit.movedThisTurn) return false;
+    if (hasUnitTag(type, UNIT_TAG.FAST_ATTACK)) {
       if (unit.breached) this.attackBase(unit, now, duration);
       else this.tryCombatAction(unit, type, now, duration);
     }
+    return true;
   }
 
   canActAfterMovement(unit, type = UNIT_TYPES[unit.type]) { return !unit.movedThisTurn || hasUnitTag(type, UNIT_TAG.FAST_ATTACK); }
