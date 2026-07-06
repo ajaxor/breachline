@@ -12,6 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./assets/styles.css?v=__BUILD_ID__">
   <link rel="stylesheet" href="./assets/draft.css?v=__BUILD_ID__">
+  <link rel="stylesheet" href="./assets/supply.css?v=__BUILD_ID__">
 </head>
 <body>
   <main class="app">
@@ -31,7 +32,7 @@
       <div class="screens">
         <section id="screenMissions" class="screen active">
           <header class="top-header"><div><div class="title"><span class="dot"></span>BREACH LINE</div><div class="sub">Autonomous Formation Combat</div></div></header>
-          <div class="missions-body"><h2>Campaign — 10 Missions</h2><div class="mission-strip" id="missionStrip"></div><div class="mission-info" id="missionInfo"></div><div class="mission-help">Select an unlocked mission, then tap Deploy below. Undeployed units carry forward, while units destroyed in battle are permanently lost.</div></div>
+          <div class="missions-body"><h2>Campaign — 10 Missions</h2><div class="mission-strip" id="missionStrip"></div><div class="mission-info" id="missionInfo"></div><div class="mission-help">Select an unlocked mission, then tap Deploy below. Only units left in reserve carry forward; every unit committed to battle is consumed.</div></div>
           <footer class="missions-footer"><button class="primary full-btn" id="btnGoDeploy">Deploy Mission 1</button></footer>
         </section>
         <section id="screenBattle" class="screen">
@@ -41,7 +42,7 @@
             <div class="topbar-row" id="resolveTopbar" hidden><div class="base-mini player"><div class="base-mini-label">Your Base</div><div class="base-bar-track"><div class="base-bar-fill" id="playerHpFill"></div></div><div class="base-mini-text" id="playerHpText"></div></div><div class="base-mini enemy"><div class="base-mini-label">Hostile Base</div><div class="base-bar-track"><div class="base-bar-fill" id="enemyHpFill"></div></div><div class="base-mini-text" id="enemyHpText"></div></div><button class="mini-btn danger" id="btnRedesign">Redesign</button></div>
           </div>
           <div class="battle-status-line" id="battleStatus" hidden></div>
-          <div class="deploy-hint" id="deployHint">Choose a roster unit, then tap an open blue cell. Each placement uses one unit from your available supply until it is removed or survives the mission.</div>
+          <div class="deploy-hint" id="deployHint">Choose a roster unit, then tap an open blue cell. Units remain in reserve until Launch; all launched units are permanently committed.</div>
           <div class="battle-content">
             <aside class="roster-panel"><div class="roster-heading"><span>Unit Supply</span><button id="rosterExpand" class="roster-expand" aria-label="Expand unit roster" title="Expand roster">›</button></div><div class="roster-scroll" id="rosterList"></div><div class="roster-footer"><button class="clear-link" id="clearLink">Clear formation</button></div></aside>
             <div class="field-wrap" id="fieldWrap"><canvas id="field"></canvas><div id="unitInspector" class="unit-inspector" hidden></div><div class="fab-row"><button class="fab" id="btnOpenLog" hidden>Log</button></div><div class="banner-overlay" id="bannerOverlay"></div></div>
