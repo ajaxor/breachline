@@ -1,4 +1,5 @@
 import { ENEMY_UNIT_TYPES, GAME_CONFIG, UNIT_TYPES } from '../data/gameConfig.js';
+import { MISSION_STATUS } from '../data/gameTypes.js';
 
 function shuffle(items, random) {
   const result = items.slice();
@@ -10,29 +11,12 @@ function shuffle(items, random) {
 }
 
 function weightsForMission(index) {
-  const weights = {
-    grunt: 1,
-    sniper: 0,
-    tank: 0,
-    bomber: 0,
-    healer: 0,
-    sidestepper: 0,
-    infiltrator: 0,
-    flyer: 0,
-    mortar: 0,
-    tollbooth: 0,
-    sentry: 0,
-  };
-  if (index >= 1) weights.sniper = 0.3 + 0.04 * index;
-  if (index >= 2) weights.tank = 0.24 + 0.04 * (index - 2);
-  if (index >= 3) weights.bomber = 0.2 + 0.04 * (index - 3);
-  if (index >= 3) weights.sidestepper = 0.2 + 0.04 * (index - 3);
-  if (index >= 4) weights.healer = 0.14 + 0.03 * (index - 4);
-  if (index >= 4) weights.tollbooth = 0.16 + 0.03 * (index - 4);
-  if (index >= 5) weights.infiltrator = 0.16 + 0.03 * (index - 5);
-  if (index >= 6) weights.flyer = 0.16 + 0.03 * (index - 6);
-  if (index >= 7) weights.mortar = 0.14 + 0.03 * (index - 7);
-  if (index >= 8) weights.sentry = 0.12 + 0.03 * (index - 8);
+  const weights = Object.fromEntries(ENEMY_UNIT_TYPES.map((type) => {
+    const { unlockMission, initialWeight, weightGrowth } = type.campaign;
+    const weight = index < unlockMission ? 0 : initialWeight + weightGrowth * (index - unlockMission);
+    return [type.key, weight];
+  }));
+
   const specialistWeight = Object.entries(weights)
     .filter(([key]) => key !== 'grunt')
     .reduce((sum, [, value]) => sum + value, 0);
@@ -82,7 +66,7 @@ export function createCampaign(random = Math.random) {
       enemyBudget,
       draftBudget,
       enemyFormation: generateFormation(enemyBudget, index, random),
-      status: index === 0 ? 'available' : 'locked',
+      status: index === 0 ? MISSION_STATUS.AVAILABLE : MISSION_STATUS.LOCKED,
     };
   });
 }
