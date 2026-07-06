@@ -62,9 +62,15 @@ const createModel = () => new StrategyGameModel({ random: () => 0.5, now: () => 
 }
 
 {
-  assert.equal(hasUnitTag('flyer', UNIT_TAG.FLYING), true);
-  assert.equal(hasUnitTag('flyer', UNIT_TAG.FAST_ATTACK), false, 'flying should provide move-and-attack behavior without the fast-attack tag');
-  assert.equal(hasUnitTag('flyer', UNIT_TAG.CAN_MOVE_SIDEWAYS), false, 'flying units should never carry sideways pathfinding');
+  const flyingTypes = Object.values(UNIT_TYPES).filter((type) => hasUnitTag(type, UNIT_TAG.FLYING));
+  assert.deepEqual(flyingTypes.map((type) => type.name), ['Midge', 'Wasp', 'Kite', 'Firefly']);
+  assert.ok(flyingTypes.every((type) => type.hp < UNIT_TYPES.grunt.hp), 'flying units should all have poor health compared with the baseline trooper');
+  assert.ok(flyingTypes.every((type) => type.shape === 'wing' && type.graphic === 'wasp'), 'flying units should share one winged icon silhouette');
+  assert.ok(flyingTypes.every((type) => !hasUnitTag(type, UNIT_TAG.FAST_ATTACK)), 'flying units should not duplicate their intrinsic move-and-attack rule');
+  assert.ok(flyingTypes.every((type) => !hasUnitTag(type, UNIT_TAG.CAN_MOVE_SIDEWAYS)), 'flying units should not use ground pathfinding tags');
+  assert.ok(UNIT_TYPES.midge.cost < UNIT_TYPES.flyer.cost, 'Midge should fill the cheap swarm niche');
+  assert.equal(UNIT_TYPES.kite.range, 4, 'Kite should fill the long-range lane niche');
+  assert.equal(UNIT_TYPES.firefly.onAttack, 'detonate', 'Firefly should fill the flying demolition niche');
 
   const model = new GameModel({ random: () => 0.5, now: () => 0 });
   const flyer = {
