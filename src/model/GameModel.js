@@ -28,6 +28,7 @@ export class GameModel {
     this.effects = [];
     this.logEntries = [];
     this.tickCount = 0;
+    this.activeTeam = TEAM.PLAYER;
     this.battleOver = false;
     this.nextUnitId = 1;
     this.playerBaseHp = GAME_CONFIG.baseHp;
@@ -73,7 +74,8 @@ export class GameModel {
       return {
         id: this.nextUnitId++, team, type: plan.type, row: plan.row, column: plan.column,
         previousRow: plan.row, previousColumn: plan.column, animationStartedAt: startedAt,
-        animationDuration: 1, breached: false, hp: type.hp, maxHp: type.hp, alive: true,
+        animationDuration: 1, breached: false, movedThisTurn: false,
+        hp: type.hp, maxHp: type.hp, alive: true,
         stealthed: hasUnitTag(type, UNIT_TAG.STEALTH),
       };
     };
@@ -89,25 +91,50 @@ export class GameModel {
   tick() {
     if (this.mode !== MODE.BATTLE || this.battleOver) return this.result;
     this.tickCount += 1;
+    const actingTeam = this.activeTeam;
     const now = this.now();
     const duration = Math.max(110, Math.min(480, GAME_CONFIG.tickIntervalMs * 0.85));
-    this.units.filter((unit) => unit.alive).forEach((unit) => {
+    const actingUnits = this.units.filter((unit) => unit.alive && unit.team === actingTeam);
+    actingUnits.forEach((unit) => {
       unit.previousRow = unit.row;
       unit.previousColumn = unit.column;
       unit.animationStartedAt = now;
       unit.animationDuration = duration;
+      unit.movedThisTurn = false;
     });
-    this.shuffle(this.units.filter((unit) => unit.alive)).forEach((unit) => this.processUnit(unit, now, duration));
+    this.shuffle(actingUnits).forEach((unit) => this.processUnit(unit, now, duration));
     this.refreshStealth();
     this.result = this.determineResult();
     if (this.result) this.finishBattle(this.result);
+    else this.activeTeam = actingTeam === TEAM.PLAYER ? TEAM.ENEMY : TEAM.PLAYER;
     return this.result;
   }
 
   processUnit(unit, now, duration) {
     if (!unit.alive) return;
     const type = UNIT_TYPES[unit.type];
-    if (unit.breached) return this.attackBase(unit, now, duration);
+    if (unit.breached) {
+      if (this.canActAfterMovement(unit, type)) this.attackBase(unit, now, duration);
+      return;
+    }
+
+    if (this.tryCombatAction(unit, type, now, duration)) return;
+
+    if (this.tickCount % type.moveInterval === 0) {
+      unit.movedThisTurn = this.moveUnit(unit, now, duration);
+      if (unit.movedThisTurn && hasUnitTag(type, UNIT_TAG.FAST_ATTACK)) {
+        if (unit.breached) this.attackBase(unit, now, duration);
+        else this.tryCombatAction(unit, type, now, duration);
+      }
+    }
+  }
+
+  canActAfterMovement(unit, type = UNIT_TYPES[unit.type]) {
+    return !unit.movedThisTurn || hasUnitTag(type, UNIT_TAG.FAST_ATTACK);
+  }
+
+  tryCombatAction(unit, type, now, duration) {
+    if (!this.canActAfterMovement(unit, type)) return false;
     const enemies = this.units.filter((candidate) => candidate.alive && candidate.team !== unit.team);
     const allies = this.units.filter((candidate) => candidate.alive && candidate.team === unit.team && candidate.id !== unit.id);
 
@@ -115,24 +142,24 @@ export class GameModel {
       const target = allies
         .filter((ally) => ally.hp < ally.maxHp && this.isInAttackPattern(unit, ally, type))
         .sort((a, b) => gridDistance(unit, a) - gridDistance(unit, b))[0];
-      if (target) {
-        const healed = Math.min(type.healAmount, target.maxHp - target.hp);
-        target.hp += healed;
-        this.effects.push(
-          { type: 'heal', from: this.point(unit), to: this.point(target), start: now, duration },
-          { type: 'text', ...this.point(target), text: `+${healed}`, color: '#4ade80', start: now, duration: duration * 1.3 },
-        );
-        this.addLog(`${type.name} #${unit.id} restores ${healed} HP to ${UNIT_TYPES[target.type].name} #${target.id}.`, 'hit');
-        return;
-      }
-    } else if (type.attack > 0) {
-      const target = enemies
-        .filter((enemy) => this.canTarget(unit, enemy, type))
-        .sort((a, b) => gridDistance(unit, a) - gridDistance(unit, b))[0];
-      if (target) return this.attackUnit(unit, target, enemies, now, duration);
+      if (!target) return false;
+      const healed = Math.min(type.healAmount, target.maxHp - target.hp);
+      target.hp += healed;
+      this.effects.push(
+        { type: 'heal', from: this.point(unit), to: this.point(target), start: now, duration },
+        { type: 'text', ...this.point(target), text: `+${healed}`, color: '#4ade80', start: now, duration: duration * 1.3 },
+      );
+      this.addLog(`${type.name} #${unit.id} restores ${healed} HP to ${UNIT_TYPES[target.type].name} #${target.id}.`, 'hit');
+      return true;
     }
 
-    if (this.tickCount % type.moveInterval === 0) this.moveUnit(unit, now, duration);
+    if (type.attack <= 0) return false;
+    const target = enemies
+      .filter((enemy) => this.canTarget(unit, enemy, type))
+      .sort((a, b) => gridDistance(unit, a) - gridDistance(unit, b))[0];
+    if (!target) return false;
+    this.attackUnit(unit, target, enemies, now, duration);
+    return true;
   }
 
   isInAttackPattern(attacker, target, type = UNIT_TYPES[attacker.type]) {
@@ -173,23 +200,29 @@ export class GameModel {
 
   moveUnit(unit, now, duration) {
     const type = UNIT_TYPES[unit.type];
-    if (hasUnitTag(type, UNIT_TAG.STATIONARY)) return;
+    if (hasUnitTag(type, UNIT_TAG.STATIONARY)) return false;
 
     const direction = unit.team === TEAM.PLAYER ? 1 : -1;
     const nextColumn = unit.column + direction;
-    if (nextColumn < 0 || nextColumn >= GAME_CONFIG.columns) return this.breach(unit, direction, now, duration);
+    if (nextColumn < 0 || nextColumn >= GAME_CONFIG.columns) {
+      this.breach(unit, direction, now, duration);
+      return true;
+    }
 
     if (!this.occupantAt(unit.row, nextColumn)) {
       unit.column = nextColumn;
-      return;
+      return true;
     }
 
     if (hasUnitTag(type, UNIT_TAG.FLYING)) {
       let landingColumn = nextColumn + direction;
       while (landingColumn >= 0 && landingColumn < GAME_CONFIG.columns && this.occupantAt(unit.row, landingColumn)) landingColumn += direction;
-      if (landingColumn < 0 || landingColumn >= GAME_CONFIG.columns) return this.breach(unit, direction, now, duration);
+      if (landingColumn < 0 || landingColumn >= GAME_CONFIG.columns) {
+        this.breach(unit, direction, now, duration);
+        return true;
+      }
       unit.column = landingColumn;
-      return;
+      return true;
     }
 
     if (hasUnitTag(type, UNIT_TAG.GO_AROUND)) {
@@ -197,10 +230,11 @@ export class GameModel {
         if (row >= 0 && row < GAME_CONFIG.rows && !this.occupantAt(row, nextColumn)) {
           unit.row = row;
           unit.column = nextColumn;
-          return;
+          return true;
         }
       }
     }
+    return false;
   }
 
   breach(unit, direction, now, duration) {
@@ -208,7 +242,6 @@ export class GameModel {
     unit.column = direction > 0 ? GAME_CONFIG.columns - 1 : 0;
     this.effects.push({ type: 'text', ...this.point(unit), text: 'BREACH!', color: '#fbbf24', start: now, duration: Math.max(duration * 1.6, 400) });
     this.addLog(`${UNIT_TYPES[unit.type].name} #${unit.id} breaks through and begins sieging the ${unit.team === TEAM.PLAYER ? 'hostile' : 'home'} base!`, 'sys');
-    this.attackBase(unit, now, duration);
   }
 
   attackBase(unit, now, duration) {
