@@ -1,4 +1,4 @@
-import { GAME_CONFIG, MODE } from '../data/gameConfig.js';
+import { GAME_CONFIG, MODE, UNIT_TYPES } from '../data/gameConfig.js';
 
 export class GameController {
   constructor(model, view, renderer, buildInfo = {}) {
@@ -8,6 +8,7 @@ export class GameController {
     this.buildInfo = buildInfo;
     this.timer = null;
     this.animationFrame = null;
+    this.afterDraft = null;
   }
 
   initialize() {
@@ -21,7 +22,10 @@ export class GameController {
     const { document } = this.view;
     this.view.elements.btnStartGame.addEventListener('click', () => {
       this.view.enterGame();
-      requestAnimationFrame(() => this.renderer.resize(this.model));
+      this.startDraftSequence(3, () => {
+        this.view.setActiveTab('missions');
+        requestAnimationFrame(() => this.renderer.resize(this.model));
+      });
     });
     document.querySelectorAll('.tab-btn').forEach((button) => button.addEventListener('click', () => this.activateTab(button.dataset.tab)));
     this.view.elements.btnGoDeploy.addEventListener('click', () => this.activateTab('battle'));
@@ -34,27 +38,52 @@ export class GameController {
       if (!button) return;
       this.model.setSelectedUnitType(button.dataset.unitType);
       this.view.renderRoster(this.model);
-      this.view.closeSheets();
+      this.view.clearUnitInspector();
+    });
+    this.view.elements.draftChoices.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-draft-unit]');
+      if (!button || !this.model.chooseDraft(button.dataset.draftUnit)) return;
+      this.view.renderRoster(this.model);
+      if (this.model.pendingDrafts > 0) this.view.renderDraft(this.model);
+      else {
+        this.view.closeDraft();
+        const continuation = this.afterDraft;
+        this.afterDraft = null;
+        continuation?.();
+      }
     });
     this.view.elements.field.addEventListener('click', (event) => {
       const cell = this.renderer.cellFromPointer(event);
-      if (cell && this.model.togglePlacement(cell.row, cell.column)) this.refresh();
+      if (!cell) return;
+      const enemy = this.model.enemyPlanAt(cell.row, cell.column);
+      if (enemy) {
+        this.view.showUnitInspector(UNIT_TYPES[enemy.type], 'Hostile unit');
+        return;
+      }
+      if (this.model.togglePlacement(cell.row, cell.column)) this.refresh();
     });
-    document.getElementById('clearLink').addEventListener('click', () => { this.model.clearPlacement(); this.view.closeSheets(); this.refresh(); });
+    document.getElementById('clearLink').addEventListener('click', () => { this.model.clearPlacement(); this.view.clearUnitInspector(); this.refresh(); });
     this.view.elements.btnLaunch.addEventListener('click', () => this.startBattle());
     document.getElementById('btnRedesign').addEventListener('click', () => this.returnToDeployment(this.model.selectedMission));
-    document.getElementById('paletteClose').addEventListener('click', () => this.view.closeSheets());
+    this.view.elements.btnOpenLog.addEventListener('click', () => this.view.openSheet(this.view.elements.logSheet));
     document.getElementById('logClose').addEventListener('click', () => this.view.closeSheets());
     this.view.elements.sheetBackdrop.addEventListener('click', () => this.view.closeSheets());
-    this.view.elements.btnOpenPalette.addEventListener('click', () => this.view.openSheet(this.view.elements.paletteSheet));
-    this.view.elements.btnOpenLog.addEventListener('click', () => this.view.openSheet(this.view.elements.logSheet));
     this.view.elements.bannerOverlay.addEventListener('click', (event) => {
       if (!event.target.closest('[data-result-action]')) return;
-      const next = this.model.result?.playerWon ? Math.min(this.model.selectedMission + 1, this.model.campaign.length - 1) : this.model.selectedMission;
-      this.returnToDeployment(next);
+      const won = Boolean(this.model.result?.playerWon);
+      const next = won ? Math.min(this.model.selectedMission + 1, this.model.campaign.length - 1) : this.model.selectedMission;
+      if (won) this.startDraftSequence(1, () => this.returnToDeployment(next));
+      else this.returnToDeployment(next);
     });
     window.addEventListener('resize', () => this.resizeIfBattleVisible());
     window.addEventListener('orientationchange', () => setTimeout(() => this.resizeIfBattleVisible(), 60));
+  }
+
+  startDraftSequence(count, continuation) {
+    this.afterDraft = continuation;
+    this.model.beginDrafts(count);
+    this.view.renderDraft(this.model);
+    this.view.openDraft();
   }
 
   activateTab(tab) {
@@ -65,6 +94,7 @@ export class GameController {
   startBattle() {
     if (!this.model.startBattle()) return;
     this.view.clearBanner();
+    this.view.clearUnitInspector();
     this.refresh();
     this.startAnimationLoop();
     this.stopTimer();
@@ -84,11 +114,13 @@ export class GameController {
     this.model.returnToDeployment(missionIndex);
     this.view.closeSheets();
     this.view.clearBanner();
+    this.view.clearUnitInspector();
     this.refresh();
   }
 
   refresh(renderCanvas = true) {
     this.view.render(this.model);
+    this.view.renderRoster(this.model);
     if (renderCanvas) this.renderer.render(this.model);
   }
 
@@ -102,17 +134,7 @@ export class GameController {
     this.animationFrame = requestAnimationFrame(frame);
   }
 
-  stopAnimationLoop() {
-    if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
-    this.animationFrame = null;
-  }
-
-  stopTimer() {
-    if (this.timer) clearInterval(this.timer);
-    this.timer = null;
-  }
-
-  resizeIfBattleVisible() {
-    if (!this.view.elements.gameShell.hidden && this.view.document.getElementById('screenBattle').classList.contains('active')) this.renderer.resize(this.model);
-  }
+  stopAnimationLoop() { if (this.animationFrame) cancelAnimationFrame(this.animationFrame); this.animationFrame = null; }
+  stopTimer() { if (this.timer) clearInterval(this.timer); this.timer = null; }
+  resizeIfBattleVisible() { if (!this.view.elements.gameShell.hidden && this.view.document.getElementById('screenBattle').classList.contains('active')) this.renderer.resize(this.model); }
 }
