@@ -1,0 +1,56 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build static site
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp -R index.html assets src dist/
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          SHORT_SHA="${GITHUB_SHA::7}"
+          cat > dist/build-info.js <<EOF
+          window.BREACH_LINE_BUILD = Object.freeze({
+            version: '${VERSION}',
+            commit: '${SHORT_SHA}',
+          });
+          EOF
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
