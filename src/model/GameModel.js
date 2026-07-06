@@ -1,23 +1,26 @@
 import { GAME_CONFIG, MODE, PLAYER_UNIT_TYPES, TEAM, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
-import { ATTACK_EFFECT, EFFECT_TYPE, LOG_TYPE, MISSION_STATUS, RESULT_TYPE, UNIT_ACTION } from '../data/gameTypes.js';
+import { EFFECT_TYPE, LOG_TYPE, RESULT_TYPE } from '../data/gameTypes.js';
 import { BattleUnitFactory } from './BattleUnitFactory.js';
+import { CampaignProgression } from './CampaignProgression.js';
 import { createCampaign } from './CampaignFactory.js';
+import { CombatActionResolver } from './CombatActionResolver.js';
 import { BudgetDeploymentPolicy } from './DeploymentPolicies.js';
 import { SpatialIndex } from './SpatialIndex.js';
-
-const gridDistance = (a, b) => Math.max(Math.abs(a.row - b.row), Math.abs(a.column - b.column));
-const laneDistance = (a, b) => Math.abs(a.column - b.column);
 
 export class GameModel {
   constructor({
     random = Math.random,
     now = () => performance.now(),
     unitFactory = new BattleUnitFactory(),
+    actionResolver = new CombatActionResolver(),
+    campaignProgression = new CampaignProgression(),
     createDeploymentPolicy = (model) => new BudgetDeploymentPolicy(model),
   } = {}) {
     this.random = random;
     this.now = now;
     this.unitFactory = unitFactory;
+    this.actionResolver = actionResolver;
+    this.campaignProgression = campaignProgression;
     this.campaign = createCampaign(random);
     this.selectedMission = 0;
     this.roster = Object.fromEntries(PLAYER_UNIT_TYPES.map((type) => [type.key, false]));
@@ -80,13 +83,7 @@ export class GameModel {
 
   deployedCount(typeKey) { return this.placement.filter((unit) => unit.type === typeKey).length; }
   availableCount(typeKey) { return this.deploymentPolicy.availableCount(typeKey); }
-
-  selectMission(index) {
-    const mission = this.campaign[index];
-    if (!mission || mission.status === MISSION_STATUS.LOCKED || (this.mode === MODE.BATTLE && !this.battleOver)) return false;
-    this.selectedMission = index;
-    return true;
-  }
+  selectMission(index) { return this.campaignProgression.selectMission(this, index); }
 
   setSelectedUnitType(type) {
     if (!UNIT_TYPES[type] || hasUnitTag(type, UNIT_TAG.AI_ONLY) || !this.roster[type]) return false;
@@ -99,10 +96,7 @@ export class GameModel {
     return this.mission.enemyFormation.find((unit) => unit.row === row && unit.column === column) ?? null;
   }
 
-  togglePlacement(row, column) {
-    return this.deploymentPolicy.togglePlacement(row, column);
-  }
-
+  togglePlacement(row, column) { return this.deploymentPolicy.togglePlacement(row, column); }
   clearPlacement() { this.placement = []; }
 
   startBattle() {
@@ -154,129 +148,15 @@ export class GameModel {
     return this.result;
   }
 
-  processActionQueue(units, now, duration) {
-    const queue = units.slice();
-    let consecutivePasses = 0;
-    while (queue.length > 0 && consecutivePasses < queue.length) {
-      const unit = queue.shift();
-      if (!unit.alive) continue;
-      if (this.processUnit(unit, now, duration)) consecutivePasses = 0;
-      else {
-        queue.push(unit);
-        consecutivePasses += 1;
-      }
-    }
-  }
-
-  processUnit(unit, now, duration) {
-    if (!unit.alive) return true;
-    const type = UNIT_TYPES[unit.type];
-    if (unit.breached) {
-      this.attackBase(unit, now, duration);
-      return true;
-    }
-    if (hasUnitTag(type, UNIT_TAG.FLYING)) return this.processFlyingUnit(unit, type, now, duration);
-    if (this.tryCombatAction(unit, type, now, duration)) return true;
-    unit.movedThisTurn = this.moveUnit(unit, now, duration);
-    if (!unit.movedThisTurn) return false;
-    if (hasUnitTag(type, UNIT_TAG.FAST_ATTACK)) {
-      if (unit.breached) this.attackBase(unit, now, duration);
-      else this.tryCombatAction(unit, type, now, duration);
-    }
-    return true;
-  }
-
-  processFlyingUnit(unit, type, now, duration) {
-    unit.movedThisTurn = this.moveUnit(unit, now, duration);
-    if (unit.breached) this.attackBase(unit, now, duration);
-    else this.tryCombatAction(unit, type, now, duration);
-    return true;
-  }
-
-  canActAfterMovement(unit, type = UNIT_TYPES[unit.type]) {
-    return !unit.movedThisTurn || hasUnitTag(type, UNIT_TAG.FAST_ATTACK) || hasUnitTag(type, UNIT_TAG.FLYING);
-  }
-
-  tryCombatAction(unit, type, now, duration) {
-    if (!this.canActAfterMovement(unit, type)) return false;
-    const nearby = this.spatialIndex.nearby(unit.row, unit.column, type.range);
-    const enemies = nearby.filter((candidate) => candidate.alive && candidate.team !== unit.team);
-    const allies = nearby.filter((candidate) => candidate.alive && candidate.team === unit.team && candidate.id !== unit.id);
-    if (type.action === UNIT_ACTION.HEAL) {
-      const target = allies.filter((ally) => ally.hp < ally.maxHp && this.isInAttackPattern(unit, ally, type)).sort((a, b) => gridDistance(unit, a) - gridDistance(unit, b))[0];
-      if (!target) return false;
-      const healed = Math.min(type.healAmount, target.maxHp - target.hp);
-      target.hp += healed;
-      this.effects.push(
-        { type: EFFECT_TYPE.HEAL, from: this.point(unit), to: this.point(target), start: now, duration },
-        { type: EFFECT_TYPE.TEXT, ...this.point(target), text: `+${healed}`, color: '#4ade80', start: now, duration: duration * 1.3 },
-      );
-      this.addLog(`${type.name} #${unit.id} restores ${healed} HP to ${UNIT_TYPES[target.type].name} #${target.id}.`, LOG_TYPE.HIT);
-      return true;
-    }
-    if (type.attack <= 0) return false;
-    const target = enemies.filter((enemy) => this.canTarget(unit, enemy, type)).sort((a, b) => gridDistance(unit, a) - gridDistance(unit, b))[0];
-    if (!target) return false;
-    this.attackUnit(unit, target, enemies, now, duration);
-    return true;
-  }
-
-  isInAttackPattern(attacker, target, type = UNIT_TYPES[attacker.type]) {
-    if (hasUnitTag(type, UNIT_TAG.ATTACKS_OTHER_LANES)) return gridDistance(attacker, target) <= type.range;
-    return attacker.row === target.row && laneDistance(attacker, target) <= type.range;
-  }
-
-  canTarget(attacker, target, type = UNIT_TYPES[attacker.type]) {
-    if (!this.isInAttackPattern(attacker, target, type)) return false;
-    return !hasUnitTag(target.type, UNIT_TAG.STEALTH) || gridDistance(attacker, target) <= 1;
-  }
-
-  attackUnit(attacker, target, enemies, now, duration) {
-    const type = UNIT_TYPES[attacker.type];
-    this.effects.push({ type: type.range > 1 ? EFFECT_TYPE.RANGED : EFFECT_TYPE.MELEE, attackerId: attacker.id, team: attacker.team, from: this.point(attacker), to: this.point(target), start: now, duration });
-    target.hp -= type.attack;
-    this.effects.push({ type: EFFECT_TYPE.TEXT, ...this.point(target), text: `-${type.attack}`, color: '#ff5d5d', start: now, duration: duration * 1.3 });
-    this.addLog(`${type.name} #${attacker.id} hits ${UNIT_TYPES[target.type].name} #${target.id} for ${type.attack}.`, LOG_TYPE.HIT);
-    if (type.onAttack === ATTACK_EFFECT.DETONATE) {
-      this.effects.push({ type: EFFECT_TYPE.EXPLOSION, ...this.point(attacker), start: now, duration: Math.max(duration, 320) });
-      for (const enemy of enemies) {
-        if (enemy.id === target.id || !enemy.alive || gridDistance(attacker, enemy) > 1) continue;
-        const splash = Math.round(type.attack * 0.55);
-        enemy.hp -= splash;
-        this.effects.push({ type: EFFECT_TYPE.TEXT, ...this.point(enemy), text: `-${splash}`, color: '#ff5d5d', start: now, duration: duration * 1.3 });
-        this.addLog(`Splash blast hits ${UNIT_TYPES[enemy.type].name} #${enemy.id} for ${splash}.`, LOG_TYPE.HIT);
-        if (enemy.hp <= 0) this.killUnit(enemy, now, duration);
-      }
-      attacker.alive = false;
-      this.spatialIndex.remove(attacker);
-      this.addDeathEffect(attacker, now, duration);
-      this.addLog(`${type.name} #${attacker.id} detonates and is destroyed.`, attacker.team === TEAM.PLAYER ? LOG_TYPE.PLAYER_LOSS : LOG_TYPE.KILL);
-    }
-    if (target.alive && target.hp <= 0) this.killUnit(target, now, duration);
-  }
-
-  moveUnit(unit, now, duration) {
-    const type = UNIT_TYPES[unit.type];
-    if (hasUnitTag(type, UNIT_TAG.STATIONARY)) return false;
-    const direction = unit.team === TEAM.PLAYER ? 1 : -1;
-    const nextColumn = unit.column + direction;
-    if (nextColumn < 0 || nextColumn >= GAME_CONFIG.columns) {
-      this.breach(unit, direction, now, duration);
-      return true;
-    }
-    const previousRow = unit.row;
-    const previousColumn = unit.column;
-    if (hasUnitTag(type, UNIT_TAG.FLYING)) unit.column = nextColumn;
-    else if (!this.occupantAt(unit.row, nextColumn)) unit.column = nextColumn;
-    else if (hasUnitTag(type, UNIT_TAG.CAN_MOVE_SIDEWAYS)) {
-      const row = [unit.row - 1, unit.row + 1].find((candidate) => candidate >= 0 && candidate < GAME_CONFIG.rows && !this.occupantAt(candidate, nextColumn));
-      if (row === undefined) return false;
-      unit.row = row;
-      unit.column = nextColumn;
-    } else return false;
-    this.spatialIndex.move(unit, previousRow, previousColumn);
-    return true;
-  }
+  processActionQueue(units, now, duration) { return this.actionResolver.processQueue(this, units, now, duration); }
+  processUnit(unit, now, duration) { return this.actionResolver.processUnit(this, unit, now, duration); }
+  processFlyingUnit(unit, type, now, duration) { return this.actionResolver.processFlyingUnit(this, unit, type, now, duration); }
+  canActAfterMovement(unit, type = UNIT_TYPES[unit.type]) { return this.actionResolver.canActAfterMovement(unit, type); }
+  tryCombatAction(unit, type, now, duration) { return this.actionResolver.tryCombatAction(this, unit, type, now, duration); }
+  isInAttackPattern(attacker, target, type = UNIT_TYPES[attacker.type]) { return this.actionResolver.targeting.isInAttackPattern(attacker, target, type); }
+  canTarget(attacker, target, type = UNIT_TYPES[attacker.type]) { return this.actionResolver.targeting.canTarget(attacker, target, type); }
+  attackUnit(attacker, target, enemies, now, duration) { return this.actionResolver.attackUnit(this, attacker, target, enemies, now, duration); }
+  moveUnit(unit, now, duration) { return this.actionResolver.movement.move(this, unit, now, duration); }
 
   breach(unit, direction, now, duration) {
     this.spatialIndex.remove(unit);
@@ -302,7 +182,10 @@ export class GameModel {
         unit.stealthed = false;
         continue;
       }
-      unit.stealthed = !this.spatialIndex.nearby(unit.row, unit.column, 1).some((other) => other.team !== unit.team && gridDistance(unit, other) <= 1);
+      unit.stealthed = !this.spatialIndex.nearby(unit.row, unit.column, 1).some((other) => (
+        other.team !== unit.team
+        && this.actionResolver.targeting.isInAttackPattern(unit, other, { range: 1, tags: [UNIT_TAG.ATTACKS_OTHER_LANES] })
+      ));
     }
   }
 
@@ -328,15 +211,7 @@ export class GameModel {
     return null;
   }
 
-  finishBattle(result) {
-    this.battleOver = true;
-    if (result.playerWon) {
-      this.mission.status = MISSION_STATUS.CLEARED;
-      const nextMission = this.campaign[this.selectedMission + 1];
-      if (nextMission?.status === MISSION_STATUS.LOCKED) nextMission.status = MISSION_STATUS.AVAILABLE;
-    }
-    this.addLog(result.text, LOG_TYPE.SYSTEM);
-  }
+  finishBattle(result) { return this.campaignProgression.finishBattle(this, result); }
 
   returnToDeployment(missionIndex = this.selectedMission) {
     this.resetBattle();
