@@ -23,7 +23,7 @@ Do not add ordinary feature requests, vague cleanup wishes, or speculative rewri
 
 ### Configuration and campaign generation
 
-- [ ] Replace hard-coded per-unit campaign weight keys with data-driven availability metadata. `weightsForMission` requires edits whenever unit keys change or new units are added, creating a second content registry that can drift from `UNIT_TYPES`. Store unlock mission and weight progression alongside unit configuration or in a dedicated campaign data table validated against unit definitions.
+No open items.
 
 ### Testing, validation, and delivery
 
