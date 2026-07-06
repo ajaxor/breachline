@@ -22,6 +22,18 @@ export const EFFECT_TYPE = Object.freeze({
   DEATH: 'death',
 });
 
+export const COMBAT_EVENT = Object.freeze({
+  BATTLE_STARTED: 'battle-started',
+  UNIT_HEALED: 'unit-healed',
+  UNIT_ATTACKED: 'unit-attacked',
+  SPLASH_HIT: 'splash-hit',
+  UNIT_DETONATED: 'unit-detonated',
+  UNIT_BREACHED: 'unit-breached',
+  BASE_ATTACKED: 'base-attacked',
+  UNIT_DESTROYED: 'unit-destroyed',
+  BATTLE_FINISHED: 'battle-finished',
+});
+
 export const RESULT_TYPE = Object.freeze({
   DRAW: 'draw',
   PLAYER_WIN: 'player-win',
