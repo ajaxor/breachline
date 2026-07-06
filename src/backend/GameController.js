@@ -144,7 +144,7 @@ export class GameController {
     if (!event.target.closest('[data-result-action]')) return;
     const won = Boolean(this.model.result?.playerWon);
     const next = won ? Math.min(this.model.selectedMission + 1, this.model.campaign.length - 1) : this.model.selectedMission;
-    if (won) this.startDraftSequence(1, () => this.returnToDeployment(next));
+    if (won) this.startDraftSequence(2, () => this.returnToDeployment(next));
     else this.returnToDeployment(next);
   }
 
