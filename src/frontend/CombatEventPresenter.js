@@ -4,6 +4,20 @@ import { COMBAT_EVENT, EFFECT_TYPE, LOG_TYPE } from '../data/gameTypes.js';
 const point = (unit) => ({ row: unit.row, column: unit.column });
 const teamColor = (team) => team === TEAM.PLAYER ? '#38bdf8' : '#ff5d5d';
 
+function addDeathEffect(model, unit, at, duration) {
+  const definition = UNIT_TYPES[unit.type];
+  model.effects.push({
+    type: EFFECT_TYPE.DEATH,
+    ...point(unit),
+    shape: definition.shape,
+    graphic: definition.graphic,
+    color: teamColor(unit.team),
+    seed: unit.id * 2.399963229728653,
+    start: at,
+    duration: Math.max(duration * 1.25, 450),
+  });
+}
+
 export class CombatEventPresenter {
   present(model, event) {
     const duration = Math.max(110, Math.min(480, GAME_CONFIG.tickIntervalMs * 0.85));
@@ -33,6 +47,7 @@ export class CombatEventPresenter {
         break;
       case COMBAT_EVENT.UNIT_DETONATED:
         model.effects.push({ type: EFFECT_TYPE.EXPLOSION, ...point(event.unit), start: at, duration: Math.max(duration, 320) });
+        addDeathEffect(model, event.unit, at, duration);
         model.addLog(`${UNIT_TYPES[event.unit.type].name} #${event.unit.id} detonates and is destroyed.`, event.unit.team === TEAM.PLAYER ? LOG_TYPE.PLAYER_LOSS : LOG_TYPE.KILL);
         break;
       case COMBAT_EVENT.UNIT_BREACHED:
@@ -45,16 +60,7 @@ export class CombatEventPresenter {
         break;
       case COMBAT_EVENT.UNIT_DESTROYED: {
         const definition = UNIT_TYPES[event.unit.type];
-        model.effects.push({
-          type: EFFECT_TYPE.DEATH,
-          ...point(event.unit),
-          shape: definition.shape,
-          graphic: definition.graphic,
-          color: teamColor(event.unit.team),
-          seed: event.unit.id * 2.399963229728653,
-          start: at,
-          duration: Math.max(duration * 1.25, 450),
-        });
+        addDeathEffect(model, event.unit, at, duration);
         model.addLog(`${definition.name} #${event.unit.id} destroyed.`, event.unit.team === TEAM.PLAYER ? LOG_TYPE.PLAYER_LOSS : LOG_TYPE.KILL);
         break;
       }
