@@ -1,4 +1,4 @@
-import { GAME_CONFIG, UNIT_TYPES } from '../data/gameConfig.js';
+import { ENEMY_UNIT_TYPES, GAME_CONFIG, UNIT_TYPES } from '../data/gameConfig.js';
 
 function shuffle(items, random) {
   const result = items.slice();
@@ -10,12 +10,33 @@ function shuffle(items, random) {
 }
 
 function weightsForMission(index) {
-  const weights = { grunt: 1, sniper: 0, tank: 0, bomber: 0, healer: 0 };
-  if (index >= 1) weights.sniper = 0.3 + 0.05 * index;
-  if (index >= 2) weights.tank = 0.25 + 0.05 * (index - 2);
-  if (index >= 3) weights.bomber = 0.2 + 0.05 * (index - 3);
-  if (index >= 4) weights.healer = 0.15 + 0.04 * (index - 4);
-  weights.grunt = Math.max(0.25, 1 - (weights.sniper + weights.tank + weights.bomber + weights.healer) * 0.6);
+  const weights = {
+    grunt: 1,
+    sniper: 0,
+    tank: 0,
+    bomber: 0,
+    healer: 0,
+    sidestepper: 0,
+    infiltrator: 0,
+    flyer: 0,
+    mortar: 0,
+    tollbooth: 0,
+    sentry: 0,
+  };
+  if (index >= 1) weights.sniper = 0.3 + 0.04 * index;
+  if (index >= 2) weights.tank = 0.24 + 0.04 * (index - 2);
+  if (index >= 3) weights.bomber = 0.2 + 0.04 * (index - 3);
+  if (index >= 3) weights.sidestepper = 0.2 + 0.04 * (index - 3);
+  if (index >= 4) weights.healer = 0.14 + 0.03 * (index - 4);
+  if (index >= 4) weights.tollbooth = 0.16 + 0.03 * (index - 4);
+  if (index >= 5) weights.infiltrator = 0.16 + 0.03 * (index - 5);
+  if (index >= 6) weights.flyer = 0.16 + 0.03 * (index - 6);
+  if (index >= 7) weights.mortar = 0.14 + 0.03 * (index - 7);
+  if (index >= 8) weights.sentry = 0.12 + 0.03 * (index - 8);
+  const specialistWeight = Object.entries(weights)
+    .filter(([key]) => key !== 'grunt')
+    .reduce((sum, [, value]) => sum + value, 0);
+  weights.grunt = Math.max(0.25, 1 - specialistWeight * 0.42);
   return weights;
 }
 
@@ -33,11 +54,12 @@ function generateFormation(budget, missionIndex, random) {
   const rowPairs = Array.from({ length: GAME_CONFIG.rows / 2 }, (_, row) => [row, GAME_CONFIG.rows - 1 - row]);
   const slots = shuffle(GAME_CONFIG.enemyZone.flatMap((column) => rowPairs.map((pair) => ({ column, pair }))), random);
   const weights = weightsForMission(missionIndex);
+  const enemyKeys = ENEMY_UNIT_TYPES.map((type) => type.key);
   const formation = [];
   let remaining = budget;
 
   for (const slot of slots) {
-    const affordable = Object.keys(UNIT_TYPES).filter((key) => UNIT_TYPES[key].cost * 2 <= remaining);
+    const affordable = enemyKeys.filter((key) => UNIT_TYPES[key].cost * 2 <= remaining && (weights[key] ?? 0) > 0);
     if (!affordable.length) continue;
     const type = weightedPick(weights, affordable, random);
     remaining -= UNIT_TYPES[type].cost * 2;
