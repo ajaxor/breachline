@@ -1,4 +1,5 @@
 import { GAME_CONFIG, MODE, PLAYER_UNIT_TYPES } from '../data/gameConfig.js';
+import { CanvasRenderer } from './CanvasRenderer.js';
 
 export class GameView {
   constructor(documentRef = document) {
@@ -52,9 +53,24 @@ export class GameView {
         ? `HP ${type.hp} · HEAL ${type.healAmount} · RNG ${type.range}`
         : `HP ${type.hp} · ATK ${type.attack} · RNG ${type.range}`;
       const tags = type.tags.length ? `<span class="rc-tags">${type.tags.join(' · ')}</span>` : '';
-      card.innerHTML = `<span class="unit-symbol">${this.symbolFor(type.shape)}</span><span class="rc-info"><span class="rc-name">${type.name}</span><span class="rc-stats">${stats}</span>${tags}<span class="rc-behavior">${type.behavior}</span></span><span class="rc-cost">${type.cost}</span>`;
+      card.innerHTML = `<span class="rc-info"><span class="rc-name">${type.name}</span><span class="rc-stats">${stats}</span>${tags}<span class="rc-behavior">${type.behavior}</span></span><span class="rc-cost">${type.cost}</span>`;
+      card.prepend(this.createUnitGraphic(type));
       list.appendChild(card);
     });
+  }
+
+  createUnitGraphic(type) {
+    const symbol = this.document.createElement('span');
+    symbol.className = 'unit-symbol';
+    const canvas = this.document.createElement('canvas');
+    const size = 48;
+    canvas.width = size;
+    canvas.height = size;
+    canvas.setAttribute('aria-hidden', 'true');
+    const renderer = new CanvasRenderer(canvas, { clientWidth: size, clientHeight: size });
+    renderer.drawUnitGraphic(type.graphic ?? type.shape, size / 2, size / 2, size * 0.3, '#38bdf8');
+    symbol.appendChild(canvas);
+    return symbol;
   }
 
   renderBudget(model) {
@@ -99,5 +115,4 @@ export class GameView {
   closeSheets() { this.document.querySelectorAll('.sheet').forEach((sheet) => sheet.classList.remove('open')); this.elements.sheetBackdrop.classList.remove('open'); }
   clearBanner() { this.elements.bannerOverlay.className = 'banner-overlay'; this.elements.bannerOverlay.innerHTML = ''; }
   showResult(result, hasNextMission) { this.clearBanner(); const banner = this.elements.bannerOverlay; banner.className = `banner-overlay show ${result.cssClass}`; banner.innerHTML = `<div class="banner-text">${result.text}</div>${result.playerWon && !hasNextMission ? '<div class="helptext">Campaign complete — all 10 missions cleared!</div>' : `<button class="primary" data-result-action>${result.playerWon ? 'Continue to Next Mission' : 'Retry Mission'}</button>`}`; }
-  symbolFor(shape) { return ({ square: '□', hex: '⬡', triangle: '△', diamond: '◇', circle: '⊕', chevron: '»', kite: '◈', wing: '⌁', star: '✦', octagon: '⯃', burst: '✹' })[shape] ?? '○'; }
 }
