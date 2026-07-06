@@ -14,6 +14,8 @@ export class GameController {
   initialize() {
     this.bindEvents();
     this.view.renderBuildInfo(this.buildInfo);
+    this.model.beginDrafts(3);
+    this.view.renderDraft(this.model);
     this.view.renderRoster(this.model);
     this.refresh();
   }
@@ -22,10 +24,12 @@ export class GameController {
     const { document } = this.view;
     this.view.elements.btnStartGame.addEventListener('click', () => {
       this.view.enterGame();
-      this.startDraftSequence(3, () => {
-        this.view.setActiveTab('missions');
+      this.afterDraft = () => {
+        this.activateTab('battle');
         requestAnimationFrame(() => this.renderer.resize(this.model));
-      });
+      };
+      this.view.renderDraft(this.model);
+      this.view.openDraft();
     });
     document.querySelectorAll('.tab-btn').forEach((button) => button.addEventListener('click', () => this.activateTab(button.dataset.tab)));
     this.view.elements.btnGoDeploy.addEventListener('click', () => this.activateTab('battle'));
@@ -44,13 +48,14 @@ export class GameController {
       const button = event.target.closest('[data-draft-unit]');
       if (!button || !this.model.chooseDraft(button.dataset.draftUnit)) return;
       this.view.renderRoster(this.model);
-      if (this.model.pendingDrafts > 0) this.view.renderDraft(this.model);
-      else {
-        this.view.closeDraft();
-        const continuation = this.afterDraft;
-        this.afterDraft = null;
-        continuation?.();
+      if (this.model.pendingDrafts > 0) {
+        this.view.renderDraft(this.model);
+        return;
       }
+      this.view.closeDraft();
+      const continuation = this.afterDraft;
+      this.afterDraft = null;
+      continuation?.();
     });
     this.view.elements.field.addEventListener('click', (event) => {
       const cell = this.renderer.cellFromPointer(event);
@@ -115,6 +120,7 @@ export class GameController {
     this.view.closeSheets();
     this.view.clearBanner();
     this.view.clearUnitInspector();
+    this.activateTab('battle');
     this.refresh();
   }
 
@@ -135,6 +141,6 @@ export class GameController {
   }
 
   stopAnimationLoop() { if (this.animationFrame) cancelAnimationFrame(this.animationFrame); this.animationFrame = null; }
-  stopTimer() { if (this.timer) clearInterval(this.timer); this.timer = null; }
+  stopTimer() { if (this.timer) window.clearInterval(this.timer); this.timer = null; }
   resizeIfBattleVisible() { if (!this.view.elements.gameShell.hidden && this.view.document.getElementById('screenBattle').classList.contains('active')) this.renderer.resize(this.model); }
 }
