@@ -31,7 +31,7 @@ export class GameView {
     const list = this.elements.rosterList;
     list.innerHTML = '';
     model.rosterTypes.forEach((type) => list.appendChild(this.unitPresentation.createRosterRow(type, type.key === model.selectedUnitType, model.availableCount(type.key))));
-    if (!model.rosterTypes.length) list.innerHTML = '<div class="empty-roster">Complete your opening drafts to assemble a roster.</div>';
+    if (!model.rosterTypes.length) list.innerHTML = '<div class="empty-roster">Complete a reinforcement draft to add units to your supply.</div>';
     requestAnimationFrame(() => this.fitRosterNames());
   }
 
@@ -77,7 +77,7 @@ export class GameView {
       card.className = 'draft-card';
       card.dataset.draftUnit = type.key;
       card.style.setProperty('--draft-index', String(index));
-      card.appendChild(this.unitPresentation.createDescription(type, { label: `Draft ${type.draftCount} units`, includeCost: false }));
+      card.appendChild(this.unitPresentation.createDescription(type, { label: 'Draft option', includeCost: false, quantity: type.draftCount }));
       this.elements.draftChoices.appendChild(card);
     });
     this.elements.draftChoices.classList.remove('refreshing');
