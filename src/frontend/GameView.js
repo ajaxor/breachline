@@ -5,7 +5,7 @@ export class GameView {
   constructor(documentRef = document) {
     this.document = documentRef;
     this.unitPresentation = new UnitPresentation(documentRef);
-    this.elements = Object.fromEntries(['screenTitle','gameShell','btnStartGame','buildInfo','field','fieldWrap','missionStrip','missionInfo','btnGoDeploy','budgetSpent','budgetFill','btnLaunch','deployTopbar','resolveTopbar','deployHint','battleStatus','btnOpenLog','phaseLabel','log','bannerOverlay','logSheet','sheetBackdrop','rosterList','playerHpText','enemyHpText','playerHpFill','enemyHpFill','draftOverlay','draftChoices','draftProgress','unitInspector'].map((id) => [id, documentRef.getElementById(id)]));
+    this.elements = Object.fromEntries(['screenTitle','gameShell','btnStartGame','buildInfo','field','fieldWrap','missionStrip','missionInfo','btnGoDeploy','budgetSpent','budgetFill','btnLaunch','deployTopbar','resolveTopbar','deployHint','battleStatus','btnOpenLog','phaseLabel','log','bannerOverlay','logSheet','sheetBackdrop','rosterList','rosterExpand','rosterOverlay','rosterFullList','rosterClose','playerHpText','enemyHpText','playerHpFill','enemyHpFill','draftOverlay','draftChoices','draftProgress','unitInspector'].map((id) => [id, documentRef.getElementById(id)]));
   }
 
   render(model) { this.renderCampaign(model); this.renderBudget(model); this.renderBattleChrome(model); this.renderBases(model); this.renderLog(model); }
@@ -32,6 +32,41 @@ export class GameView {
     list.innerHTML = '';
     model.rosterTypes.forEach((type) => list.appendChild(this.unitPresentation.createRosterRow(type, type.key === model.selectedUnitType)));
     if (!model.rosterTypes.length) list.innerHTML = '<div class="empty-roster">Complete your opening drafts to assemble a roster.</div>';
+    requestAnimationFrame(() => this.fitRosterNames());
+  }
+
+  fitRosterNames() {
+    this.elements.rosterList.querySelectorAll('.rc-name').forEach((name) => {
+      let size = 16;
+      name.style.fontSize = `${size}px`;
+      while (size > 10 && name.scrollWidth > name.clientWidth) {
+        size -= 1;
+        name.style.fontSize = `${size}px`;
+      }
+    });
+  }
+
+  renderExpandedRoster(model) {
+    const list = this.elements.rosterFullList;
+    list.innerHTML = '';
+    model.rosterTypes.forEach((type) => {
+      const card = this.document.createElement('button');
+      card.className = `roster-full-card${type.key === model.selectedUnitType ? ' selected' : ''}`;
+      card.dataset.fullRosterUnit = type.key;
+      card.appendChild(this.unitPresentation.createDescription(type, { label: 'Roster unit' }));
+      list.appendChild(card);
+    });
+  }
+
+  openRoster(model) {
+    this.renderExpandedRoster(model);
+    this.elements.rosterOverlay.hidden = false;
+    requestAnimationFrame(() => this.elements.rosterOverlay.classList.add('open'));
+  }
+
+  closeRoster() {
+    this.elements.rosterOverlay.classList.remove('open');
+    this.elements.rosterOverlay.hidden = true;
   }
 
   renderDraft(model) {
@@ -74,7 +109,7 @@ export class GameView {
   }
 
   renderBudget(model) { this.elements.budgetSpent.textContent = `${model.spentBudget} / ${model.budget}`; this.elements.budgetFill.style.width = `${Math.min(100, model.spentBudget / model.budget * 100)}%`; this.elements.budgetFill.classList.toggle('over', model.spentBudget > model.budget); this.elements.btnLaunch.disabled = !model.canLaunch; }
-  renderBattleChrome(model) { const battling = model.mode === MODE.BATTLE; this.elements.deployTopbar.hidden = battling; this.elements.resolveTopbar.hidden = !battling; this.elements.deployHint.hidden = battling; this.elements.battleStatus.hidden = !battling; this.elements.btnOpenLog.hidden = !battling; this.elements.phaseLabel.textContent = `PHASE: ${battling ? 'BATTLE' : 'DEPLOYMENT'} — MISSION ${model.selectedMission + 1}/${GAME_CONFIG.missionCount}`; this.elements.battleStatus.textContent = `TICK ${model.tickCount} · YOU ${model.livingPlayerCount} · HOSTILE ${model.livingEnemyCount}`; }
+  renderBattleChrome(model) { const battling = model.mode === MODE.BATTLE; this.elements.deployTopbar.hidden = battling; this.elements.resolveTopbar.hidden = !battling; this.elements.deployHint.hidden = battling; this.elements.battleStatus.hidden = !battling; this.elements.btnOpenLog.hidden = !battling; this.elements.rosterExpand.disabled = battling; this.elements.phaseLabel.textContent = `PHASE: ${battling ? 'BATTLE' : 'DEPLOYMENT'} — MISSION ${model.selectedMission + 1}/${GAME_CONFIG.missionCount}`; this.elements.battleStatus.textContent = `TICK ${model.tickCount} · YOU ${model.livingPlayerCount} · HOSTILE ${model.livingEnemyCount}`; }
   renderBases(model) { this.elements.playerHpText.textContent = `${model.playerBaseHp}/${GAME_CONFIG.baseHp}`; this.elements.enemyHpText.textContent = `${model.enemyBaseHp}/${GAME_CONFIG.baseHp}`; this.elements.playerHpFill.style.width = `${model.playerBaseHp / GAME_CONFIG.baseHp * 100}%`; this.elements.enemyHpFill.style.width = `${model.enemyBaseHp / GAME_CONFIG.baseHp * 100}%`; }
   renderLog(model) { this.elements.log.innerHTML = ''; model.logEntries.forEach((entry) => { const row = this.document.createElement('div'); row.className = entry.cssClass; row.textContent = entry.message; this.elements.log.appendChild(row); }); this.elements.log.scrollTop = this.elements.log.scrollHeight; }
   setActiveTab(tab) { this.document.querySelectorAll('.screen').forEach((screen) => screen.classList.remove('active')); this.document.getElementById(tab === 'missions' ? 'screenMissions' : 'screenBattle').classList.add('active'); this.document.querySelectorAll('.tab-btn').forEach((button) => button.classList.toggle('active', button.dataset.tab === tab)); }
