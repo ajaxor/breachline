@@ -27,10 +27,14 @@ async function tryInspectCell(canvas, rect, row, column) {
 
 async function run() {
   await sleep(100);
+  assert(document.querySelector('#btnStartGame').textContent.trim() === 'Enter Command', 'Splash button label changed unexpectedly');
   await click('#btnStartGame');
-  assert(!document.querySelector('#campaignOverlay').hidden, 'Campaign menu did not open');
+  const campaignOverlay = document.querySelector('#campaignOverlay');
+  const titleScreen = document.querySelector('#screenTitle');
+  assert(!campaignOverlay.hidden, 'Campaign menu did not open');
+  assert(Number(getComputedStyle(campaignOverlay).zIndex) > Number(getComputedStyle(titleScreen).zIndex), 'Campaign menu opened behind the title screen');
   await click('#btnBeginCampaign');
-  assert(document.querySelector('#screenTitle').hidden, 'Title screen did not close');
+  assert(titleScreen.hidden, 'Title screen did not close');
   assert(!document.querySelector('#gameShell').hidden, 'Game shell did not open');
 
   for (let remaining = 3; remaining > 0; remaining -= 1) {
