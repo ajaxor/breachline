@@ -57,6 +57,22 @@ function addDetonationEffects(model, unit, at, duration) {
   }
 }
 
+function addAttackEffect(model, attacker, target, at, duration) {
+  const animation = UNIT_TYPES[attacker.type].animation.attack;
+  const ranged = animation !== ATTACK_ANIMATION.MELEE;
+  model.effects.push({
+    type: ranged ? EFFECT_TYPE.RANGED : EFFECT_TYPE.MELEE,
+    attackStyle: animation,
+    attackerId: attacker.id,
+    team: attacker.team,
+    from: point(attacker),
+    to: point(target),
+    start: at,
+    duration,
+  });
+  return { ranged, impactAt: at + duration * (ranged ? 0.52 : 0.12) };
+}
+
 export class CombatEventPresenter {
   constructor() {
     this.sequenceTickAt = null;
@@ -94,27 +110,14 @@ export class CombatEventPresenter {
         model.addLog(`${UNIT_TYPES[event.source.type].name} #${event.source.id} restores ${event.amount} HP to ${UNIT_TYPES[event.target.type].name} #${event.target.id}.`, LOG_TYPE.HIT);
         break;
       case COMBAT_EVENT.UNIT_ATTACKED: {
-        const animation = UNIT_TYPES[event.attacker.type].animation.attack;
-        const ranged = animation !== ATTACK_ANIMATION.MELEE;
-        const impactAt = at + duration * (ranged ? 0.52 : 0.12);
-        model.effects.push(
-          {
-            type: ranged ? EFFECT_TYPE.RANGED : EFFECT_TYPE.MELEE,
-            attackStyle: animation,
-            attackerId: event.attacker.id,
-            team: event.attacker.team,
-            from: point(event.attacker),
-            to: point(event.target),
-            start: at,
-            duration,
-          },
-          { type: EFFECT_TYPE.TEXT, ...point(event.target), text: `-${event.damage}`, color: '#ff5d5d', actionStart: at, start: impactAt, duration: duration * 1.3 },
-        );
+        const { impactAt } = addAttackEffect(model, event.attacker, event.target, at, duration);
+        model.effects.push({ type: EFFECT_TYPE.TEXT, ...point(event.target), text: `-${event.damage}`, color: '#ff5d5d', actionStart: at, start: impactAt, duration: duration * 1.3 });
         addHealthLossEffect(model, event.target, event.damage, at, impactAt, duration);
         model.addLog(`${UNIT_TYPES[event.attacker.type].name} #${event.attacker.id} hits ${UNIT_TYPES[event.target.type].name} #${event.target.id} for ${event.damage}.`, LOG_TYPE.HIT);
         break;
       }
       case COMBAT_EVENT.UNIT_DODGED:
+        addAttackEffect(model, event.attacker, event.target, at, duration);
         model.effects.push({ type: EFFECT_TYPE.TEXT, ...point(event.unit), text: 'DODGE', color: '#f8fafc', start: at, duration: duration * 1.3 });
         model.addLog(`${UNIT_TYPES[event.unit.type].name} #${event.unit.id} dodges ${UNIT_TYPES[event.attacker.type].name} #${event.attacker.id}'s attack.`, LOG_TYPE.HIT);
         break;
