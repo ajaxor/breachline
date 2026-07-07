@@ -70,7 +70,7 @@ const FLYING_ANIMATION = Object.freeze({
 });
 
 const STATIONARY_ANIMATION = Object.freeze({
-  movement: null,
+  movement: MOVEMENT_ANIMATION.GLIDE,
   idle: IDLE_ANIMATION.STILL,
 });
 
