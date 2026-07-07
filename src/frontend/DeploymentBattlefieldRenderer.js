@@ -7,6 +7,7 @@ const RANGE_STYLE = Object.freeze({
   [AURA_EFFECT.SHIELD]: { fill: 'rgba(56, 189, 248, 0.12)', stroke: 'rgba(56, 189, 248, 0.5)' },
   [AURA_EFFECT.DAMAGE]: { fill: 'rgba(251, 191, 36, 0.12)', stroke: 'rgba(251, 191, 36, 0.5)' },
   [AURA_EFFECT.STUN]: { fill: 'rgba(192, 132, 252, 0.12)', stroke: 'rgba(192, 132, 252, 0.5)' },
+  [AURA_EFFECT.STEALTH]: { fill: 'rgba(148, 163, 184, 0.1)', stroke: 'rgba(148, 163, 184, 0.5)' },
 });
 
 export class DeploymentBattlefieldRenderer extends BattlefieldRenderer {
@@ -30,14 +31,14 @@ export class DeploymentBattlefieldRenderer extends BattlefieldRenderer {
         continue;
       }
       if (type?.aura?.effect === AURA_EFFECT.STUN) {
-        this.drawRowZone(unit.row, RANGE_STYLE[AURA_EFFECT.STUN]);
+        this.drawBattlefieldRow(unit.column, RANGE_STYLE[AURA_EFFECT.STUN]);
         continue;
       }
       if (type?.aura) this.drawRangeZone(unit.row, unit.column, type.aura.range, RANGE_STYLE[type.aura.effect]);
     }
   }
 
-  drawRowZone(row, style) {
+  drawBattlefieldRow(column, style) {
     if (!style) return;
     const ctx = this.context;
     const cell = this.cellSize;
@@ -46,7 +47,7 @@ export class DeploymentBattlefieldRenderer extends BattlefieldRenderer {
     ctx.fillStyle = style.fill;
     ctx.strokeStyle = style.stroke;
     ctx.lineWidth = Math.max(1, cell * 0.025);
-    for (let column = 0; column < GAME_CONFIG.columns; column += 1) {
+    for (let row = 0; row < GAME_CONFIG.rows; row += 1) {
       const x = column * cell + inset;
       const y = row * cell + inset;
       const size = cell - inset * 2;
