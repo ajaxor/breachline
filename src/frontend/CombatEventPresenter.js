@@ -41,6 +41,10 @@ export class CombatEventPresenter {
         );
         model.addLog(`${UNIT_TYPES[event.attacker.type].name} #${event.attacker.id} hits ${UNIT_TYPES[event.target.type].name} #${event.target.id} for ${event.damage}.`, LOG_TYPE.HIT);
         break;
+      case COMBAT_EVENT.UNIT_DODGED:
+        model.effects.push({ type: EFFECT_TYPE.TEXT, ...point(event.unit), text: 'DODGE', color: '#f8fafc', start: at, duration: duration * 1.3 });
+        model.addLog(`${UNIT_TYPES[event.unit.type].name} #${event.unit.id} dodges ${UNIT_TYPES[event.attacker.type].name} #${event.attacker.id}'s attack.`, LOG_TYPE.HIT);
+        break;
       case COMBAT_EVENT.SPLASH_HIT:
         model.effects.push({ type: EFFECT_TYPE.TEXT, ...point(event.target), text: `-${event.damage}`, color: '#ff5d5d', start: at, duration: duration * 1.3 });
         model.addLog(`Splash blast hits ${UNIT_TYPES[event.target.type].name} #${event.target.id} for ${event.damage}.`, LOG_TYPE.HIT);
