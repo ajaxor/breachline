@@ -29,8 +29,31 @@ export class DeploymentBattlefieldRenderer extends BattlefieldRenderer {
         this.drawRangeZone(unit.row, unit.column, type.range, RANGE_STYLE.heal);
         continue;
       }
+      if (type?.aura?.effect === AURA_EFFECT.STUN) {
+        this.drawRowZone(unit.row, RANGE_STYLE[AURA_EFFECT.STUN]);
+        continue;
+      }
       if (type?.aura) this.drawRangeZone(unit.row, unit.column, type.aura.range, RANGE_STYLE[type.aura.effect]);
     }
+  }
+
+  drawRowZone(row, style) {
+    if (!style) return;
+    const ctx = this.context;
+    const cell = this.cellSize;
+    const inset = Math.max(1, cell * 0.06);
+    ctx.save();
+    ctx.fillStyle = style.fill;
+    ctx.strokeStyle = style.stroke;
+    ctx.lineWidth = Math.max(1, cell * 0.025);
+    for (let column = 0; column < GAME_CONFIG.columns; column += 1) {
+      const x = column * cell + inset;
+      const y = row * cell + inset;
+      const size = cell - inset * 2;
+      ctx.fillRect(x, y, size, size);
+      ctx.strokeRect(x, y, size, size);
+    }
+    ctx.restore();
   }
 
   drawRangeZone(originRow, originColumn, range, style) {
