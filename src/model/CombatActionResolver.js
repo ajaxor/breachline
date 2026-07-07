@@ -43,20 +43,20 @@ export class CombatActionResolver {
     return strongest;
   }
 
-  applyStunFields(model) {
-    for (const source of model.units) {
+  applyStunFields(units) {
+    for (const source of units) {
       if (!source.alive || source.breached) continue;
       const aura = UNIT_TYPES[source.type].aura;
       if (!aura || aura.effect !== AURA_EFFECT.STUN) continue;
-      for (const target of model.units) {
+      for (const target of units) {
         if (!target.alive || target.team === source.team || target.row !== source.row) continue;
         target.stunTurnsRemaining = Math.max(target.stunTurnsRemaining ?? 0, STUN_TURNS);
       }
     }
   }
 
-  ageStuns(model) {
-    for (const unit of model.units) {
+  ageStuns(units) {
+    for (const unit of units) {
       if ((unit.stunTurnsRemaining ?? 0) > 0) unit.stunTurnsRemaining -= 1;
     }
   }
@@ -94,7 +94,7 @@ export class CombatActionResolver {
   processQueue(model, units, now, duration) {
     const queue = units.slice();
     let consecutivePasses = 0;
-    this.applyStunFields(model);
+    this.applyStunFields(units);
     this.targetPlan = model.spatialIndex ? this.buildTargetPlan(model, units) : null;
     try {
       while (queue.length > 0 && consecutivePasses < queue.length) {
@@ -105,7 +105,7 @@ export class CombatActionResolver {
       }
     } finally {
       this.targetPlan = null;
-      this.ageStuns(model);
+      this.ageStuns(units);
     }
   }
 
