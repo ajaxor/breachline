@@ -1,4 +1,4 @@
-import { GAME_CONFIG, PLAYER_UNIT_TYPES, TEAM, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
+import { GAME_CONFIG, PLAYER_UNIT_TYPES, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
 import { MISSION_STATUS, RESULT_TYPE } from '../data/gameTypes.js';
 import { createCampaign } from './CampaignFactory.js';
 import { SupplyDeploymentPolicy } from './DeploymentPolicies.js';
@@ -6,6 +6,7 @@ import { GameModel } from './GameModel.js';
 import { createSeededRandom } from './SeededRandom.js';
 
 const cloneFormation = (formation) => formation.map((unit) => ({ ...unit }));
+const byName = (left, right) => left.name.localeCompare(right.name);
 
 export class StrategyGameModel extends GameModel {
   constructor(options = {}) {
@@ -16,13 +17,12 @@ export class StrategyGameModel extends GameModel {
     this.currentDraftBudget = this.mission.draftBudget;
     this.campaignSettings = { difficulty: 1, length: GAME_CONFIG.missionCount };
     this.isSandbox = false;
-    this.sandboxTeam = TEAM.PLAYER;
     this.lastBattle = null;
   }
 
   get totalSupply() { return this.isSandbox ? Infinity : Object.values(this.supply).reduce((sum, count) => sum + count, 0); }
   get deployedSupply() { return this.placement.length; }
-  get rosterTypes() { return this.isSandbox ? Object.values(UNIT_TYPES) : super.rosterTypes; }
+  get rosterTypes() { return (this.isSandbox ? Object.values(UNIT_TYPES) : super.rosterTypes).slice().sort(byName); }
   get canRetry() { return this.isSandbox || this.totalSupply > 0; }
 
   configureCampaign({ difficulty = 1, length = GAME_CONFIG.missionCount } = {}) {
@@ -48,11 +48,10 @@ export class StrategyGameModel extends GameModel {
     this.selectedMission = 0;
     this.roster = Object.fromEntries(Object.keys(UNIT_TYPES).map((key) => [key, true]));
     this.supply = Object.fromEntries(Object.keys(UNIT_TYPES).map((key) => [key, 999]));
-    this.selectedUnitType = Object.keys(UNIT_TYPES)[0];
+    this.selectedUnitType = this.rosterTypes[0]?.key ?? null;
     this.pendingDrafts = 0;
     this.draftChoices = [];
     this.lastBattle = null;
-    this.sandboxTeam = TEAM.PLAYER;
     this.resetBattle();
   }
 
@@ -101,13 +100,12 @@ export class StrategyGameModel extends GameModel {
     return true;
   }
 
-  setSandboxTeam(team) { if (this.isSandbox && Object.values(TEAM).includes(team)) this.sandboxTeam = team; }
-
   togglePlacement(row, column) {
     if (!this.isSandbox) return super.togglePlacement(row, column);
-    const formation = this.sandboxTeam === TEAM.PLAYER ? this.placement : this.mission.enemyFormation;
-    const validZone = this.sandboxTeam === TEAM.PLAYER ? GAME_CONFIG.playerZone : GAME_CONFIG.enemyZone;
-    if (!validZone.includes(column)) return false;
+    const isPlayerZone = GAME_CONFIG.playerZone.includes(column);
+    const isEnemyZone = GAME_CONFIG.enemyZone.includes(column);
+    if (!isPlayerZone && !isEnemyZone) return false;
+    const formation = isPlayerZone ? this.placement : this.mission.enemyFormation;
     const existing = formation.findIndex((unit) => unit.row === row && unit.column === column);
     if (existing >= 0) formation.splice(existing, 1);
     else formation.push({ row, column, type: this.selectedUnitType });
