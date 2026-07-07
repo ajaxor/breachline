@@ -1,7 +1,7 @@
 const GRAPHIC_ROLE = Object.freeze({
   rifleman: 'grunt', gunner: 'grunt', bulwark: 'grunt',
   marksman: 'ranged', flak: 'ranged', artillery: 'ranged',
-  medic: 'support', aegis: 'support', amplifier: 'support', disruptor: 'support',
+  medic: 'support', aegis: 'support', amplifier: 'support', disruptor: 'support', jammer: 'support',
   midge: 'flying', wasp: 'flying', kite: 'flying', firefly: 'flying',
   demolisher: 'specialist', ranger: 'specialist', infiltrator: 'specialist',
   barricade: 'structure', turret: 'structure',
@@ -92,6 +92,12 @@ const drawUnitDetails = (ctx, graphic, radius) => {
     ctx.moveTo(-radius * 0.72, -radius * 0.28); ctx.lineTo(-radius * 0.48, -radius * 0.42);
     ctx.moveTo(radius * 0.55, radius * 0.45); ctx.lineTo(radius * 0.75, radius * 0.28);
     ctx.moveTo(-radius * 0.18, -radius * 0.72); ctx.lineTo(radius * 0.08, -radius * 0.5);
+  } else if (graphic === 'jammer') {
+    ctx.arc(0, 0, radius * 0.16, 0, Math.PI * 2);
+    ctx.arc(0, 0, radius * 0.42, -Math.PI * 0.72, Math.PI * 0.72);
+    ctx.arc(0, 0, radius * 0.7, -Math.PI * 0.62, Math.PI * 0.62);
+    ctx.moveTo(-radius * 0.15, radius * 0.05); ctx.lineTo(-radius * 0.52, radius * 0.58);
+    ctx.moveTo(radius * 0.15, radius * 0.05); ctx.lineTo(radius * 0.52, radius * 0.58);
   } else if (graphic === 'ranger') {
     ctx.moveTo(-radius * 0.55, -radius * 0.48); ctx.lineTo(radius * 0.25, 0); ctx.lineTo(-radius * 0.55, radius * 0.48);
     ctx.moveTo(radius * 0.15, -radius * 0.52); ctx.lineTo(radius * 0.72, 0); ctx.lineTo(radius * 0.15, radius * 0.52);
