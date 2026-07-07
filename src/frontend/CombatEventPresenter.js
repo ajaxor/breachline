@@ -19,14 +19,15 @@ function addDeathEffect(model, unit, at, duration) {
   });
 }
 
-function addHealthLossEffect(model, target, damage, start, duration) {
+function addHealthLossEffect(model, target, damage, actionStart, impactStart, duration) {
   model.effects.push({
     type: EFFECT_TYPE.HEALTH_LOSS,
     targetId: target.id,
     hpBefore: Math.min(target.maxHp, target.hp + damage),
     hpAfter: Math.max(0, target.hp),
     maxHp: target.maxHp,
-    start,
+    actionStart,
+    start: impactStart,
     duration: Math.max(260, duration * 0.7),
   });
 }
@@ -69,11 +70,12 @@ export class CombatEventPresenter {
         break;
       case COMBAT_EVENT.UNIT_ATTACKED: {
         const ranged = event.range > 1;
+        const impactAt = at + duration * (ranged ? 0.52 : 0.12);
         model.effects.push(
           { type: ranged ? EFFECT_TYPE.RANGED : EFFECT_TYPE.MELEE, attackerId: event.attacker.id, team: event.attacker.team, from: point(event.attacker), to: point(event.target), start: at, duration },
-          { type: EFFECT_TYPE.TEXT, ...point(event.target), text: `-${event.damage}`, color: '#ff5d5d', start: at + duration * (ranged ? 0.52 : 0.12), duration: duration * 1.3 },
+          { type: EFFECT_TYPE.TEXT, ...point(event.target), text: `-${event.damage}`, color: '#ff5d5d', actionStart: at, start: impactAt, duration: duration * 1.3 },
         );
-        addHealthLossEffect(model, event.target, event.damage, at + duration * (ranged ? 0.52 : 0.12), duration);
+        addHealthLossEffect(model, event.target, event.damage, at, impactAt, duration);
         model.addLog(`${UNIT_TYPES[event.attacker.type].name} #${event.attacker.id} hits ${UNIT_TYPES[event.target.type].name} #${event.target.id} for ${event.damage}.`, LOG_TYPE.HIT);
         break;
       }
@@ -81,11 +83,13 @@ export class CombatEventPresenter {
         model.effects.push({ type: EFFECT_TYPE.TEXT, ...point(event.unit), text: 'DODGE', color: '#f8fafc', start: at, duration: duration * 1.3 });
         model.addLog(`${UNIT_TYPES[event.unit.type].name} #${event.unit.id} dodges ${UNIT_TYPES[event.attacker.type].name} #${event.attacker.id}'s attack.`, LOG_TYPE.HIT);
         break;
-      case COMBAT_EVENT.SPLASH_HIT:
-        model.effects.push({ type: EFFECT_TYPE.TEXT, ...point(event.target), text: `-${event.damage}`, color: '#ff5d5d', start: at + duration * 0.2, duration: duration * 1.3 });
-        addHealthLossEffect(model, event.target, event.damage, at + duration * 0.2, duration);
+      case COMBAT_EVENT.SPLASH_HIT: {
+        const impactAt = at + duration * 0.2;
+        model.effects.push({ type: EFFECT_TYPE.TEXT, ...point(event.target), text: `-${event.damage}`, color: '#ff5d5d', actionStart: at, start: impactAt, duration: duration * 1.3 });
+        addHealthLossEffect(model, event.target, event.damage, at, impactAt, duration);
         model.addLog(`Splash blast hits ${UNIT_TYPES[event.target.type].name} #${event.target.id} for ${event.damage}.`, LOG_TYPE.HIT);
         break;
+      }
       case COMBAT_EVENT.UNIT_DETONATED:
         model.effects.push({ type: EFFECT_TYPE.EXPLOSION, ...point(event.unit), start: at, duration: Math.max(duration, 320) });
         addDeathEffect(model, event.unit, at, duration);
