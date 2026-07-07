@@ -15,6 +15,7 @@ export const ATTACK_EFFECT = Object.freeze({
 
 export const EFFECT_TYPE = Object.freeze({
   HEAL: 'heal',
+  HEALTH_LOSS: 'health-loss',
   TEXT: 'text',
   RANGED: 'ranged',
   MELEE: 'melee',
