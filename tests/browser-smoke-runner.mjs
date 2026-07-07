@@ -36,18 +36,25 @@ async function run() {
   await click('#btnBeginCampaign');
   assert(titleScreen.hidden, 'Title screen did not close');
   assert(!document.querySelector('#gameShell').hidden, 'Game shell did not open');
+  assert(document.querySelector('#screenBattle').classList.contains('active'), 'Campaign did not open on deployment');
+  assert(document.querySelector('#draftOverlay').hidden, 'Reinforcement draft opened before the player requested it');
+  assert(document.querySelector('#btnReinforce').textContent.includes('3'), 'Reinforcement counter did not show three pending picks');
+  assert(document.querySelector('#btnReinforce').classList.contains('attention'), 'Pending reinforcement button is not highlighted');
 
+  await click('#btnReinforce');
   for (let remaining = 3; remaining > 0; remaining -= 1) {
-    const choices = [...document.querySelectorAll('[data-draft-unit]')];
+    const choices = [...document.querySelectorAll('[data-draft-choice]')];
     assert(choices.length === 3, `Expected three draft choices with ${remaining} drafts remaining`);
-    const roles = choices.map((choice) => choice.querySelector('.unit-description-role')?.textContent);
-    assert(new Set(roles).size === 3, `Expected draft choices from three different roles, received ${roles.join(', ')}`);
+    for (const choice of choices) {
+      const supportDescriptions = [...choice.querySelectorAll('.unit-description-role')].filter((role) => role.textContent.toLowerCase().includes('support'));
+      if (supportDescriptions.length) assert(choice.classList.contains('pair'), 'Support unit appeared outside a paired draft option');
+    }
     choices[0].click();
     await sleep(70);
   }
 
-  assert(document.querySelector('#draftOverlay').hidden, 'Opening draft did not close');
-  assert(document.querySelector('#screenBattle').classList.contains('active'), 'Game did not transition to deployment');
+  assert(document.querySelector('#draftOverlay').hidden, 'Completed reinforcement draft did not close');
+  assert(document.querySelector('#btnReinforce').disabled, 'Reinforcement button remained enabled with no picks left');
   assert(document.querySelectorAll('#rosterList [data-unit-type]').length > 0, 'Compact roster is empty');
 
   await click('#rosterExpand');
