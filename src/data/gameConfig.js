@@ -38,12 +38,14 @@ export const UNIT_TAG = Object.freeze({
   SHIELD: 'shield',
   ENHANCE: 'enhance',
   STUN_FIELD: 'stun-field',
+  JAMMER: 'jammer',
 });
 
 export const AURA_EFFECT = Object.freeze({
   SHIELD: 'shield',
   DAMAGE: 'damage',
   STUN: 'stun',
+  STEALTH: 'stealth',
 });
 
 export const UNIT_ROLE = Object.freeze({
@@ -114,7 +116,8 @@ export const UNIT_TYPES = Object.freeze({
   healer: unit({ key: 'healer', name: 'Medic', role: UNIT_ROLE.SUPPORT, cost: 22, hp: 34, attack: 0, range: 2, healAmount: 12, action: UNIT_ACTION.HEAL, tags: [UNIT_TAG.HEAL, UNIT_TAG.SWIVEL], campaign: { unlockMission: 4, initialWeight: 0.14, weightGrowth: 0.03 }, behavior: 'Repairs the nearest damaged ally within range, regardless of lane.', graphic: 'medic' }),
   shieldGenerator: unit({ key: 'shieldGenerator', name: 'Aegis', role: UNIT_ROLE.SUPPORT, cost: 34, hp: 44, attack: 0, range: 2, aura: { effect: AURA_EFFECT.SHIELD, range: 2, value: 5 }, tags: [UNIT_TAG.SHIELD], campaign: { unlockMission: 5, initialWeight: 0.13, weightGrowth: 0.025 }, behavior: 'Reduces every hit against friendly units within two cells by 5 damage. Multiple shield fields do not stack.', graphic: 'aegis' }),
   amplifier: unit({ key: 'amplifier', name: 'Amplifier', role: UNIT_ROLE.SUPPORT, cost: 31, hp: 30, attack: 0, range: 2, aura: { effect: AURA_EFFECT.DAMAGE, range: 2, value: 4 }, tags: [UNIT_TAG.ENHANCE], campaign: { unlockMission: 6, initialWeight: 0.12, weightGrowth: 0.025 }, behavior: 'Adds 4 damage to attacks made by friendly units within two cells. Multiple amplifiers do not stack.', graphic: 'amplifier' }),
-  disruptor: unit({ key: 'disruptor', name: 'Disruptor', role: UNIT_ROLE.SUPPORT, cost: 38, hp: 32, attack: 0, range: 2, aura: { effect: AURA_EFFECT.STUN, range: 2, value: 1 }, tags: [UNIT_TAG.STUN_FIELD], campaign: { unlockMission: 7, initialWeight: 0.1, weightGrowth: 0.02 }, behavior: 'Stuns enemy units anywhere in its row for two turns. The stun lingers briefly after they leave the row.', graphic: 'disruptor' }),
+  disruptor: unit({ key: 'disruptor', name: 'Disruptor', role: UNIT_ROLE.SUPPORT, cost: 38, hp: 32, attack: 0, range: 2, aura: { effect: AURA_EFFECT.STUN, range: 2, value: 1 }, tags: [UNIT_TAG.STUN_FIELD], campaign: { unlockMission: 7, initialWeight: 0.1, weightGrowth: 0.02 }, behavior: 'Stuns enemy units across the same battlefield row for two turns. The stun lingers briefly after they leave the row.', graphic: 'disruptor' }),
+  jammer: unit({ key: 'jammer', name: 'Jammer', role: UNIT_ROLE.SUPPORT, cost: 33, hp: 28, attack: 0, range: 2, aura: { effect: AURA_EFFECT.STEALTH, range: 2, value: 1 }, tags: [UNIT_TAG.JAMMER], campaign: { unlockMission: 7, initialWeight: 0.11, weightGrowth: 0.025 }, behavior: 'Cloaks friendly units within two cells. Cloaked units can still be targeted by adjacent enemies.', graphic: 'jammer' }),
   sidestepper: unit({ key: 'sidestepper', name: 'Ranger', role: UNIT_ROLE.SPECIALIST, cost: 25, hp: 38, attack: 10, range: 2, tags: [UNIT_TAG.AGILE, UNIT_TAG.SWIVEL], campaign: { unlockMission: 3, initialWeight: 0.2, weightGrowth: 0.04 }, behavior: 'Dodges the first attack by slipping into an open adjacent lane, and can swivel toward targets in other lanes.', graphic: 'ranger', animation: { attack: ATTACK_ANIMATION.LASER } }),
   infiltrator: unit({ key: 'infiltrator', name: 'Infiltrator', role: UNIT_ROLE.SPECIALIST, cost: 29, hp: 28, attack: 14, range: 1, tags: [UNIT_TAG.AGILE, UNIT_TAG.STEALTH], campaign: { unlockMission: 5, initialWeight: 0.16, weightGrowth: 0.03 }, behavior: 'Dodges the first attack by slipping into an open adjacent lane and remains untargetable until an enemy becomes adjacent.', graphic: 'infiltrator' }),
   midge: unit({ key: 'midge', name: 'Midge', role: UNIT_ROLE.FLYING, cost: 18, hp: 12, attack: 5, range: 1, tags: [UNIT_TAG.FLYING], campaign: { unlockMission: 5, initialWeight: 0.13, weightGrowth: 0.025 }, behavior: 'A cheap swarm flyer that slips through formations and pecks at targets in its lane.', graphic: 'midge' }),
