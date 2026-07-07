@@ -1,7 +1,6 @@
-import { TEAM } from '../data/gameConfig.js';
 import { GameView } from './GameView.js';
 
-const FLOW_IDS = ['campaignOverlay', 'campaignDifficulty', 'campaignLength', 'btnBeginCampaign', 'btnSandbox', 'btnCampaignBack', 'sandboxTeam'];
+const FLOW_IDS = ['campaignOverlay', 'campaignDifficulty', 'campaignLength', 'btnBeginCampaign', 'btnSandbox', 'btnCampaignBack'];
 
 export class FlowGameView extends GameView {
   constructor(documentRef = document) {
@@ -33,7 +32,7 @@ export class FlowGameView extends GameView {
   renderCampaign(model) {
     if (model.isSandbox) {
       this.elements.missionStrip.replaceChildren();
-      this.elements.missionInfo.textContent = 'Sandbox mode — build both formations, then launch a deterministic mock battle.';
+      this.elements.missionInfo.textContent = 'Sandbox mode — select any unit, place it in either deployment zone, then launch a deterministic mock battle.';
       this.elements.btnGoDeploy.textContent = 'Return to Sandbox';
       return;
     }
@@ -42,16 +41,9 @@ export class FlowGameView extends GameView {
   }
 
   renderRoster(model) {
-    const types = model.isSandbox ? model.rosterTypes.filter((type) => model.sandboxTeam === TEAM.ENEMY || !type.tags.includes('ai-only')) : model.rosterTypes;
-    const rows = types.map((type) => this.unitPresentation.createRosterRow(type, type.key === model.selectedUnitType, model.isSandbox ? '∞' : model.availableCount(type.key)));
+    const rows = model.rosterTypes.map((type) => this.unitPresentation.createRosterRow(type, type.key === model.selectedUnitType, model.isSandbox ? '∞' : model.availableCount(type.key)));
     if (!rows.length) rows.push(this.createElement('div', { className: 'empty-roster', text: 'Complete a reinforcement draft to add units to your supply.' }));
     this.elements.rosterList.replaceChildren(...rows);
-    this.renderSandboxControls(model);
-  }
-
-  renderSandboxControls(model) {
-    this.elements.sandboxTeam.hidden = !model.isSandbox;
-    this.elements.sandboxTeam.querySelectorAll('[data-sandbox-team]').forEach((button) => button.classList.toggle('active', button.dataset.sandboxTeam === model.sandboxTeam));
   }
 
   renderSupply(model) {
@@ -67,6 +59,9 @@ export class FlowGameView extends GameView {
     super.renderBattleChrome(model);
     const label = model.isSandbox ? 'SANDBOX' : `MISSION ${model.selectedMission + 1}/${model.campaign.length}`;
     this.elements.phaseLabel.textContent = `PHASE: ${model.mode === 'battle' ? 'BATTLE' : 'DEPLOYMENT'} — ${label}`;
+    if (model.isSandbox && model.mode !== 'battle') {
+      this.elements.deployHint.textContent = 'Choose any unit, then tap a blue cell to place it for the player or a red cell to place it for the enemy.';
+    }
   }
 
   showResult(result, { hasNextMission, canRetry, sandbox }) {
