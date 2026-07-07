@@ -1,6 +1,7 @@
 import { GAME_CONFIG, TEAM, UNIT_TYPES } from '../data/gameConfig.js';
 import { COMBAT_EVENT, EFFECT_TYPE, LOG_TYPE } from '../data/gameTypes.js';
 
+const ATTACK_STAGGER_MS = 90;
 const point = (unit) => ({ row: unit.row, column: unit.column });
 const teamColor = (team) => team === TEAM.PLAYER ? '#38bdf8' : '#ff5d5d';
 
@@ -19,9 +20,29 @@ function addDeathEffect(model, unit, at, duration) {
 }
 
 export class CombatEventPresenter {
+  constructor() {
+    this.sequenceTickAt = null;
+    this.sequenceIndex = -1;
+    this.currentActionAt = 0;
+  }
+
+  actionTime(event) {
+    const at = event.at ?? 0;
+    if (this.sequenceTickAt !== at) {
+      this.sequenceTickAt = at;
+      this.sequenceIndex = -1;
+      this.currentActionAt = at;
+    }
+    if ([COMBAT_EVENT.UNIT_ATTACKED, COMBAT_EVENT.UNIT_HEALED, COMBAT_EVENT.BASE_ATTACKED, COMBAT_EVENT.UNIT_DODGED].includes(event.type)) {
+      this.sequenceIndex += 1;
+      this.currentActionAt = at + this.sequenceIndex * ATTACK_STAGGER_MS;
+    }
+    return this.currentActionAt;
+  }
+
   present(model, event) {
     const duration = Math.max(110, Math.min(480, GAME_CONFIG.tickIntervalMs * 0.85));
-    const at = event.at ?? 0;
+    const at = this.actionTime(event);
 
     switch (event.type) {
       case COMBAT_EVENT.BATTLE_STARTED:
