@@ -1,4 +1,4 @@
-import { GAME_CONFIG, MODE, PLAYER_UNIT_TYPES, TEAM, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
+import { AURA_EFFECT, GAME_CONFIG, MODE, PLAYER_UNIT_TYPES, TEAM, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
 import { COMBAT_EVENT, RESULT_TYPE } from '../data/gameTypes.js';
 import { BattleUnitFactory } from './BattleUnitFactory.js';
 import { CampaignProgression } from './CampaignProgression.js';
@@ -122,6 +122,7 @@ export class GameModel {
     const actingUnits = this.units.filter((unit) => unit.alive);
     actingUnits.forEach((unit) => { unit.previousRow = unit.row; unit.previousColumn = unit.column; unit.animationStartedAt = now; unit.animationDuration = duration; unit.movedThisTurn = false; unit.actedThisTick = false; });
     this.spatialIndex = new SpatialIndex(this.units);
+    this.refreshStealth();
     this.processActionQueue(this.shuffle(actingUnits), now, duration);
     this.refreshStealth();
     this.result = this.determineResult();
@@ -141,6 +142,7 @@ export class GameModel {
       this.turnQueue = this.shuffle(livingUnits);
       this.consecutiveTurnPasses = 0;
       this.spatialIndex = new SpatialIndex(this.units);
+      this.refreshStealth();
     }
 
     while (this.turnQueue.length > 0 && this.consecutiveTurnPasses < this.turnQueue.length) {
@@ -207,8 +209,14 @@ export class GameModel {
   refreshStealth() {
     const living = this.units.filter((unit) => unit.alive);
     for (const unit of living) {
-      if (!hasUnitTag(unit.type, UNIT_TAG.STEALTH)) { unit.stealthed = false; continue; }
-      unit.stealthed = !this.spatialIndex.nearby(unit.row, unit.column, 1).some((other) => other.team !== unit.team && gridDistance(unit, other) <= 1);
+      const naturallyStealthed = hasUnitTag(unit.type, UNIT_TAG.STEALTH);
+      const jammedStealth = living.some((source) => {
+        if (source.team !== unit.team || source.breached) return false;
+        const aura = UNIT_TYPES[source.type].aura;
+        return aura?.effect === AURA_EFFECT.STEALTH && gridDistance(source, unit) <= aura.range;
+      });
+      const stealthGranted = naturallyStealthed || jammedStealth;
+      unit.stealthed = stealthGranted && !this.spatialIndex.nearby(unit.row, unit.column, 1).some((other) => other.team !== unit.team && gridDistance(unit, other) <= 1);
     }
   }
 
