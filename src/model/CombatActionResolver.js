@@ -58,7 +58,6 @@ export class CombatActionResolver {
   ageStuns(model) {
     for (const unit of model.units) {
       if ((unit.stunTurnsRemaining ?? 0) > 0) unit.stunTurnsRemaining -= 1;
-      unit.stunnedThisTick = false;
     }
   }
 
