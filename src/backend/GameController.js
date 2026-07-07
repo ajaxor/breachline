@@ -1,7 +1,9 @@
 import { GAME_CONFIG, MODE, UNIT_TYPES } from '../data/gameConfig.js';
 import { EFFECT_TYPE } from '../data/gameTypes.js';
 
-const ATTACK_STAGGER_MS = 90;
+const ATTACK_STAGGER_MS = 180;
+const PRE_ATTACK_HOLD_MS = 320;
+const POST_ATTACK_HOLD_MS = 360;
 const defaultScheduler = Object.freeze({
   setInterval: (callback, delay) => window.setInterval(callback, delay),
   clearInterval: (handle) => window.clearInterval(handle),
@@ -156,17 +158,21 @@ export class GameController {
   sequenceAttackEffects(effectStart) {
     const effects = this.model.effects.slice(effectStart);
     const baseStart = effects.reduce((earliest, effect) => Math.min(earliest, effect.start ?? Infinity), Infinity);
-    if (!Number.isFinite(baseStart)) return GAME_CONFIG.tickIntervalMs * 0.85;
-    const attackStarts = [...new Set(effects.filter((effect) => ATTACK_EFFECTS.has(effect.type)).map((effect) => effect.start))].sort((a, b) => a - b);
-    if (attackStarts.length === 0) return GAME_CONFIG.tickIntervalMs * 0.85;
     const movementDuration = Math.max(110, Math.min(480, GAME_CONFIG.tickIntervalMs * 0.85));
-    const firstAttackAt = baseStart + movementDuration;
+    if (!Number.isFinite(baseStart)) return movementDuration;
+    const attackStarts = [...new Set(effects.filter((effect) => ATTACK_EFFECTS.has(effect.type)).map((effect) => effect.start))].sort((a, b) => a - b);
+    if (attackStarts.length === 0) return movementDuration;
+    const firstAttackAt = baseStart + movementDuration + PRE_ATTACK_HOLD_MS;
     const offsetByStart = new Map(attackStarts.map((start, index) => [start, firstAttackAt + index * ATTACK_STAGGER_MS - start]));
     for (const effect of effects) {
       const matchingStart = attackStarts.find((start) => Math.abs((effect.start ?? 0) - start) < 1);
       if (matchingStart !== undefined) effect.start += offsetByStart.get(matchingStart);
     }
-    return movementDuration + (attackStarts.length - 1) * ATTACK_STAGGER_MS + movementDuration;
+    return movementDuration
+      + PRE_ATTACK_HOLD_MS
+      + (attackStarts.length - 1) * ATTACK_STAGGER_MS
+      + movementDuration
+      + POST_ATTACK_HOLD_MS;
   }
 
   returnToDeployment(missionIndex) {
