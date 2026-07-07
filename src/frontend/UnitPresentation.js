@@ -76,7 +76,7 @@ export class UnitPresentation {
     const actionValue = heals ? type.healAmount : type.attack;
     details.innerHTML = `<span class="unit-description-stat">HP <strong>${type.hp}</strong></span><span class="unit-description-stat">${actionLabel} <strong>${actionValue}</strong></span>${type.range > 1 ? `<span class="unit-description-stat">RNG <strong>${type.range}</strong></span>` : ''}`;
 
-    type.tags.forEach((tag) => {
+    type.tags.filter((tag) => tag !== UNIT_TAG.FLYING).forEach((tag) => {
       const chip = this.document.createElement('span');
       chip.className = 'unit-description-tag';
       chip.textContent = tag;
