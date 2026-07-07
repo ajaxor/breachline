@@ -1,11 +1,10 @@
-import { GAME_CONFIG, MODE, TEAM, UNIT_TYPES } from '../data/gameConfig.js';
+import { GAME_CONFIG, MODE, UNIT_TYPES } from '../data/gameConfig.js';
 import { EFFECT_TYPE } from '../data/gameTypes.js';
 
+const BATTLE_SPEED = 0.5;
 const ATTACK_STAGGER_MS = 180;
 const PRE_ATTACK_HOLD_MS = 320;
 const POST_ATTACK_HOLD_MS = 360;
-const MODE_SWITCH_HOLD_MS = 900;
-const UNIT_TURN_DELAY_MS = 520;
 const defaultScheduler = Object.freeze({
   setInterval: (callback, delay) => window.setInterval(callback, delay),
   clearInterval: (handle) => window.clearInterval(handle),
@@ -19,12 +18,6 @@ const ATTACK_EFFECTS = new Set([
   EFFECT_TYPE.MELEE,
   EFFECT_TYPE.RANGED,
   EFFECT_TYPE.HEAL,
-  EFFECT_TYPE.EXPLOSION,
-]);
-
-const CONTACT_EFFECTS = new Set([
-  EFFECT_TYPE.MELEE,
-  EFFECT_TYPE.RANGED,
   EFFECT_TYPE.EXPLOSION,
 ]);
 
@@ -43,7 +36,6 @@ export class GameController {
     this.inspectedEnemyCell = null;
     this.listeners = [];
     this.initialized = false;
-    this.sequentialCombat = false;
   }
 
   initialize() {
@@ -138,7 +130,6 @@ export class GameController {
 
   startBattle() {
     if (!this.model.startBattle()) return;
-    this.sequentialCombat = false;
     this.view.closeRoster();
     this.view.clearBanner();
     this.clearUnitInspection();
@@ -153,60 +144,30 @@ export class GameController {
     this.stopTimer();
     this.timer = this.scheduler.setTimeout(() => {
       this.timer = null;
-      if (this.sequentialCombat) this.runSequentialTurn();
-      else this.runSimultaneousTick();
+      this.runBattleTick();
     }, delay);
   }
 
-  runSimultaneousTick() {
+  runBattleTick() {
     const effectStart = this.model.effects.length;
     const result = this.model.tick();
-    const effects = this.model.effects.slice(effectStart);
     const presentationDuration = this.sequenceAttackEffects(effectStart);
     this.refresh(false);
     if (result) {
       this.view.showResult(result, this.model.selectedMission + 1 < this.model.campaign.length);
       return;
     }
-    if (effects.some((effect) => CONTACT_EFFECTS.has(effect.type))) {
-      this.sequentialCombat = true;
-      this.scheduleBattleTick(presentationDuration + MODE_SWITCH_HOLD_MS);
-      return;
-    }
     this.scheduleBattleTick(presentationDuration);
   }
 
-  runSequentialTurn() {
-    const effectStart = this.model.effects.length;
-    const outcome = this.model.stepTurn();
-    const presentationDuration = this.sequenceAttackEffects(effectStart);
-    this.refresh(false);
-    if (outcome.result) {
-      this.view.showResult(outcome.result, this.model.selectedMission + 1 < this.model.campaign.length);
-      return;
-    }
-    if (this.shouldResumeSimultaneousCombat()) {
-      this.sequentialCombat = false;
-      this.scheduleBattleTick(presentationDuration);
-      return;
-    }
-    this.scheduleBattleTick(presentationDuration + UNIT_TURN_DELAY_MS);
-  }
-
-  shouldResumeSimultaneousCombat() {
-    const livingPlayers = this.model.units.filter((unit) => unit.alive && unit.team === TEAM.PLAYER);
-    const livingEnemies = this.model.units.filter((unit) => unit.alive && unit.team === TEAM.ENEMY);
-    const fullyBreached = [livingPlayers, livingEnemies].some((teamUnits) => teamUnits.length > 0 && teamUnits.every((unit) => unit.breached));
-    if (fullyBreached || livingPlayers.length === 0 || livingEnemies.length === 0) return fullyBreached;
-    const leftmostPlayer = Math.min(...livingPlayers.map((unit) => unit.column));
-    const rightmostEnemy = Math.max(...livingEnemies.map((unit) => unit.column));
-    return leftmostPlayer > rightmostEnemy;
+  movementDuration() {
+    return Math.max(220, Math.min(960, GAME_CONFIG.tickIntervalMs * 0.85 / BATTLE_SPEED));
   }
 
   sequenceAttackEffects(effectStart) {
     const effects = this.model.effects.slice(effectStart);
     const baseStart = effects.reduce((earliest, effect) => Math.min(earliest, effect.actionStart ?? effect.start ?? Infinity), Infinity);
-    const movementDuration = Math.max(110, Math.min(480, GAME_CONFIG.tickIntervalMs * 0.85));
+    const movementDuration = this.movementDuration();
     if (!Number.isFinite(baseStart)) return movementDuration;
     const attackStarts = [...new Set(effects.filter((effect) => ATTACK_EFFECTS.has(effect.type)).map((effect) => effect.start))].sort((a, b) => a - b);
     if (attackStarts.length === 0) return movementDuration;
@@ -231,7 +192,6 @@ export class GameController {
   returnToDeployment(missionIndex) {
     this.stopTimer();
     this.stopAnimationLoop();
-    this.sequentialCombat = false;
     this.model.returnToDeployment(missionIndex);
     this.view.closeSheets();
     this.view.closeRoster();
