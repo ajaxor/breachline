@@ -10,6 +10,20 @@ const ROLE_LABEL = Object.freeze({
   [UNIT_ROLE.STRUCTURE]: 'Structure',
 });
 
+const TAG_DESCRIPTION = Object.freeze({
+  [UNIT_TAG.AGILE]: 'Dodges the first attack in each battle by moving into an open lane to the left or right, when possible.',
+  [UNIT_TAG.STATIONARY]: 'Cannot move from its deployed position.',
+  [UNIT_TAG.SWIVEL]: 'Can target units in other lanes instead of being limited to its own lane.',
+  [UNIT_TAG.FAST_ATTACK]: 'Can attack during the same turn that it moves.',
+  [UNIT_TAG.STEALTH]: 'Cannot be targeted until an enemy unit is adjacent to it.',
+  [UNIT_TAG.AI_ONLY]: 'Only hostile forces can deploy this unit.',
+  [UNIT_TAG.FLYING]: 'Continuously advances over other units and can move and attack together. Only flying or anti-air units can target it.',
+  [UNIT_TAG.ANTI_AIR]: 'Can target flying units as well as ground units.',
+  [UNIT_TAG.BOMB]: 'Explodes when it attacks, dealing increased damage and destroying itself.',
+  [UNIT_TAG.AOE]: 'Also damages enemies in the lanes immediately beside the target.',
+  [UNIT_TAG.HEAL]: 'Restores health to damaged allied units instead of attacking enemies.',
+});
+
 export class UnitPresentation {
   constructor(documentRef) {
     this.document = documentRef;
@@ -32,6 +46,50 @@ export class UnitPresentation {
     role.className = 'unit-description-role';
     role.textContent = ROLE_LABEL[type.role] ?? type.role;
     return role;
+  }
+
+  createTagChip(tag, tooltip, description) {
+    const chip = this.document.createElement('span');
+    chip.className = 'unit-description-tag';
+    chip.textContent = tag;
+    chip.tabIndex = 0;
+    chip.setAttribute('role', 'button');
+    chip.setAttribute('aria-expanded', 'false');
+    chip.setAttribute('aria-label', `${tag} ability: show explanation`);
+
+    const toggleTooltip = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const opening = tooltip.hidden || tooltip.dataset.tag !== tag;
+      description.querySelectorAll('.unit-description-tag[aria-expanded="true"]').forEach((other) => other.setAttribute('aria-expanded', 'false'));
+      if (!opening) {
+        tooltip.hidden = true;
+        delete tooltip.dataset.tag;
+        return;
+      }
+      tooltip.dataset.tag = tag;
+      tooltip.replaceChildren();
+      const title = this.document.createElement('strong');
+      title.textContent = tag;
+      const text = this.document.createElement('span');
+      text.textContent = TAG_DESCRIPTION[tag] ?? 'This unit has a special combat ability.';
+      tooltip.append(title, text);
+      tooltip.hidden = false;
+      chip.setAttribute('aria-expanded', 'true');
+    };
+
+    chip.addEventListener('click', toggleTooltip);
+    chip.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') toggleTooltip(event);
+      if (event.key === 'Escape' && !tooltip.hidden) {
+        event.preventDefault();
+        event.stopPropagation();
+        tooltip.hidden = true;
+        delete tooltip.dataset.tag;
+        chip.setAttribute('aria-expanded', 'false');
+      }
+    });
+    return chip;
   }
 
   createDescription(type, { tone = 'player', includeCost = true, quantity = null, meta = '' } = {}) {
@@ -76,18 +134,20 @@ export class UnitPresentation {
     const actionValue = heals ? type.healAmount : type.attack;
     details.innerHTML = `<span class="unit-description-stat">HP <strong>${type.hp}</strong></span><span class="unit-description-stat">${actionLabel} <strong>${actionValue}</strong></span>${type.range > 1 ? `<span class="unit-description-stat">RNG <strong>${type.range}</strong></span>` : ''}`;
 
+    const tooltip = this.document.createElement('div');
+    tooltip.className = 'unit-ability-tooltip';
+    tooltip.setAttribute('role', 'tooltip');
+    tooltip.hidden = true;
+
     type.tags.filter((tag) => tag !== UNIT_TAG.FLYING).forEach((tag) => {
-      const chip = this.document.createElement('span');
-      chip.className = 'unit-description-tag';
-      chip.textContent = tag;
-      details.appendChild(chip);
+      details.appendChild(this.createTagChip(tag, tooltip, description));
     });
 
     const behavior = this.document.createElement('div');
     behavior.className = 'unit-description-behavior';
     behavior.textContent = type.behavior;
 
-    description.append(header, details, behavior);
+    description.append(header, details, tooltip, behavior);
     return description;
   }
 
