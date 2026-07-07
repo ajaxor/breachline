@@ -64,10 +64,26 @@ export class BattlefieldRenderer extends CanvasRenderer {
   }
 
   drawUnit(unit, ghost, row = unit.row, column = unit.column, healthEffects = [], now = this.now()) {
-    this.context.save();
-    if (!ghost && this.showTurnProgress && unit.actedThisTick) this.context.filter = 'brightness(42%) saturate(55%)';
     super.drawUnit(unit, ghost, row, column, healthEffects, now);
-    this.context.restore();
+    if (!ghost && this.showTurnProgress && unit.actedThisTick) this.drawActedIndicator(row, column);
+  }
+
+  drawActedIndicator(row, column) {
+    const ctx = this.context;
+    const x = this.x(column);
+    const y = this.y(row);
+    const radius = this.cellSize * 0.36;
+    const markerSize = Math.max(4, this.cellSize * 0.12);
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(3, 8, 13, 0.68)';
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillRect(x + radius * 0.42, y + radius * 0.42, markerSize, markerSize);
+    ctx.restore();
   }
 
   prepareUnitContext() {
