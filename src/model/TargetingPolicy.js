@@ -20,7 +20,8 @@ export class TargetingPolicy {
     if (hasUnitTag(target.type, UNIT_TAG.FLYING)
       && !hasUnitTag(type, UNIT_TAG.FLYING)
       && !hasUnitTag(type, UNIT_TAG.ANTI_AIR)) return false;
-    return !hasUnitTag(target.type, UNIT_TAG.STEALTH) || gridDistance(attacker, target) <= 1;
+    const stealthActive = target.stealthed ?? hasUnitTag(target.type, UNIT_TAG.STEALTH);
+    return !stealthActive || gridDistance(attacker, target) <= 1;
   }
 
   nearest(candidates, origin) {
