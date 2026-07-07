@@ -2,6 +2,8 @@ import { GAME_CONFIG } from '../data/gameConfig.js';
 import { CanvasRenderer } from './CanvasRenderer.js';
 import { drawUnitGraphic } from './UnitGraphics.js';
 
+const BATTLE_SPEED = 0.5;
+
 export class BattlefieldRenderer extends CanvasRenderer {
   resize(model) {
     const width = this.container.clientWidth;
@@ -17,7 +19,6 @@ export class BattlefieldRenderer extends CanvasRenderer {
   }
 
   render(model) {
-    this.showTurnProgress = Boolean(model.turnQueue);
     if (!this.isPortrait) {
       super.render(model);
       return;
@@ -37,6 +38,11 @@ export class BattlefieldRenderer extends CanvasRenderer {
     const row = Math.floor(visualX / this.cellSize);
     const column = GAME_CONFIG.columns - 1 - Math.floor(visualY / this.cellSize);
     return row >= 0 && row < GAME_CONFIG.rows && column >= 0 && column < GAME_CONFIG.columns ? { row, column } : null;
+  }
+
+  drawAnimatedUnit(unit, attack, healthEffects, now) {
+    const animationDuration = unit.animationDuration === undefined ? undefined : unit.animationDuration / BATTLE_SPEED;
+    super.drawAnimatedUnit({ ...unit, animationDuration }, attack, healthEffects, now);
   }
 
   drawGrid() {
@@ -61,29 +67,6 @@ export class BattlefieldRenderer extends CanvasRenderer {
   drawDeploymentZone(columns, color) {
     this.context.fillStyle = color;
     columns.forEach((column) => this.context.fillRect(column * this.cellSize, 0, this.cellSize, GAME_CONFIG.rows * this.cellSize));
-  }
-
-  drawUnit(unit, ghost, row = unit.row, column = unit.column, healthEffects = [], now = this.now()) {
-    super.drawUnit(unit, ghost, row, column, healthEffects, now);
-    if (!ghost && this.showTurnProgress && unit.actedThisTick) this.drawActedIndicator(row, column);
-  }
-
-  drawActedIndicator(row, column) {
-    const ctx = this.context;
-    const x = this.x(column);
-    const y = this.y(row);
-    const radius = this.cellSize * 0.36;
-    const markerSize = Math.max(4, this.cellSize * 0.12);
-
-    ctx.save();
-    ctx.fillStyle = 'rgba(3, 8, 13, 0.68)';
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#94a3b8';
-    ctx.fillRect(x + radius * 0.42, y + radius * 0.42, markerSize, markerSize);
-    ctx.restore();
   }
 
   prepareUnitContext() {
