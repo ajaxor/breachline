@@ -104,6 +104,21 @@ test('only flying and anti-air units can target flying units', () => {
   assert.equal(hasUnitTag('flak', UNIT_TAG.ANTI_AIR), true);
 });
 
+test('units cannot target enemies behind their direction of travel', () => {
+  const model = new GameModel({ random: () => 0.5, now: () => 0 });
+  const player = createBattleUnit({ id: 1, team: TEAM.PLAYER, type: 'gunner', row: 2, column: 4 });
+  const enemyAhead = createBattleUnit({ id: 2, team: TEAM.ENEMY, type: 'grunt', row: 2, column: 5 });
+  const enemyBehind = createBattleUnit({ id: 3, team: TEAM.ENEMY, type: 'grunt', row: 2, column: 3 });
+  const enemy = createBattleUnit({ id: 4, team: TEAM.ENEMY, type: 'gunner', row: 2, column: 3 });
+  const playerAhead = createBattleUnit({ id: 5, team: TEAM.PLAYER, type: 'grunt', row: 2, column: 2 });
+  const playerBehind = createBattleUnit({ id: 6, team: TEAM.PLAYER, type: 'grunt', row: 2, column: 4 });
+
+  assert.equal(model.canTarget(player, enemyAhead), true);
+  assert.equal(model.canTarget(player, enemyBehind), false);
+  assert.equal(model.canTarget(enemy, playerAhead), true);
+  assert.equal(model.canTarget(enemy, playerBehind), false);
+});
+
 test('flying units overlap ground units and attack after moving', () => {
   const model = new GameModel({ random: () => 0.5, now: () => 0 });
   const flyer = createBattleUnit({ id: 1, type: 'flyer', row: 2, column: 0 });
