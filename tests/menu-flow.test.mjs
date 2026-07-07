@@ -11,14 +11,23 @@ test('campaign settings control mission count and difficulty budget', () => {
   assert.equal(model.campaign[0].enemyBudget, Math.round(220 * 1.25));
 });
 
-test('sandbox supports both sides and deterministic replay setup', () => {
+test('deployment rosters are alphabetical by displayed unit name', () => {
+  const model = new StrategyGameModel({ random: () => 0.5 });
+  model.configureSandbox();
+  const names = model.rosterTypes.map((type) => type.name);
+  assert.deepEqual(names, names.slice().sort((left, right) => left.localeCompare(right)));
+});
+
+test('sandbox exposes AI-only units and places both sides by board zone', () => {
   let now = 0;
   const model = new StrategyGameModel({ random: () => 0.1234, now: () => ++now });
   model.configureSandbox();
-  model.setSelectedUnitType('grunt');
+  assert(model.rosterTypes.some((type) => type.tags.includes('ai-only')));
+  model.setSelectedUnitType('tollbooth');
   assert.equal(model.togglePlacement(0, 0), true);
-  model.setSandboxTeam('enemy');
   assert.equal(model.togglePlacement(0, 13), true);
+  assert.equal(model.placement[0].type, 'tollbooth');
+  assert.equal(model.mission.enemyFormation[0].type, 'tollbooth');
   assert.equal(model.startBattle(), true);
   const original = model.units.map(({ team, type, row, column }) => ({ team, type, row, column }));
   model.tick();
