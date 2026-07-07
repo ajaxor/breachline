@@ -14,16 +14,9 @@ async function click(selector) {
 
 async function tryInspectCell(canvas, rect, row, column) {
   const points = [
-    {
-      clientX: rect.left + (column + 0.5) / 14 * rect.width,
-      clientY: rect.top + (row + 0.5) / 8 * rect.height,
-    },
-    {
-      clientX: rect.left + (row + 0.5) / 8 * rect.width,
-      clientY: rect.top + (14 - column - 0.5) / 14 * rect.height,
-    },
+    { clientX: rect.left + (column + 0.5) / 14 * rect.width, clientY: rect.top + (row + 0.5) / 8 * rect.height },
+    { clientX: rect.left + (row + 0.5) / 8 * rect.width, clientY: rect.top + (14 - column - 0.5) / 14 * rect.height },
   ];
-
   for (const point of points) {
     canvas.dispatchEvent(new MouseEvent('click', { bubbles: true, ...point }));
     await sleep(15);
@@ -35,6 +28,8 @@ async function tryInspectCell(canvas, rect, row, column) {
 async function run() {
   await sleep(100);
   await click('#btnStartGame');
+  assert(!document.querySelector('#campaignOverlay').hidden, 'Campaign menu did not open');
+  await click('#btnBeginCampaign');
   assert(document.querySelector('#screenTitle').hidden, 'Title screen did not close');
   assert(!document.querySelector('#gameShell').hidden, 'Game shell did not open');
 
@@ -66,9 +61,7 @@ async function run() {
   assert(rect.width > 0 && rect.height > 0, 'Battlefield canvas has no layout size');
   let inspected = false;
   for (let row = 0; row < 8 && !inspected; row += 1) {
-    for (let column = 0; column < 14 && !inspected; column += 1) {
-      inspected = await tryInspectCell(canvas, rect, row, column);
-    }
+    for (let column = 0; column < 14 && !inspected; column += 1) inspected = await tryInspectCell(canvas, rect, row, column);
   }
   assert(inspected, 'Could not inspect a hostile unit on the deployment grid');
   assert(document.querySelector('#unitInspector .unit-description'), 'Hostile inspector did not render a full unit description');
