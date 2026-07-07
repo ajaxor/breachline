@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GAME_CONFIG, TEAM, UNIT_TYPES } from '../src/data/gameConfig.js';
+import { GAME_CONFIG, TEAM, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../src/data/gameConfig.js';
 import { COMBAT_EVENT, RESULT_TYPE } from '../src/data/gameTypes.js';
 import { CombatActionResolver } from '../src/model/CombatActionResolver.js';
 import { GameModel } from '../src/model/GameModel.js';
@@ -60,35 +60,61 @@ test('stealth remains active at range and breaks when an enemy is adjacent', () 
   assert.equal(model.canTarget(enemy, infiltrator, UNIT_TYPES.grunt), true);
 });
 
-test('healers restore the nearest damaged ally and emit a semantic event', () => {
+test('healers use the heal tag and restore the nearest damaged ally', () => {
   const healer = createBattleUnit({ id: 1, type: 'healer', row: 2, column: 2 });
   const ally = createBattleUnit({ id: 2, type: 'tank', row: 3, column: 3, overrides: { hp: 50 } });
   const model = withUnits(healer, ally);
 
+  assert.equal(hasUnitTag(UNIT_TYPES.healer, UNIT_TAG.HEAL), true);
   assert.equal(model.tryCombatAction(healer, UNIT_TYPES.healer, 100, 100), true);
   assert.equal(ally.hp, 62);
   assert.equal(model.combatEvents.at(-1).type, COMBAT_EVENT.UNIT_HEALED);
   assert.equal(model.combatEvents.at(-1).amount, 12);
 });
 
-test('detonation damages adjacent enemies, spares distant enemies, and destroys the attacker', () => {
+test('bomb and aoe tags splash around the target and destroy the attacker', () => {
   const bomber = createBattleUnit({ id: 1, type: 'bomber', row: 2, column: 2 });
   const target = createBattleUnit({ id: 2, team: TEAM.ENEMY, row: 2, column: 3 });
-  const adjacent = createBattleUnit({ id: 3, team: TEAM.ENEMY, row: 1, column: 3 });
-  const distant = createBattleUnit({ id: 4, team: TEAM.ENEMY, row: 0, column: 5 });
-  const model = withUnits(bomber, target, adjacent, distant);
+  const besideTarget = createBattleUnit({ id: 3, team: TEAM.ENEMY, row: 1, column: 3 });
+  const besideAttackerOnly = createBattleUnit({ id: 4, team: TEAM.ENEMY, row: 1, column: 1 });
+  const model = withUnits(bomber, target, besideTarget, besideAttackerOnly);
 
-  model.attackUnit(bomber, target, [target, adjacent, distant], 100, 100);
+  model.attackUnit(bomber, target, [target, besideTarget, besideAttackerOnly], 100, 100);
 
+  assert.equal(hasUnitTag(UNIT_TYPES.bomber, UNIT_TAG.BOMB), true);
+  assert.equal(hasUnitTag(UNIT_TYPES.bomber, UNIT_TAG.AOE), true);
   assert.equal(target.hp, UNIT_TYPES.grunt.hp - UNIT_TYPES.bomber.attack);
-  assert.equal(adjacent.hp, UNIT_TYPES.grunt.hp - Math.round(UNIT_TYPES.bomber.attack * 0.55));
-  assert.equal(distant.hp, UNIT_TYPES.grunt.hp);
+  assert.equal(besideTarget.hp, UNIT_TYPES.grunt.hp - Math.round(UNIT_TYPES.bomber.attack * 0.55));
+  assert.equal(besideAttackerOnly.hp, UNIT_TYPES.grunt.hp);
   assert.equal(bomber.alive, false);
   assert.deepEqual(model.combatEvents.map((event) => event.type), [
     COMBAT_EVENT.UNIT_ATTACKED,
     COMBAT_EVENT.SPLASH_HIT,
     COMBAT_EVENT.UNIT_DETONATED,
   ]);
+});
+
+test('death events use the unit animated position instead of its movement destination', () => {
+  const firefly = createBattleUnit({
+    id: 1,
+    type: 'firefly',
+    row: 2,
+    column: 3,
+    overrides: {
+      previousRow: 2,
+      previousColumn: 2,
+      animationStartedAt: 100,
+      animationDuration: 200,
+    },
+  });
+  const target = createBattleUnit({ id: 2, team: TEAM.ENEMY, row: 2, column: 4 });
+  const model = withUnits(firefly, target);
+
+  model.attackUnit(firefly, target, [target], 150, 100);
+
+  const event = model.combatEvents.find((candidate) => candidate.type === COMBAT_EVENT.UNIT_DETONATED);
+  assert.equal(event.unit.row, 2);
+  assert.equal(event.unit.column, 2.25);
 });
 
 test('units breach the edge and then damage the opposing base', () => {
