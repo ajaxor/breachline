@@ -1,4 +1,4 @@
-import { GAME_CONFIG, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
+import { AURA_EFFECT, GAME_CONFIG, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
 import { COMBAT_EVENT } from '../data/gameTypes.js';
 import { MovementPolicy } from './MovementPolicy.js';
 import { TargetingPolicy, gridDistance } from './TargetingPolicy.js';
@@ -31,10 +31,33 @@ export class CombatActionResolver {
     this.targetPlan = null;
   }
 
+  auraValue(model, unit, effect, sourceTeam = unit.team) {
+    let strongest = 0;
+    for (const source of model.units) {
+      if (!source.alive || source.breached || source.team !== sourceTeam) continue;
+      const aura = UNIT_TYPES[source.type].aura;
+      if (!aura || aura.effect !== effect || gridDistance(source, unit) > aura.range) continue;
+      strongest = Math.max(strongest, aura.value ?? 0);
+    }
+    return strongest;
+  }
+
+  isStunned(model, unit) {
+    return this.auraValue(model, unit, AURA_EFFECT.STUN, unit.team === 'player' ? 'enemy' : 'player') > 0;
+  }
+
+  attackDamage(model, attacker) {
+    return UNIT_TYPES[attacker.type].attack + this.auraValue(model, attacker, AURA_EFFECT.DAMAGE);
+  }
+
+  incomingDamage(model, target, damage) {
+    return Math.max(1, damage - this.auraValue(model, target, AURA_EFFECT.SHIELD));
+  }
+
   buildTargetPlan(model, units) {
     const plan = new Map();
     for (const unit of units) {
-      if (!unit.alive || unit.breached) { plan.set(unit.id, null); continue; }
+      if (!unit.alive || unit.breached || this.isStunned(model, unit)) { plan.set(unit.id, null); continue; }
       const type = UNIT_TYPES[unit.type];
       const nearby = model.spatialIndex.nearby(unit.row, unit.column, type.range);
       if (hasUnitTag(type, UNIT_TAG.HEAL)) {
@@ -67,6 +90,8 @@ export class CombatActionResolver {
 
   processUnit(model, unit, now, duration) {
     if (!unit.alive) return true;
+    unit.stunnedThisTick = this.isStunned(model, unit);
+    if (unit.stunnedThisTick) return true;
     const type = UNIT_TYPES[unit.type];
     if (unit.breached) { model.attackBase(unit, now, duration); return true; }
     if (hasUnitTag(type, UNIT_TAG.FLYING)) return this.processFlyingUnit(model, unit, type, now, duration);
@@ -161,16 +186,17 @@ export class CombatActionResolver {
 
   detonate(model, attacker, now, duration) {
     if (!attacker.alive) return;
-    const type = UNIT_TYPES[attacker.type];
     const source = animatedSnapshot(attacker, now);
+    const rawDamage = this.attackDamage(model, attacker);
     const victims = model.units.filter((unit) => unit.alive && unit.team !== attacker.team && gridDistance(attacker, unit) <= 1);
     attacker.alive = false;
     model.spatialIndex.remove(attacker);
     model.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DETONATED, unit: source, at: now });
     for (const victim of victims) {
       if (!victim.alive) continue;
-      victim.hp -= type.attack;
-      model.emitCombatEvent({ type: COMBAT_EVENT.SPLASH_HIT, source, target: resolvedSnapshot(victim), damage: type.attack, at: now });
+      const damage = this.incomingDamage(model, victim, rawDamage);
+      victim.hp -= damage;
+      model.emitCombatEvent({ type: COMBAT_EVENT.SPLASH_HIT, source, target: resolvedSnapshot(victim), damage, at: now });
       if (victim.hp <= 0) this.destroyUnit(model, victim, now, duration);
     }
   }
@@ -179,16 +205,18 @@ export class CombatActionResolver {
     const legacyCall = Array.isArray(enemiesOrNow);
     const now = legacyCall ? nowOrDuration : enemiesOrNow;
     const duration = legacyCall ? legacyDuration : nowOrDuration;
-    const type = UNIT_TYPES[attacker.type];
     if (this.tryAgileDodge(model, attacker, target, now, duration)) return;
-    target.hp -= type.attack;
-    model.emitCombatEvent({ type: COMBAT_EVENT.UNIT_ATTACKED, attacker: resolvedSnapshot(attacker), target: resolvedSnapshot(target), damage: type.attack, range: type.range, at: now });
-    if (hasUnitTag(type, UNIT_TAG.AOE)) {
+    const rawDamage = this.attackDamage(model, attacker);
+    const damage = this.incomingDamage(model, target, rawDamage);
+    target.hp -= damage;
+    model.emitCombatEvent({ type: COMBAT_EVENT.UNIT_ATTACKED, attacker: resolvedSnapshot(attacker), target: resolvedSnapshot(target), damage, range: UNIT_TYPES[attacker.type].range, at: now });
+    if (hasUnitTag(attacker.type, UNIT_TAG.AOE)) {
       const enemies = model.units.filter((enemy) => enemy.alive && enemy.team !== attacker.team);
       for (const enemy of enemies) {
         if (enemy.id === target.id || gridDistance(target, enemy) > 1) continue;
-        enemy.hp -= type.attack;
-        model.emitCombatEvent({ type: COMBAT_EVENT.SPLASH_HIT, source: resolvedSnapshot(attacker), target: resolvedSnapshot(enemy), damage: type.attack, at: now });
+        const splashDamage = this.incomingDamage(model, enemy, rawDamage);
+        enemy.hp -= splashDamage;
+        model.emitCombatEvent({ type: COMBAT_EVENT.SPLASH_HIT, source: resolvedSnapshot(attacker), target: resolvedSnapshot(enemy), damage: splashDamage, at: now });
         if (enemy.hp <= 0) this.destroyUnit(model, enemy, now, duration);
       }
     }
