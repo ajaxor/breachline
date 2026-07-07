@@ -1,15 +1,24 @@
 import { UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
-import { ATTACK_EFFECT, COMBAT_EVENT, UNIT_ACTION } from '../data/gameTypes.js';
+import { COMBAT_EVENT } from '../data/gameTypes.js';
 import { MovementPolicy } from './MovementPolicy.js';
 import { TargetingPolicy, gridDistance } from './TargetingPolicy.js';
 
-const snapshot = (unit) => ({
-  id: unit.id,
-  team: unit.team,
-  type: unit.type,
-  row: unit.row,
-  column: unit.column,
-});
+const clamp01 = (value) => Math.max(0, Math.min(1, value));
+const lerp = (start, end, progress) => start + (end - start) * progress;
+
+const snapshot = (unit, at) => {
+  const duration = Math.max(1, unit.animationDuration ?? 1);
+  const progress = unit.animationStartedAt === undefined
+    ? 1
+    : clamp01((at - unit.animationStartedAt) / duration);
+  return {
+    id: unit.id,
+    team: unit.team,
+    type: unit.type,
+    row: lerp(unit.previousRow ?? unit.row, unit.row, progress),
+    column: lerp(unit.previousColumn ?? unit.column, unit.column, progress),
+  };
+};
 
 export class CombatActionResolver {
   constructor({ targeting = new TargetingPolicy(), movement = new MovementPolicy() } = {}) {
@@ -66,7 +75,7 @@ export class CombatActionResolver {
     const enemies = nearby.filter((candidate) => candidate.alive && candidate.team !== unit.team);
     const allies = nearby.filter((candidate) => candidate.alive && candidate.team === unit.team && candidate.id !== unit.id);
 
-    if (type.action === UNIT_ACTION.HEAL) {
+    if (hasUnitTag(type, UNIT_TAG.HEAL)) {
       const target = this.targeting.nearest(
         allies.filter((ally) => ally.hp < ally.maxHp && this.targeting.isInAttackPattern(unit, ally, type)),
         unit,
@@ -76,8 +85,8 @@ export class CombatActionResolver {
       target.hp += healed;
       model.emitCombatEvent({
         type: COMBAT_EVENT.UNIT_HEALED,
-        source: snapshot(unit),
-        target: snapshot(target),
+        source: snapshot(unit, now),
+        target: snapshot(target, now),
         amount: healed,
         at: now,
       });
@@ -96,30 +105,33 @@ export class CombatActionResolver {
     target.hp -= type.attack;
     model.emitCombatEvent({
       type: COMBAT_EVENT.UNIT_ATTACKED,
-      attacker: snapshot(attacker),
-      target: snapshot(target),
+      attacker: snapshot(attacker, now),
+      target: snapshot(target, now),
       damage: type.attack,
       range: type.range,
       at: now,
     });
 
-    if (type.onAttack === ATTACK_EFFECT.DETONATE) {
+    if (hasUnitTag(type, UNIT_TAG.AOE)) {
       for (const enemy of enemies) {
-        if (enemy.id === target.id || !enemy.alive || gridDistance(attacker, enemy) > 1) continue;
+        if (enemy.id === target.id || !enemy.alive || gridDistance(target, enemy) > 1) continue;
         const splash = Math.round(type.attack * 0.55);
         enemy.hp -= splash;
         model.emitCombatEvent({
           type: COMBAT_EVENT.SPLASH_HIT,
-          source: snapshot(attacker),
-          target: snapshot(enemy),
+          source: snapshot(attacker, now),
+          target: snapshot(enemy, now),
           damage: splash,
           at: now,
         });
         if (enemy.hp <= 0) model.killUnit(enemy, now, duration);
       }
+    }
+
+    if (hasUnitTag(type, UNIT_TAG.BOMB)) {
       attacker.alive = false;
       model.spatialIndex.remove(attacker);
-      model.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DETONATED, unit: snapshot(attacker), at: now });
+      model.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DETONATED, unit: snapshot(attacker, now), at: now });
     }
 
     if (target.alive && target.hp <= 0) model.killUnit(target, now, duration);
