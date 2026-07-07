@@ -12,7 +12,7 @@ export const GAME_CONFIG = Object.freeze({
   enemyBudgetBonus: 20,
   enemyBudgetStep: 10,
   startingDraftBudget: 100,
-  draftBudgetStep: 30,
+  draftBudgetStep: 40,
   playerZone: Object.freeze([0, 1, 2, 3, 4]),
   enemyZone: Object.freeze([9, 10, 11, 12, 13]),
 });
