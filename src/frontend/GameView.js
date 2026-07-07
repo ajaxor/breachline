@@ -104,11 +104,21 @@ export class GameView {
 
   renderDraft(model) {
     this.elements.draftProgress.textContent = model.pendingDrafts > 1 ? `${model.pendingDrafts} selections remaining` : 'Final selection';
-    const cards = model.draftChoices.map((type, index) => {
-      const card = this.createElement('button', { className: 'draft-card' });
-      card.dataset.draftUnit = type.key;
+    const cards = model.draftChoices.map((choice, index) => {
+      const card = this.createElement('button', { className: `draft-card${choice.isPair ? ' pair' : ''}` });
+      card.dataset.draftChoice = choice.key;
       card.style.setProperty('--draft-index', String(index));
-      card.appendChild(this.unitPresentation.createDescription(type, { label: 'Draft option', includeCost: false, quantity: type.draftCount }));
+      if (choice.isPair) {
+        const pair = this.createElement('div', { className: 'draft-pair' });
+        pair.append(
+          this.unitPresentation.createDescription(choice.units[0], { label: 'Paired unit', includeCost: false, quantity: choice.units[0].draftCount }),
+          this.createElement('div', { className: 'draft-pair-slash', text: '/' }),
+          this.unitPresentation.createDescription(choice.units[1], { label: 'Paired unit', includeCost: false, quantity: choice.units[1].draftCount }),
+        );
+        card.appendChild(pair);
+      } else {
+        card.appendChild(this.unitPresentation.createDescription(choice, { label: 'Draft option', includeCost: false, quantity: choice.draftCount }));
+      }
       return card;
     });
     this.elements.draftChoices.replaceChildren(...cards);
