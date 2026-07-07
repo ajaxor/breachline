@@ -2,7 +2,7 @@ import { UNIT_ROLE, UNIT_TAG, hasUnitTag } from '../data/gameConfig.js';
 import { drawUnitGraphic } from './UnitGraphics.js';
 
 const ROLE_LABEL = Object.freeze({
-  [UNIT_ROLE.GRUNT]: 'Grunt',
+  [UNIT_ROLE.MELEE]: 'Melee',
   [UNIT_ROLE.RANGED]: 'Ranged',
   [UNIT_ROLE.SUPPORT]: 'Support',
   [UNIT_ROLE.FLYING]: 'Flying',
@@ -22,6 +22,15 @@ const TAG_DESCRIPTION = Object.freeze({
   [UNIT_TAG.BOMB]: 'Explodes when it attacks, dealing increased damage and destroying itself.',
   [UNIT_TAG.AOE]: 'Also damages enemies in the lanes immediately beside the target.',
   [UNIT_TAG.HEAL]: 'Restores health to damaged allied units instead of attacking enemies.',
+  [UNIT_TAG.SALVO]: 'Attacks every valid enemy in range at the same time.',
+  [UNIT_TAG.PUSH]: 'Deals no attack damage, but shoves an adjacent enemy one cell backward when the space is open.',
+  [UNIT_TAG.CHARGE]: 'Moves two cells when that movement closes the final distance into melee range.',
+  [UNIT_TAG.FAST]: 'Permanently moves up to two cells each battle tick.',
+  [UNIT_TAG.FORMATION]: 'Moves only when every allied Formation unit can advance in lock step.',
+  [UNIT_TAG.SHIELD]: 'Reduces damage taken by nearby allied units.',
+  [UNIT_TAG.ENHANCE]: 'Increases damage dealt by nearby allied units.',
+  [UNIT_TAG.STUN_FIELD]: 'Stuns enemies aligned with this unit.',
+  [UNIT_TAG.JAMMER]: 'Cloaks nearby allied units.',
 });
 
 export class UnitPresentation {
@@ -130,8 +139,9 @@ export class UnitPresentation {
     const details = this.document.createElement('div');
     details.className = 'unit-description-details';
     const heals = hasUnitTag(type, UNIT_TAG.HEAL);
-    const actionLabel = heals ? 'HEAL' : 'ATK';
-    const actionValue = heals ? type.healAmount : type.attack;
+    const pushes = hasUnitTag(type, UNIT_TAG.PUSH);
+    const actionLabel = heals ? 'HEAL' : pushes ? 'PUSH' : 'ATK';
+    const actionValue = heals ? type.healAmount : pushes ? '1' : type.attack;
     details.innerHTML = `<span class="unit-description-stat">HP <strong>${type.hp}</strong></span><span class="unit-description-stat">${actionLabel} <strong>${actionValue}</strong></span>${type.range > 1 ? `<span class="unit-description-stat">RNG <strong>${type.range}</strong></span>` : ''}`;
 
     const tooltip = this.document.createElement('div');
