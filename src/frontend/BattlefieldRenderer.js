@@ -17,6 +17,7 @@ export class BattlefieldRenderer extends CanvasRenderer {
   }
 
   render(model) {
+    this.showTurnProgress = Boolean(model.turnQueue);
     if (!this.isPortrait) {
       super.render(model);
       return;
@@ -60,6 +61,13 @@ export class BattlefieldRenderer extends CanvasRenderer {
   drawDeploymentZone(columns, color) {
     this.context.fillStyle = color;
     columns.forEach((column) => this.context.fillRect(column * this.cellSize, 0, this.cellSize, GAME_CONFIG.rows * this.cellSize));
+  }
+
+  drawUnit(unit, ghost, row = unit.row, column = unit.column, healthEffects = [], now = this.now()) {
+    this.context.save();
+    if (!ghost && this.showTurnProgress && unit.actedThisTick) this.context.filter = 'brightness(42%) saturate(55%)';
+    super.drawUnit(unit, ghost, row, column, healthEffects, now);
+    this.context.restore();
   }
 
   prepareUnitContext() {
