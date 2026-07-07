@@ -1,4 +1,4 @@
-import { GAME_CONFIG, PLAYER_UNIT_TYPES, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
+import { GAME_CONFIG, PLAYER_UNIT_TYPES, UNIT_ROLE, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
 import { MISSION_STATUS, RESULT_TYPE } from '../data/gameTypes.js';
 import { createCampaign } from './CampaignFactory.js';
 import { SupplyDeploymentPolicy } from './DeploymentPolicies.js';
@@ -64,32 +64,74 @@ export class StrategyGameModel extends GameModel {
     return this.draftChoices;
   }
 
+  createDraftAward(type, budget = this.currentDraftBudget) {
+    return { ...type, draftCount: this.calculateDraftCount(type, budget) };
+  }
+
+  createSingleDraft(type) {
+    const award = this.createDraftAward(type);
+    return { ...award, units: [award], isPair: false };
+  }
+
+  createPairDraft(first, second) {
+    const firstAward = this.createDraftAward(first, this.currentDraftBudget / 2);
+    const secondAward = this.createDraftAward(second, this.currentDraftBudget / 2);
+    return {
+      key: `${first.key}+${second.key}`,
+      name: `${first.name} / ${second.name}`,
+      isPair: true,
+      units: [firstAward, secondAward],
+    };
+  }
+
   rollDraftChoices() {
     if (this.pendingDrafts <= 0) { this.draftChoices = []; return this.draftChoices; }
     const lockedTypes = PLAYER_UNIT_TYPES.filter((type) => !this.roster[type.key]);
     const preferredPool = lockedTypes.length ? lockedTypes : PLAYER_UNIT_TYPES;
+    const singlePool = preferredPool.filter((type) => type.role !== UNIT_ROLE.SUPPORT);
+    const pairPool = preferredPool.length >= 2 ? preferredPool : PLAYER_UNIT_TYPES;
+    const supportPool = pairPool.filter((type) => type.role === UNIT_ROLE.SUPPORT);
     const choices = [];
-    const addDistinctRoles = (pool) => {
-      for (const type of this.shuffle(pool)) {
-        if (choices.length >= 3) break;
-        if (!choices.some((choice) => choice.role === type.role)) choices.push(type);
+    const usedSingleRoles = new Set();
+
+    for (let index = 0; index < 3; index += 1) {
+      const shouldPair = pairPool.length >= 2 && (this.random() < 0.45 || singlePool.length === 0);
+      if (shouldPair) {
+        const firstCandidates = this.shuffle(pairPool);
+        const first = firstCandidates.find((type) => !choices.some((choice) => choice.units.some((unit) => unit.key === type.key))) ?? firstCandidates[0];
+        const preferSupport = supportPool.length > 0 && !choices.some((choice) => choice.units.some((unit) => unit.role === UNIT_ROLE.SUPPORT));
+        const secondCandidates = this.shuffle(preferSupport ? supportPool : pairPool).filter((type) => type.key !== first.key);
+        const second = secondCandidates[0] ?? this.shuffle(pairPool).find((type) => type.key !== first.key);
+        if (first && second) { choices.push(this.createPairDraft(first, second)); continue; }
       }
-    };
-    addDistinctRoles(preferredPool);
-    if (choices.length < 3) addDistinctRoles(PLAYER_UNIT_TYPES);
-    this.draftChoices = choices.map((type) => ({ ...type, draftCount: this.calculateDraftCount(type) }));
+
+      const candidates = this.shuffle(singlePool);
+      const single = candidates.find((type) => !usedSingleRoles.has(type.role)) ?? candidates[0];
+      if (single) {
+        choices.push(this.createSingleDraft(single));
+        usedSingleRoles.add(single.role);
+      }
+    }
+
+    while (choices.length < 3 && pairPool.length >= 2) {
+      const [first, second] = this.shuffle(pairPool).slice(0, 2);
+      choices.push(this.createPairDraft(first, second));
+    }
+    this.draftChoices = choices;
     return this.draftChoices;
   }
 
-  calculateDraftCount(type) { return Math.max(1, Math.round((this.currentDraftBudget / type.cost) * (0.9 + this.random() * 0.2))); }
+  calculateDraftCount(type, budget = this.currentDraftBudget) { return Math.max(1, Math.round((budget / type.cost) * (0.9 + this.random() * 0.2))); }
 
-  chooseDraft(typeKey) {
-    const choice = this.draftChoices.find((type) => type.key === typeKey);
+  chooseDraft(choiceKey) {
+    const choice = this.draftChoices.find((draft) => draft.key === choiceKey);
     if (!choice || this.pendingDrafts <= 0) return false;
-    this.roster[typeKey] = true;
-    this.supply[typeKey] += choice.draftCount;
+    for (const unit of choice.units ?? [choice]) {
+      this.roster[unit.key] = true;
+      this.supply[unit.key] += unit.draftCount;
+      if (!this.selectedUnitType) this.selectedUnitType = unit.key;
+    }
     this.pendingDrafts -= 1;
-    if (!this.selectedUnitType) this.selectedUnitType = typeKey;
     this.rollDraftChoices();
     return true;
   }
