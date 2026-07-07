@@ -25,6 +25,7 @@ const TAG_DESCRIPTION = Object.freeze({
   [UNIT_TAG.SALVO]: 'Attacks every valid enemy in range during the same combat action.',
   [UNIT_TAG.PUSH]: 'Pushes an adjacent enemy one cell backward and advances into the space it leaves. A blocked or edge push does nothing.',
   [UNIT_TAG.CHARGE]: 'Moves at double speed until its first attack. That first attack has double attack power, then Charge is spent.',
+  [UNIT_TAG.RELOAD]: 'After attacking, must spend the next two turns reloading before it can attack again. It may still move while reloading.',
   [UNIT_TAG.FORMATION]: 'Advances only when every surviving allied Formation unit can move forward together.',
   [UNIT_TAG.SHIELD]: 'Reduces each hit against allied units within the aura by the listed shield value. Multiple shield auras do not stack.',
   [UNIT_TAG.ENHANCE]: 'Adds the listed damage bonus to attacks made by allied units within the aura. Multiple enhancement auras do not stack.',
@@ -138,9 +139,8 @@ export class UnitPresentation {
     const details = this.document.createElement('div');
     details.className = 'unit-description-details';
     const heals = hasUnitTag(type, UNIT_TAG.HEAL);
-    const pushes = hasUnitTag(type, UNIT_TAG.PUSH);
-    const actionLabel = heals ? 'HEAL' : pushes ? 'PUSH' : 'ATK';
-    const actionValue = heals ? type.healAmount : pushes ? '1' : type.attack;
+    const actionLabel = heals ? 'HEAL' : 'ATK';
+    const actionValue = heals ? type.healAmount : type.attack;
     details.innerHTML = `<span class="unit-description-stat">HP <strong>${type.hp}</strong></span><span class="unit-description-stat">${actionLabel} <strong>${actionValue}</strong></span>${type.range > 1 ? `<span class="unit-description-stat">RNG <strong>${type.range}</strong></span>` : ''}`;
 
     const tooltip = this.document.createElement('div');
