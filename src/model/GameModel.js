@@ -120,7 +120,7 @@ export class GameModel {
     this.effects = this.effects.filter((effect) => now - effect.start < effect.duration);
     const duration = Math.max(110, Math.min(480, GAME_CONFIG.tickIntervalMs * 0.85));
     const actingUnits = this.units.filter((unit) => unit.alive);
-    actingUnits.forEach((unit) => { unit.previousRow = unit.row; unit.previousColumn = unit.column; unit.animationStartedAt = now; unit.animationDuration = duration; unit.movedThisTurn = false; });
+    actingUnits.forEach((unit) => { unit.previousRow = unit.row; unit.previousColumn = unit.column; unit.animationStartedAt = now; unit.animationDuration = duration; unit.movedThisTurn = false; unit.actedThisTick = false; });
     this.spatialIndex = new SpatialIndex(this.units);
     this.processActionQueue(this.shuffle(actingUnits), now, duration);
     this.refreshStealth();
@@ -136,7 +136,9 @@ export class GameModel {
     this.effects = this.effects.filter((effect) => now - effect.start < effect.duration);
     if (!this.turnQueue) {
       this.tickCount += 1;
-      this.turnQueue = this.shuffle(this.units.filter((unit) => unit.alive));
+      const livingUnits = this.units.filter((unit) => unit.alive);
+      livingUnits.forEach((unit) => { unit.actedThisTick = false; });
+      this.turnQueue = this.shuffle(livingUnits);
       this.consecutiveTurnPasses = 0;
       this.spatialIndex = new SpatialIndex(this.units);
     }
@@ -155,6 +157,7 @@ export class GameModel {
         continue;
       }
 
+      unit.actedThisTick = true;
       this.consecutiveTurnPasses = 0;
       this.refreshStealth();
       this.result = this.determineResult();
