@@ -1,7 +1,7 @@
 import { GAME_CONFIG, TEAM, UNIT_TYPES } from '../data/gameConfig.js';
 import { COMBAT_EVENT, EFFECT_TYPE, LOG_TYPE } from '../data/gameTypes.js';
 
-const ATTACK_STAGGER_MS = 90;
+const ATTACK_STAGGER_MS = 180;
 const point = (unit) => ({ row: unit.row, column: unit.column });
 const teamColor = (team) => team === TEAM.PLAYER ? '#38bdf8' : '#ff5d5d';
 
