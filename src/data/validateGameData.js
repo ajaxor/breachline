@@ -1,7 +1,8 @@
-import { GAME_CONFIG, UNIT_ROLE, UNIT_TAG, UNIT_TYPES } from './gameConfig.js';
+import { AURA_EFFECT, GAME_CONFIG, UNIT_ROLE, UNIT_TAG, UNIT_TYPES } from './gameConfig.js';
 import { ATTACK_EFFECT, UNIT_ACTION } from './gameTypes.js';
 
 const VALID_ACTIONS = new Set(Object.values(UNIT_ACTION));
+const VALID_AURA_EFFECTS = new Set(Object.values(AURA_EFFECT));
 const VALID_ON_ATTACK = new Set(Object.values(ATTACK_EFFECT));
 const VALID_TAGS = new Set(Object.values(UNIT_TAG));
 const VALID_ROLES = new Set(Object.values(UNIT_ROLE));
@@ -74,6 +75,13 @@ function validateUnit(mapKey, type) {
     assert(type.attack === 0, `${label} healers must have zero attack`);
     assertPositiveNumber(type.healAmount, `${label} healAmount`, { integer: true });
   }
+  if (type.aura !== undefined) {
+    assert(type.role === UNIT_ROLE.SUPPORT, `${label} aura units must use the support role`);
+    assert(type.attack === 0, `${label} aura units must have zero attack`);
+    assert(VALID_AURA_EFFECTS.has(type.aura.effect), `${label} has unknown aura effect ${type.aura.effect}`);
+    assertPositiveNumber(type.aura.range, `${label} aura.range`, { integer: true });
+    assertPositiveNumber(type.aura.value, `${label} aura.value`, { integer: true });
+  }
   if (type.onAttack !== undefined) assert(VALID_ON_ATTACK.has(type.onAttack), `${label} has unknown onAttack behavior ${type.onAttack}`);
 
   if (type.role === UNIT_ROLE.STRUCTURE) {
@@ -82,7 +90,7 @@ function validateUnit(mapKey, type) {
   }
   if (type.tags.includes(UNIT_TAG.FLYING)) {
     assert(!type.tags.includes(UNIT_TAG.FAST_ATTACK), `${label} flying units must not duplicate fast-attack`);
-    assert(!type.tags.includes(UNIT_TAG.CAN_MOVE_SIDEWAYS), `${label} flying units must not use ground sideways movement`);
+    assert(!type.tags.includes(UNIT_TAG.AGILE), `${label} flying units must not use ground agile movement`);
     assert(type.role !== UNIT_ROLE.STRUCTURE, `${label} structures cannot fly`);
   }
 }
