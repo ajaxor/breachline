@@ -66,7 +66,7 @@ test('unit roles determine the common icon silhouette', () => {
   assert.equal(UNIT_TYPES.grunt.shape, UNIT_TYPES.gunner.shape);
   assert.equal(UNIT_TYPES.sniper.shape, UNIT_TYPES.flak.shape);
   assert.equal(UNIT_TYPES.midge.shape, UNIT_TYPES.firefly.shape);
-  assert.equal(UNIT_TYPES.grunt.role, UNIT_ROLE.GRUNT);
+  assert.equal(UNIT_TYPES.grunt.role, UNIT_ROLE.MELEE);
   assert.equal(UNIT_TYPES.flak.role, UNIT_ROLE.RANGED);
 });
 
