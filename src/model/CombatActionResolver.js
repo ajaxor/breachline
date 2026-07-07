@@ -3,13 +3,20 @@ import { COMBAT_EVENT } from '../data/gameTypes.js';
 import { MovementPolicy } from './MovementPolicy.js';
 import { TargetingPolicy, gridDistance } from './TargetingPolicy.js';
 
-const snapshot = (unit) => ({
-  id: unit.id,
-  team: unit.team,
-  type: unit.type,
-  row: unit.row,
-  column: unit.column,
-});
+const clamp01 = (value) => Math.max(0, Math.min(1, value));
+const lerp = (start, end, progress) => start + (end - start) * progress;
+const resolvedSnapshot = (unit) => ({ id: unit.id, team: unit.team, type: unit.type, row: unit.row, column: unit.column });
+const animatedSnapshot = (unit, at) => {
+  const duration = Math.max(1, unit.animationDuration ?? 1);
+  const progress = unit.animationStartedAt === undefined ? 1 : clamp01((at - unit.animationStartedAt) / duration);
+  return {
+    id: unit.id,
+    team: unit.team,
+    type: unit.type,
+    row: lerp(unit.previousRow ?? unit.row, unit.row, progress),
+    column: lerp(unit.previousColumn ?? unit.column, unit.column, progress),
+  };
+};
 
 export class CombatActionResolver {
   constructor({ targeting = new TargetingPolicy(), movement = new MovementPolicy() } = {}) {
@@ -76,8 +83,8 @@ export class CombatActionResolver {
       target.hp += healed;
       model.emitCombatEvent({
         type: COMBAT_EVENT.UNIT_HEALED,
-        source: snapshot(unit),
-        target: snapshot(target),
+        source: resolvedSnapshot(unit),
+        target: resolvedSnapshot(target),
         amount: healed,
         at: now,
       });
@@ -109,8 +116,8 @@ export class CombatActionResolver {
     model.spatialIndex.move(target, previousRow, previousColumn);
     model.emitCombatEvent({
       type: COMBAT_EVENT.UNIT_DODGED,
-      attacker: snapshot(attacker),
-      unit: snapshot(target),
+      attacker: resolvedSnapshot(attacker),
+      unit: resolvedSnapshot(target),
       at: now,
     });
     return true;
@@ -119,7 +126,7 @@ export class CombatActionResolver {
   detonate(model, attacker, now) {
     attacker.alive = false;
     model.spatialIndex.remove(attacker);
-    model.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DETONATED, unit: snapshot(attacker), at: now });
+    model.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DETONATED, unit: animatedSnapshot(attacker, now), at: now });
   }
 
   attackUnit(model, attacker, target, enemies, now, duration) {
@@ -132,8 +139,8 @@ export class CombatActionResolver {
     target.hp -= type.attack;
     model.emitCombatEvent({
       type: COMBAT_EVENT.UNIT_ATTACKED,
-      attacker: snapshot(attacker),
-      target: snapshot(target),
+      attacker: resolvedSnapshot(attacker),
+      target: resolvedSnapshot(target),
       damage: type.attack,
       range: type.range,
       at: now,
@@ -146,8 +153,8 @@ export class CombatActionResolver {
         enemy.hp -= splash;
         model.emitCombatEvent({
           type: COMBAT_EVENT.SPLASH_HIT,
-          source: snapshot(attacker),
-          target: snapshot(enemy),
+          source: resolvedSnapshot(attacker),
+          target: resolvedSnapshot(enemy),
           damage: splash,
           at: now,
         });
