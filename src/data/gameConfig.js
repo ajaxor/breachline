@@ -69,6 +69,11 @@ const FLYING_ANIMATION = Object.freeze({
   idle: IDLE_ANIMATION.HOVER,
 });
 
+const STATIONARY_ANIMATION = Object.freeze({
+  movement: null,
+  idle: IDLE_ANIMATION.STILL,
+});
+
 const unit = (definition) => {
   const tags = new Set(definition.tags ?? []);
   if (definition.role === UNIT_ROLE.STRUCTURE) {
@@ -83,6 +88,7 @@ const unit = (definition) => {
   const animation = Object.freeze({
     ...DEFAULT_ANIMATION,
     ...(tags.has(UNIT_TAG.FLYING) ? FLYING_ANIMATION : {}),
+    ...(tags.has(UNIT_TAG.STATIONARY) ? STATIONARY_ANIMATION : {}),
     ...(definition.animation ?? {}),
   });
   return Object.freeze({ ...definition, shape: ROLE_SHAPE[definition.role] ?? 'square', animation, campaign, tags: Object.freeze([...tags]) });
@@ -103,7 +109,7 @@ export const UNIT_TYPES = Object.freeze({
   kite: unit({ key: 'kite', name: 'Kite', role: UNIT_ROLE.FLYING, cost: 38, hp: 16, attack: 12, range: 4, tags: [UNIT_TAG.FLYING], campaign: { unlockMission: 7, initialWeight: 0.13, weightGrowth: 0.025 }, behavior: 'A fragile long-range flyer that fires down its lane while continuously advancing.', graphic: 'kite' }),
   firefly: unit({ key: 'firefly', name: 'Firefly', role: UNIT_ROLE.FLYING, cost: 28, hp: 14, attack: 34, range: 1, tags: [UNIT_TAG.FLYING, UNIT_TAG.BOMB, UNIT_TAG.AOE, UNIT_TAG.SWIVEL], campaign: { unlockMission: 7, initialWeight: 0.12, weightGrowth: 0.025 }, behavior: 'A disposable flying charge that explodes at its own position on contact or destruction.', graphic: 'firefly' }),
   mortar: unit({ key: 'mortar', name: 'Artillery', role: UNIT_ROLE.RANGED, cost: 40, hp: 28, attack: 19, range: 3, tags: [UNIT_TAG.SWIVEL], campaign: { unlockMission: 7, initialWeight: 0.14, weightGrowth: 0.03 }, behavior: 'Bombards ground targets within range by swiveling across lanes.', graphic: 'artillery', animation: { attack: ATTACK_ANIMATION.LOB } }),
-  tollbooth: unit({ key: 'tollbooth', name: 'Barricade', role: UNIT_ROLE.STRUCTURE, cost: 35, hp: 85, attack: 8, range: 1, campaign: { unlockMission: 4, initialWeight: 0.16, weightGrowth: 0.03 }, behavior: 'An enemy-only obstacle that blocks and strikes its lane.', graphic: 'barricade' }),
+  tollbooth: unit({ key: 'tollbooth', name: 'Barricade', role: UNIT_ROLE.STRUCTURE, cost: 35, hp: 85, attack: 0, range: 1, campaign: { unlockMission: 4, initialWeight: 0.16, weightGrowth: 0.03 }, behavior: 'An enemy-only obstacle that blocks its lane.', graphic: 'barricade', animation: { attack: null } }),
   sentry: unit({ key: 'sentry', name: 'Turret', role: UNIT_ROLE.STRUCTURE, cost: 50, hp: 55, attack: 12, range: 3, tags: [UNIT_TAG.SWIVEL, UNIT_TAG.ANTI_AIR], campaign: { unlockMission: 8, initialWeight: 0.12, weightGrowth: 0.03 }, behavior: 'An enemy-only stationary weapon that swivels toward ground or flying units in other lanes.', graphic: 'turret', animation: { attack: ATTACK_ANIMATION.LASER } }),
 });
 
