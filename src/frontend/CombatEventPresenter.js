@@ -5,7 +5,7 @@ const ATTACK_STAGGER_MS = 180;
 const point = (unit) => ({ row: unit.row, column: unit.column });
 const teamColor = (team) => team === TEAM.PLAYER ? '#38bdf8' : '#ff5d5d';
 
-function addDeathEffect(model, unit, at, duration) {
+function addDeathEffect(model, unit, at, duration, actionStart) {
   const definition = UNIT_TYPES[unit.type];
   model.effects.push({
     type: EFFECT_TYPE.DEATH,
@@ -14,6 +14,7 @@ function addDeathEffect(model, unit, at, duration) {
     graphic: definition.graphic,
     color: teamColor(unit.team),
     seed: unit.id * 2.399963229728653,
+    actionStart,
     start: at,
     duration: Math.max(duration * 1.25, 450),
   });
@@ -30,6 +31,10 @@ function addHealthLossEffect(model, target, damage, actionStart, impactStart, du
     start: impactStart,
     duration: Math.max(260, duration * 0.7),
   });
+}
+
+function latestHealthLoss(model, unitId) {
+  return [...model.effects].reverse().find((effect) => effect.type === EFFECT_TYPE.HEALTH_LOSS && effect.targetId === unitId);
 }
 
 export class CombatEventPresenter {
@@ -105,7 +110,8 @@ export class CombatEventPresenter {
         break;
       case COMBAT_EVENT.UNIT_DESTROYED: {
         const definition = UNIT_TYPES[event.unit.type];
-        addDeathEffect(model, event.unit, at, duration);
+        const healthLoss = latestHealthLoss(model, event.unit.id);
+        addDeathEffect(model, event.unit, healthLoss?.start ?? at, duration, healthLoss?.actionStart);
         if (!event.silent) model.addLog(`${definition.name} #${event.unit.id} destroyed.`, event.unit.team === TEAM.PLAYER ? LOG_TYPE.PLAYER_LOSS : LOG_TYPE.KILL);
         break;
       }
