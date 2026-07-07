@@ -9,13 +9,7 @@ const resolvedSnapshot = (unit) => ({ id: unit.id, team: unit.team, type: unit.t
 const animatedSnapshot = (unit, at) => {
   const duration = Math.max(1, unit.animationDuration ?? 1);
   const progress = unit.animationStartedAt === undefined ? 1 : clamp01((at - unit.animationStartedAt) / duration);
-  return {
-    id: unit.id,
-    team: unit.team,
-    type: unit.type,
-    row: lerp(unit.previousRow ?? unit.row, unit.row, progress),
-    column: lerp(unit.previousColumn ?? unit.column, unit.column, progress),
-  };
+  return { id: unit.id, team: unit.team, type: unit.type, row: lerp(unit.previousRow ?? unit.row, unit.row, progress), column: lerp(unit.previousColumn ?? unit.column, unit.column, progress) };
 };
 
 export class CombatActionResolver {
@@ -28,10 +22,7 @@ export class CombatActionResolver {
   buildTargetPlan(model, units) {
     const plan = new Map();
     for (const unit of units) {
-      if (!unit.alive || unit.breached) {
-        plan.set(unit.id, null);
-        continue;
-      }
+      if (!unit.alive || unit.breached) { plan.set(unit.id, null); continue; }
       const type = UNIT_TYPES[unit.type];
       const nearby = model.spatialIndex.nearby(unit.row, unit.column, type.range);
       if (hasUnitTag(type, UNIT_TAG.HEAL)) {
@@ -39,10 +30,7 @@ export class CombatActionResolver {
         plan.set(unit.id, this.targeting.nearest(allies, unit)?.id ?? null);
         continue;
       }
-      if (type.attack <= 0) {
-        plan.set(unit.id, null);
-        continue;
-      }
+      if (type.attack <= 0) { plan.set(unit.id, null); continue; }
       const enemies = nearby.filter((candidate) => candidate.alive && candidate.team !== unit.team && this.targeting.canTarget(unit, candidate, type));
       plan.set(unit.id, this.targeting.nearest(enemies, unit)?.id ?? null);
     }
@@ -52,16 +40,13 @@ export class CombatActionResolver {
   processQueue(model, units, now, duration) {
     const queue = units.slice();
     let consecutivePasses = 0;
-    this.targetPlan = this.buildTargetPlan(model, units);
+    this.targetPlan = model.spatialIndex ? this.buildTargetPlan(model, units) : null;
     try {
       while (queue.length > 0 && consecutivePasses < queue.length) {
         const unit = queue.shift();
         if (!unit.alive) continue;
         if (this.processUnit(model, unit, now, duration)) consecutivePasses = 0;
-        else {
-          queue.push(unit);
-          consecutivePasses += 1;
-        }
+        else { queue.push(unit); consecutivePasses += 1; }
       }
     } finally {
       this.targetPlan = null;
@@ -71,10 +56,7 @@ export class CombatActionResolver {
   processUnit(model, unit, now, duration) {
     if (!unit.alive) return true;
     const type = UNIT_TYPES[unit.type];
-    if (unit.breached) {
-      model.attackBase(unit, now, duration);
-      return true;
-    }
+    if (unit.breached) { model.attackBase(unit, now, duration); return true; }
     if (hasUnitTag(type, UNIT_TAG.FLYING)) return this.processFlyingUnit(model, unit, type, now, duration);
     if (this.tryCombatAction(model, unit, type, now, duration)) return true;
     unit.movedThisTurn = this.movement.move(model, unit, now, duration);
