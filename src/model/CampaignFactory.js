@@ -16,10 +16,7 @@ function weightsForMission(index) {
     const weight = index < unlockMission ? 0 : initialWeight + weightGrowth * (index - unlockMission);
     return [type.key, weight];
   }));
-
-  const specialistWeight = Object.entries(weights)
-    .filter(([key]) => key !== 'grunt')
-    .reduce((sum, [, value]) => sum + value, 0);
+  const specialistWeight = Object.entries(weights).filter(([key]) => key !== 'grunt').reduce((sum, [, value]) => sum + value, 0);
   weights.grunt = Math.max(0.25, 1 - specialistWeight * 0.42);
   return weights;
 }
@@ -41,32 +38,22 @@ function generateFormation(budget, missionIndex, random) {
   const enemyKeys = ENEMY_UNIT_TYPES.map((type) => type.key);
   const formation = [];
   let remaining = budget;
-
   for (const slot of slots) {
     const affordable = enemyKeys.filter((key) => UNIT_TYPES[key].cost * 2 <= remaining && (weights[key] ?? 0) > 0);
     if (!affordable.length) continue;
     const type = weightedPick(weights, affordable, random);
     remaining -= UNIT_TYPES[type].cost * 2;
-    formation.push(
-      { row: slot.pair[0], column: slot.column, type },
-      { row: slot.pair[1], column: slot.column, type },
-    );
+    formation.push({ row: slot.pair[0], column: slot.column, type }, { row: slot.pair[1], column: slot.column, type });
   }
   return formation;
 }
 
-export function createCampaign(random = Math.random) {
-  return Array.from({ length: GAME_CONFIG.missionCount }, (_, index) => {
+export function createCampaign(random = Math.random, { missionCount = GAME_CONFIG.missionCount, difficulty = 1 } = {}) {
+  return Array.from({ length: missionCount }, (_, index) => {
     const playerBudget = GAME_CONFIG.startingBudget + index * GAME_CONFIG.budgetStep;
-    const enemyBudget = playerBudget + GAME_CONFIG.enemyBudgetBonus + index * GAME_CONFIG.enemyBudgetStep;
+    const baseEnemyBudget = playerBudget + GAME_CONFIG.enemyBudgetBonus + index * GAME_CONFIG.enemyBudgetStep;
+    const enemyBudget = Math.round(baseEnemyBudget * difficulty);
     const draftBudget = GAME_CONFIG.startingDraftBudget + index * GAME_CONFIG.draftBudgetStep;
-    return {
-      index,
-      playerBudget,
-      enemyBudget,
-      draftBudget,
-      enemyFormation: generateFormation(enemyBudget, index, random),
-      status: index === 0 ? MISSION_STATUS.AVAILABLE : MISSION_STATUS.LOCKED,
-    };
+    return { index, playerBudget, enemyBudget, draftBudget, enemyFormation: generateFormation(enemyBudget, index, random), status: index === 0 ? MISSION_STATUS.AVAILABLE : MISSION_STATUS.LOCKED };
   });
 }
