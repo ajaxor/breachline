@@ -13,6 +13,29 @@ export const ATTACK_EFFECT = Object.freeze({
   DETONATE: 'detonate',
 });
 
+export const ATTACK_ANIMATION = Object.freeze({
+  MELEE: 'melee',
+  LASER: 'laser',
+  MISSILE: 'missile',
+  LOB: 'lob',
+});
+
+export const MOVEMENT_ANIMATION = Object.freeze({
+  MARCH: 'march',
+  GLIDE: 'glide',
+  HOVER: 'hover',
+});
+
+export const DEATH_ANIMATION = Object.freeze({
+  EXPLODE: 'explode',
+  SPIN_OUT: 'spin-out',
+});
+
+export const IDLE_ANIMATION = Object.freeze({
+  STILL: 'still',
+  HOVER: 'hover',
+});
+
 export const EFFECT_TYPE = Object.freeze({
   HEAL: 'heal',
   HEALTH_LOSS: 'health-loss',
