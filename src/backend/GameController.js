@@ -1,4 +1,4 @@
-import { GAME_CONFIG, MODE, UNIT_TYPES } from '../data/gameConfig.js';
+import { GAME_CONFIG, MODE, TEAM, UNIT_TYPES } from '../data/gameConfig.js';
 import { EFFECT_TYPE } from '../data/gameTypes.js';
 
 const ATTACK_STAGGER_MS = 180;
@@ -185,7 +185,19 @@ export class GameController {
       this.view.showResult(outcome.result, this.model.selectedMission + 1 < this.model.campaign.length);
       return;
     }
+    if (this.hasFullyBreachedTeam()) {
+      this.sequentialCombat = false;
+      this.scheduleBattleTick(presentationDuration);
+      return;
+    }
     this.scheduleBattleTick(presentationDuration + UNIT_TURN_DELAY_MS);
+  }
+
+  hasFullyBreachedTeam() {
+    return [TEAM.PLAYER, TEAM.ENEMY].some((team) => {
+      const living = this.model.units.filter((unit) => unit.alive && unit.team === team);
+      return living.length > 0 && living.every((unit) => unit.breached);
+    });
   }
 
   sequenceAttackEffects(effectStart) {
