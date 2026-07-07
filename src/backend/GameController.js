@@ -1,10 +1,6 @@
 import { GAME_CONFIG, MODE, UNIT_TYPES } from '../data/gameConfig.js';
-import { EFFECT_TYPE } from '../data/gameTypes.js';
 
 const BATTLE_SPEED = 0.5;
-const ATTACK_STAGGER_MS = 180;
-const PRE_ATTACK_HOLD_MS = 320;
-const POST_ATTACK_HOLD_MS = 360;
 const defaultScheduler = Object.freeze({
   setInterval: (callback, delay) => window.setInterval(callback, delay),
   clearInterval: (handle) => window.clearInterval(handle),
@@ -13,13 +9,6 @@ const defaultScheduler = Object.freeze({
   setTimeout: (callback, delay) => window.setTimeout(callback, delay),
   clearTimeout: (handle) => window.clearTimeout(handle),
 });
-
-const ATTACK_EFFECTS = new Set([
-  EFFECT_TYPE.MELEE,
-  EFFECT_TYPE.RANGED,
-  EFFECT_TYPE.HEAL,
-  EFFECT_TYPE.EXPLOSION,
-]);
 
 export class GameController {
   constructor(model, view, renderer, buildInfo = {}, { scheduler = defaultScheduler, browser = window } = {}) {
@@ -151,42 +140,45 @@ export class GameController {
   runBattleTick() {
     const effectStart = this.model.effects.length;
     const result = this.model.tick();
-    const presentationDuration = this.sequenceAttackEffects(effectStart);
+    const tickDuration = this.movementDuration();
+    this.fitEffectsToTickWindow(effectStart, tickDuration);
     this.refresh(false);
     if (result) {
       this.view.showResult(result, this.model.selectedMission + 1 < this.model.campaign.length);
       return;
     }
-    this.scheduleBattleTick(presentationDuration);
+    this.scheduleBattleTick(tickDuration);
   }
 
   movementDuration() {
     return Math.max(220, Math.min(960, GAME_CONFIG.tickIntervalMs * 0.85 / BATTLE_SPEED));
   }
 
-  sequenceAttackEffects(effectStart) {
+  fitEffectsToTickWindow(effectStart, tickDuration) {
     const effects = this.model.effects.slice(effectStart);
-    const baseStart = effects.reduce((earliest, effect) => Math.min(earliest, effect.actionStart ?? effect.start ?? Infinity), Infinity);
-    const movementDuration = this.movementDuration();
-    if (!Number.isFinite(baseStart)) return movementDuration;
-    const attackStarts = [...new Set(effects.filter((effect) => ATTACK_EFFECTS.has(effect.type)).map((effect) => effect.start))].sort((a, b) => a - b);
-    if (attackStarts.length === 0) return movementDuration;
-    const firstAttackAt = baseStart + movementDuration + PRE_ATTACK_HOLD_MS;
-    const offsetByStart = new Map(attackStarts.map((start, index) => [start, firstAttackAt + index * ATTACK_STAGGER_MS - start]));
+    if (effects.length === 0) return;
+
+    const windowStart = effects.reduce(
+      (earliest, effect) => Math.min(earliest, effect.actionStart ?? effect.start ?? Infinity),
+      Infinity,
+    );
+    if (!Number.isFinite(windowStart)) return;
+
+    const latestEnd = effects.reduce(
+      (latest, effect) => Math.max(latest, (effect.start ?? windowStart) + (effect.duration ?? 0)),
+      windowStart,
+    );
+    const originalSpan = latestEnd - windowStart;
+    if (originalSpan <= tickDuration || originalSpan <= 0) return;
+
+    const scale = tickDuration / originalSpan;
     for (const effect of effects) {
-      const actionStart = effect.actionStart ?? effect.start;
-      const matchingStart = attackStarts.find((start) => Math.abs((actionStart ?? 0) - start) < 1);
-      if (matchingStart !== undefined) {
-        const offset = offsetByStart.get(matchingStart);
-        effect.start += offset;
-        if (effect.actionStart !== undefined) effect.actionStart += offset;
+      effect.start = windowStart + ((effect.start ?? windowStart) - windowStart) * scale;
+      effect.duration = Math.max(1, (effect.duration ?? 0) * scale);
+      if (effect.actionStart !== undefined) {
+        effect.actionStart = windowStart + (effect.actionStart - windowStart) * scale;
       }
     }
-    return movementDuration
-      + PRE_ATTACK_HOLD_MS
-      + (attackStarts.length - 1) * ATTACK_STAGGER_MS
-      + movementDuration
-      + POST_ATTACK_HOLD_MS;
   }
 
   returnToDeployment(missionIndex) {
