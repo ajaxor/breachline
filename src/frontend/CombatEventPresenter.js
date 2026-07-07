@@ -1,5 +1,5 @@
 import { GAME_CONFIG, TEAM, UNIT_TYPES } from '../data/gameConfig.js';
-import { ATTACK_ANIMATION, COMBAT_EVENT, EFFECT_TYPE, LOG_TYPE } from '../data/gameTypes.js';
+import { ATTACK_ANIMATION, COMBAT_EVENT, DEATH_ANIMATION, EFFECT_TYPE, LOG_TYPE } from '../data/gameTypes.js';
 
 const ATTACK_STAGGER_MS = 180;
 const point = (unit) => ({ row: unit.row, column: unit.column });
@@ -18,6 +18,16 @@ function addDeathEffect(model, unit, at, duration, actionStart) {
     actionStart,
     start: at,
     duration: Math.max(duration * 1.25, 450),
+  });
+}
+
+function addGroundDeathExplosion(model, unit, at, duration) {
+  model.effects.push({
+    type: EFFECT_TYPE.EXPLOSION,
+    ...point(unit),
+    start: at,
+    duration: Math.max(duration, 320),
+    intensity: 0.9,
   });
 }
 
@@ -144,7 +154,9 @@ export class CombatEventPresenter {
       case COMBAT_EVENT.UNIT_DESTROYED: {
         const definition = UNIT_TYPES[event.unit.type];
         const healthLoss = latestHealthLoss(model, event.unit.id);
-        addDeathEffect(model, event.unit, healthLoss?.start ?? at, duration, healthLoss?.actionStart);
+        const effectAt = healthLoss?.start ?? at;
+        if (definition.animation.death === DEATH_ANIMATION.EXPLODE) addGroundDeathExplosion(model, event.unit, effectAt, duration);
+        else addDeathEffect(model, event.unit, effectAt, duration, healthLoss?.actionStart);
         if (!event.silent) model.addLog(`${definition.name} #${event.unit.id} destroyed.`, event.unit.team === TEAM.PLAYER ? LOG_TYPE.PLAYER_LOSS : LOG_TYPE.KILL);
         break;
       }
