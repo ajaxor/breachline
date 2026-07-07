@@ -1,4 +1,4 @@
-import { GAME_CONFIG, UNIT_TYPES } from '../data/gameConfig.js';
+import { AURA_EFFECT, GAME_CONFIG, MODE, UNIT_TYPES } from '../data/gameConfig.js';
 import {
   ATTACK_ANIMATION,
   DEATH_ANIMATION,
@@ -11,6 +11,7 @@ import { drawUnitGraphic } from './UnitGraphics.js';
 const BATTLE_SPEED = 0.5;
 const clamp01 = (value) => Math.max(0, Math.min(1, value));
 const lerp = (start, end, progress) => start + (end - start) * progress;
+const gridDistance = (left, right) => Math.abs(left.row - right.row) + Math.abs(left.column - right.column);
 
 export class BattlefieldRenderer extends CanvasRenderer {
   resize(model) {
@@ -27,6 +28,7 @@ export class BattlefieldRenderer extends CanvasRenderer {
   }
 
   render(model) {
+    this.model = model;
     if (!this.isPortrait) {
       super.render(model);
       return;
@@ -76,6 +78,90 @@ export class BattlefieldRenderer extends CanvasRenderer {
     }
 
     super.drawAnimatedUnit(animated, attack, healthEffects, now);
+    if (this.model?.mode !== MODE.BATTLE || !unit.alive) return;
+    const moveProgress = animated.animationStartedAt === undefined ? 1 : clamp01((now - animated.animationStartedAt) / Math.max(1, animated.animationDuration));
+    const row = lerp(animated.previousRow ?? animated.row, animated.row, moveProgress);
+    const column = lerp(animated.previousColumn ?? animated.column, animated.column, moveProgress);
+    this.drawAuraStatuses(unit, row, column, now);
+  }
+
+  drawAuraStatuses(unit, row, column, now) {
+    const statuses = this.activeAuraStatuses(unit);
+    if (!statuses.shielded && !statuses.amplified && !statuses.stunned) return;
+    const ctx = this.context;
+    const x = this.x(column);
+    const y = this.y(row);
+    const pulse = (Math.sin(now / 180 + unit.id) + 1) / 2;
+    const radius = this.cellSize * 0.39;
+
+    ctx.save();
+    ctx.translate(x, y);
+    if (statuses.shielded) {
+      ctx.strokeStyle = `rgba(56,189,248,${0.55 + pulse * 0.25})`;
+      ctx.lineWidth = Math.max(1.5, this.cellSize * 0.045);
+      ctx.shadowColor = '#38bdf8';
+      ctx.shadowBlur = this.cellSize * 0.18;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius + pulse * this.cellSize * 0.035, -Math.PI * 0.85, Math.PI * 0.85);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    if (statuses.amplified) {
+      ctx.strokeStyle = `rgba(251,191,36,${0.65 + pulse * 0.25})`;
+      ctx.fillStyle = '#fbbf24';
+      ctx.lineWidth = Math.max(1.2, this.cellSize * 0.03);
+      for (let index = 0; index < 3; index += 1) {
+        const angle = now / 420 + index * Math.PI * 2 / 3 + unit.id;
+        const orbit = radius + this.cellSize * 0.06;
+        const px = Math.cos(angle) * orbit;
+        const py = Math.sin(angle) * orbit;
+        ctx.beginPath();
+        ctx.moveTo(px - this.cellSize * 0.05, py + this.cellSize * 0.04);
+        ctx.lineTo(px, py - this.cellSize * 0.05);
+        ctx.lineTo(px + this.cellSize * 0.05, py + this.cellSize * 0.04);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(px, py, Math.max(1.2, this.cellSize * 0.025), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    if (statuses.stunned) {
+      ctx.strokeStyle = `rgba(192,132,252,${0.7 + pulse * 0.25})`;
+      ctx.lineWidth = Math.max(1.5, this.cellSize * 0.04);
+      ctx.shadowColor = '#c084fc';
+      ctx.shadowBlur = this.cellSize * 0.12;
+      for (let index = 0; index < 3; index += 1) {
+        const offset = (index - 1) * this.cellSize * 0.13;
+        ctx.beginPath();
+        ctx.moveTo(offset - this.cellSize * 0.08, -radius * 0.95);
+        ctx.lineTo(offset + this.cellSize * 0.02, -radius * 0.65);
+        ctx.lineTo(offset - this.cellSize * 0.03, -radius * 0.45);
+        ctx.lineTo(offset + this.cellSize * 0.08, -radius * 0.18);
+        ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = `rgba(192,132,252,${0.06 + pulse * 0.05})`;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.92, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  activeAuraStatuses(unit) {
+    const statuses = { shielded: false, amplified: false, stunned: false };
+    const units = this.model?.units ?? [];
+    for (const source of units) {
+      if (!source.alive || source.breached) continue;
+      const aura = UNIT_TYPES[source.type]?.aura;
+      if (!aura || gridDistance(source, unit) > aura.range) continue;
+      if (source.team === unit.team && aura.effect === AURA_EFFECT.SHIELD) statuses.shielded = true;
+      if (source.team === unit.team && aura.effect === AURA_EFFECT.DAMAGE) statuses.amplified = true;
+      if (source.team !== unit.team && aura.effect === AURA_EFFECT.STUN) statuses.stunned = true;
+    }
+    return statuses;
   }
 
   drawGrid() {
