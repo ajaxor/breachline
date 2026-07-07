@@ -202,7 +202,7 @@ export class GameController {
 
   sequenceAttackEffects(effectStart) {
     const effects = this.model.effects.slice(effectStart);
-    const baseStart = effects.reduce((earliest, effect) => Math.min(earliest, effect.start ?? Infinity), Infinity);
+    const baseStart = effects.reduce((earliest, effect) => Math.min(earliest, effect.actionStart ?? effect.start ?? Infinity), Infinity);
     const movementDuration = Math.max(110, Math.min(480, GAME_CONFIG.tickIntervalMs * 0.85));
     if (!Number.isFinite(baseStart)) return movementDuration;
     const attackStarts = [...new Set(effects.filter((effect) => ATTACK_EFFECTS.has(effect.type)).map((effect) => effect.start))].sort((a, b) => a - b);
@@ -210,8 +210,13 @@ export class GameController {
     const firstAttackAt = baseStart + movementDuration + PRE_ATTACK_HOLD_MS;
     const offsetByStart = new Map(attackStarts.map((start, index) => [start, firstAttackAt + index * ATTACK_STAGGER_MS - start]));
     for (const effect of effects) {
-      const matchingStart = attackStarts.find((start) => Math.abs((effect.start ?? 0) - start) < 1);
-      if (matchingStart !== undefined) effect.start += offsetByStart.get(matchingStart);
+      const actionStart = effect.actionStart ?? effect.start;
+      const matchingStart = attackStarts.find((start) => Math.abs((actionStart ?? 0) - start) < 1);
+      if (matchingStart !== undefined) {
+        const offset = offsetByStart.get(matchingStart);
+        effect.start += offset;
+        if (effect.actionStart !== undefined) effect.actionStart += offset;
+      }
     }
     return movementDuration
       + PRE_ATTACK_HOLD_MS
