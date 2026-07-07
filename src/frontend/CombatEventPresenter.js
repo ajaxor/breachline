@@ -34,13 +34,7 @@ function addDeathEffect(model, unit, at, duration, actionStart) {
 }
 
 function addGroundDeathExplosion(model, unit, at, duration) {
-  model.effects.push({
-    type: EFFECT_TYPE.EXPLOSION,
-    ...point(unit),
-    start: at,
-    duration: Math.max(duration, 320),
-    intensity: 0.9,
-  });
+  model.effects.push({ type: EFFECT_TYPE.EXPLOSION, ...point(unit), start: at, duration: Math.max(duration, 320), intensity: 0.9 });
 }
 
 function addHealthLossEffect(model, target, damage, actionStart, impactStart, duration) {
@@ -67,14 +61,7 @@ function addDetonationEffects(model, unit, at, duration) {
       const column = unit.column + columnOffset;
       if (row < 0 || row >= GAME_CONFIG.rows || column < 0 || column >= GAME_CONFIG.columns) continue;
       const distance = Math.hypot(rowOffset, columnOffset);
-      model.effects.push({
-        type: EFFECT_TYPE.EXPLOSION,
-        row,
-        column,
-        start: at + distance * 35,
-        duration: Math.max(duration, 320),
-        intensity: distance === 0 ? 1 : 0.72,
-      });
+      model.effects.push({ type: EFFECT_TYPE.EXPLOSION, row, column, start: at + distance * 35, duration: Math.max(duration, 320), intensity: distance === 0 ? 1 : 0.72 });
     }
   }
 }
@@ -110,8 +97,9 @@ export class CombatEventPresenter {
       this.sequenceIndex = -1;
       this.currentActionAt = at;
     }
-    const isAttack = event.type === COMBAT_EVENT.UNIT_ATTACKED || event.type === COMBAT_EVENT.UNIT_DODGED;
-    const isMelee = isAttack && UNIT_TYPES[event.attacker.type].animation.attack === ATTACK_ANIMATION.MELEE;
+    const isAttack = event.type === COMBAT_EVENT.UNIT_ATTACKED || event.type === COMBAT_EVENT.UNIT_DODGED || event.type === COMBAT_EVENT.UNIT_PUSHED;
+    const attacker = event.attacker ?? event.source;
+    const isMelee = isAttack && UNIT_TYPES[attacker.type].animation.attack === ATTACK_ANIMATION.MELEE;
     if (isMelee) return at;
     if (isAttack || [COMBAT_EVENT.UNIT_HEALED, COMBAT_EVENT.BASE_ATTACKED].includes(event.type)) {
       this.sequenceIndex += 1;
@@ -146,6 +134,11 @@ export class CombatEventPresenter {
         addAttackEffect(model, event.attacker, event.target, at, duration);
         model.effects.push({ type: EFFECT_TYPE.TEXT, ...point(event.unit), text: 'DODGE', color: '#f8fafc', start: at, duration: duration * 1.3 });
         model.addLog(`${UNIT_TYPES[event.unit.type].name} #${event.unit.id} dodges ${UNIT_TYPES[event.attacker.type].name} #${event.attacker.id}'s attack.`, LOG_TYPE.HIT);
+        break;
+      case COMBAT_EVENT.UNIT_PUSHED:
+        addAttackEffect(model, event.source, event.target, at, duration);
+        model.effects.push({ type: EFFECT_TYPE.TEXT, ...point(event.unit), text: 'PUSH', color: '#fbbf24', start: at, duration: duration * 1.3 });
+        model.addLog(`${UNIT_TYPES[event.source.type].name} #${event.source.id} pushes ${UNIT_TYPES[event.unit.type].name} #${event.unit.id} backward.`, LOG_TYPE.HIT);
         break;
       case COMBAT_EVENT.SPLASH_HIT: {
         const impactAt = at + duration * 0.2;
