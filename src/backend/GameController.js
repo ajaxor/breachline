@@ -185,7 +185,7 @@ export class GameController {
       this.view.showResult(outcome.result, this.model.selectedMission + 1 < this.model.campaign.length);
       return;
     }
-    if (this.hasFullyBreachedTeam()) {
+    if (this.shouldResumeSimultaneousCombat()) {
       this.sequentialCombat = false;
       this.scheduleBattleTick(presentationDuration);
       return;
@@ -193,11 +193,14 @@ export class GameController {
     this.scheduleBattleTick(presentationDuration + UNIT_TURN_DELAY_MS);
   }
 
-  hasFullyBreachedTeam() {
-    return [TEAM.PLAYER, TEAM.ENEMY].some((team) => {
-      const living = this.model.units.filter((unit) => unit.alive && unit.team === team);
-      return living.length > 0 && living.every((unit) => unit.breached);
-    });
+  shouldResumeSimultaneousCombat() {
+    const livingPlayers = this.model.units.filter((unit) => unit.alive && unit.team === TEAM.PLAYER);
+    const livingEnemies = this.model.units.filter((unit) => unit.alive && unit.team === TEAM.ENEMY);
+    const fullyBreached = [livingPlayers, livingEnemies].some((teamUnits) => teamUnits.length > 0 && teamUnits.every((unit) => unit.breached));
+    if (fullyBreached || livingPlayers.length === 0 || livingEnemies.length === 0) return fullyBreached;
+    const leftmostPlayer = Math.min(...livingPlayers.map((unit) => unit.column));
+    const rightmostEnemy = Math.max(...livingEnemies.map((unit) => unit.column));
+    return leftmostPlayer > rightmostEnemy;
   }
 
   sequenceAttackEffects(effectStart) {
