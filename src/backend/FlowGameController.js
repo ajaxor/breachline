@@ -1,4 +1,4 @@
-import { TEAM, UNIT_TYPES } from '../data/gameConfig.js';
+import { UNIT_TYPES } from '../data/gameConfig.js';
 import { GameController } from './GameController.js';
 
 export class FlowGameController extends GameController {
@@ -32,13 +32,6 @@ export class FlowGameController extends GameController {
     this.listen(elements.logClose, 'click', () => this.view.closeSheets());
     this.listen(elements.sheetBackdrop, 'click', () => this.view.closeSheets());
     this.listen(elements.bannerOverlay, 'click', (event) => this.handleResultAction(event));
-    this.listen(elements.sandboxTeam, 'click', (event) => {
-      const button = event.target.closest('[data-sandbox-team]');
-      if (!button) return;
-      this.model.setSandboxTeam(button.dataset.sandboxTeam);
-      this.view.renderSandboxControls(this.model);
-      this.view.renderRoster(this.model);
-    });
     this.listen(this.browser, 'resize', () => this.resizeIfBattleVisible());
     this.listen(this.browser, 'orientationchange', () => {
       if (this.orientationTimer) this.scheduler.clearTimeout(this.orientationTimer);
@@ -46,8 +39,15 @@ export class FlowGameController extends GameController {
     });
   }
 
+  selectedValue(group) {
+    return group.querySelector('input:checked')?.value;
+  }
+
   startCampaign() {
-    this.model.configureCampaign({ difficulty: Number(this.view.elements.campaignDifficulty.value), length: Number(this.view.elements.campaignLength.value) });
+    this.model.configureCampaign({
+      difficulty: Number(this.selectedValue(this.view.elements.campaignDifficulty)),
+      length: Number(this.selectedValue(this.view.elements.campaignLength)),
+    });
     this.view.closeCampaignMenu();
     this.view.enterGame();
     this.afterDraft = () => { this.activateTab('battle'); this.scheduler.requestAnimationFrame(() => this.renderer.resize(this.model)); };
