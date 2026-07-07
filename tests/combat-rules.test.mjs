@@ -52,7 +52,6 @@ test('stealth remains active at range and breaks when an enemy is adjacent', () 
   assert.equal(infiltrator.stealthed, true);
   assert.equal(model.canTarget(enemy, infiltrator, UNIT_TYPES.sniper), false);
 
-  model.spatialIndex.move(enemy, enemy.row, enemy.column);
   enemy.column = 3;
   model.spatialIndex = new SpatialIndex(model.units);
   model.refreshStealth();
@@ -130,13 +129,35 @@ test('units breach the edge and then damage the opposing base', () => {
   assert.equal(model.combatEvents.at(-1).type, COMBAT_EVENT.BASE_ATTACKED);
 });
 
-test('sideways movers take an open adjacent lane when blocked', () => {
-  const mover = createBattleUnit({ id: 1, type: 'sidestepper', row: 2, column: 0 });
-  const blocker = createBattleUnit({ id: 2, row: 2, column: 1 });
-  const model = withUnits(mover, blocker);
+test('agile units dodge the first attack into an open adjacent lane', () => {
+  const attacker = createBattleUnit({ id: 1, row: 2, column: 1 });
+  const agile = createBattleUnit({ id: 2, team: TEAM.ENEMY, type: 'sidestepper', row: 2, column: 2 });
+  const model = withUnits(attacker, agile);
 
-  assert.equal(model.moveUnit(mover, 100, 100), true);
-  assert.deepEqual({ row: mover.row, column: mover.column }, { row: 1, column: 1 });
+  model.attackUnit(attacker, agile, [agile], 100, 100);
+
+  assert.equal(hasUnitTag(UNIT_TYPES.sidestepper, UNIT_TAG.AGILE), true);
+  assert.equal(agile.hp, UNIT_TYPES.sidestepper.hp);
+  assert.deepEqual({ row: agile.row, column: agile.column }, { row: 3, column: 2 });
+  assert.equal(agile.agileDodgeUsed, true);
+  assert.equal(model.combatEvents.at(-1).type, COMBAT_EVENT.UNIT_DODGED);
+
+  model.attackUnit(attacker, agile, [agile], 200, 100);
+  assert.equal(agile.hp, UNIT_TYPES.sidestepper.hp - UNIT_TYPES.grunt.attack);
+});
+
+test('agile units consume their dodge when both adjacent lanes are blocked', () => {
+  const attacker = createBattleUnit({ id: 1, row: 2, column: 1 });
+  const agile = createBattleUnit({ id: 2, team: TEAM.ENEMY, type: 'sidestepper', row: 2, column: 2 });
+  const upperBlocker = createBattleUnit({ id: 3, team: TEAM.ENEMY, row: 1, column: 2 });
+  const lowerBlocker = createBattleUnit({ id: 4, team: TEAM.ENEMY, row: 3, column: 2 });
+  const model = withUnits(attacker, agile, upperBlocker, lowerBlocker);
+
+  model.attackUnit(attacker, agile, [agile, upperBlocker, lowerBlocker], 100, 100);
+
+  assert.equal(agile.agileDodgeUsed, true);
+  assert.equal(agile.hp, UNIT_TYPES.sidestepper.hp - UNIT_TYPES.grunt.attack);
+  assert.deepEqual({ row: agile.row, column: agile.column }, { row: 2, column: 2 });
 });
 
 test('stationary units never move', () => {
