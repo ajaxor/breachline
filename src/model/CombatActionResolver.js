@@ -1,4 +1,4 @@
-import { UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
+import { GAME_CONFIG, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
 import { COMBAT_EVENT } from '../data/gameTypes.js';
 import { MovementPolicy } from './MovementPolicy.js';
 import { TargetingPolicy, gridDistance } from './TargetingPolicy.js';
@@ -100,8 +100,44 @@ export class CombatActionResolver {
     return true;
   }
 
+  tryAgileDodge(model, attacker, target, now, duration) {
+    if (!hasUnitTag(target.type, UNIT_TAG.AGILE) || target.agileDodgeUsed) return false;
+    target.agileDodgeUsed = true;
+    const openRows = [target.row - 1, target.row + 1].filter((row) => (
+      row >= 0 && row < GAME_CONFIG.rows && !model.occupantAt(row, target.column)
+    ));
+    if (openRows.length === 0) return false;
+
+    const previousRow = target.row;
+    const previousColumn = target.column;
+    target.row = openRows[Math.floor(model.random() * openRows.length)];
+    target.previousRow = previousRow;
+    target.previousColumn = previousColumn;
+    target.animationStartedAt = now;
+    target.animationDuration = duration;
+    model.spatialIndex.move(target, previousRow, previousColumn);
+    model.emitCombatEvent({
+      type: COMBAT_EVENT.UNIT_DODGED,
+      attacker: snapshot(attacker, now),
+      unit: snapshot(target, now),
+      at: now,
+    });
+    return true;
+  }
+
+  detonate(model, attacker, now) {
+    attacker.alive = false;
+    model.spatialIndex.remove(attacker);
+    model.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DETONATED, unit: snapshot(attacker, now), at: now });
+  }
+
   attackUnit(model, attacker, target, enemies, now, duration) {
     const type = UNIT_TYPES[attacker.type];
+    if (this.tryAgileDodge(model, attacker, target, now, duration)) {
+      if (hasUnitTag(type, UNIT_TAG.BOMB)) this.detonate(model, attacker, now);
+      return;
+    }
+
     target.hp -= type.attack;
     model.emitCombatEvent({
       type: COMBAT_EVENT.UNIT_ATTACKED,
@@ -128,12 +164,7 @@ export class CombatActionResolver {
       }
     }
 
-    if (hasUnitTag(type, UNIT_TAG.BOMB)) {
-      attacker.alive = false;
-      model.spatialIndex.remove(attacker);
-      model.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DETONATED, unit: snapshot(attacker, now), at: now });
-    }
-
+    if (hasUnitTag(type, UNIT_TAG.BOMB)) this.detonate(model, attacker, now);
     if (target.alive && target.hp <= 0) model.killUnit(target, now, duration);
   }
 }
