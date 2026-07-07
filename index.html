@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="./assets/draft.css?v=__BUILD_ID__">
   <link rel="stylesheet" href="./assets/unit-details.css?v=__BUILD_ID__">
   <link rel="stylesheet" href="./assets/supply.css?v=__BUILD_ID__">
+  <link rel="stylesheet" href="./assets/menu-flow.css?v=__BUILD_ID__">
 </head>
 <body>
   <main class="app">
@@ -21,19 +22,17 @@
       <div class="title-grid" aria-hidden="true"></div>
       <div class="title-content">
         <div class="title-kicker"><span class="dot"></span>Autonomous Formation Combat</div>
-        <h1>BREACH<br>LINE</h1>
-        <div class="title-rule"></div>
+        <h1>BREACH<br>LINE</h1><div class="title-rule"></div>
         <p>Design the formation. Break the line. Destroy the base.</p>
-        <button class="primary title-start" id="btnStartGame">Enter Command</button>
+        <button class="primary title-start" id="btnStartGame">Choose Mode</button>
         <div class="build-info" id="buildInfo">Version loading…</div>
       </div>
     </section>
-
     <div id="gameShell" class="game-shell" hidden>
       <div class="screens">
         <section id="screenMissions" class="screen active">
           <header class="top-header"><div><div class="title"><span class="dot"></span>BREACH LINE</div><div class="sub">Autonomous Formation Combat</div></div></header>
-          <div class="missions-body"><h2>Campaign — 10 Missions</h2><div class="mission-strip" id="missionStrip"></div><div class="mission-info" id="missionInfo"></div><div class="mission-help">Select an unlocked mission, then tap Deploy below. Only units left in reserve carry forward; every unit committed to battle is consumed.</div></div>
+          <div class="missions-body"><h2>Campaign</h2><div class="mission-strip" id="missionStrip"></div><div class="mission-info" id="missionInfo"></div><div class="mission-help">Select an unlocked mission, then tap Deploy below. Only units left in reserve carry forward; every unit committed to battle is consumed.</div></div>
           <footer class="missions-footer"><button class="primary full-btn" id="btnGoDeploy">Deploy Mission 1</button></footer>
         </section>
         <section id="screenBattle" class="screen">
@@ -45,40 +44,28 @@
           <div class="battle-status-line" id="battleStatus" hidden></div>
           <div class="deploy-hint" id="deployHint">Choose a roster unit, then tap an open blue cell. Units remain in reserve until Launch; all launched units are permanently committed.</div>
           <div class="battle-content">
-            <aside class="roster-panel"><div class="roster-heading"><span>Unit Supply</span><button id="rosterExpand" class="roster-expand" aria-label="Expand unit roster" title="Expand roster">›</button></div><div class="roster-scroll" id="rosterList"></div><div class="roster-footer"><button class="clear-link" id="clearLink">Clear formation</button></div></aside>
+            <aside class="roster-panel"><div class="roster-heading"><span>Unit Supply</span><button id="rosterExpand" class="roster-expand" aria-label="Expand unit roster" title="Expand roster">›</button></div><div id="sandboxTeam" class="sandbox-team" hidden><button data-sandbox-team="player" class="active">Player</button><button data-sandbox-team="enemy">Enemy</button></div><div class="roster-scroll" id="rosterList"></div><div class="roster-footer"><button class="clear-link" id="clearLink">Clear formation</button></div></aside>
             <div class="field-wrap" id="fieldWrap"><canvas id="field"></canvas><div id="unitInspector" class="unit-inspector" hidden></div><div class="fab-row"><button class="fab" id="btnOpenLog" hidden>Log</button></div><div class="banner-overlay" id="bannerOverlay"></div></div>
           </div>
         </section>
       </div>
       <nav class="tabbar"><button class="tab-btn active" data-tab="missions"><span class="tdot"></span>Missions</button><button class="tab-btn" data-tab="battle"><span class="tdot"></span>Battle</button></nav>
     </div>
-
-    <section id="rosterOverlay" class="roster-overlay" hidden>
-      <div class="roster-overlay-header"><div><div class="draft-kicker">Deployment Supply</div><h2>Choose a unit</h2></div><button id="rosterClose" class="roster-close" aria-label="Close expanded roster">×</button></div>
-      <div id="rosterFullList" class="roster-full-list"></div>
-    </section>
-    <section id="draftOverlay" class="draft-overlay" hidden>
-      <div class="draft-dialog"><div class="draft-kicker">Reinforcement Draft</div><h2>Choose one unit set</h2><div id="draftProgress" class="draft-progress"></div><div id="draftChoices" class="draft-choices"></div></div>
-    </section>
+    <section id="campaignOverlay" class="campaign-overlay" hidden><div class="campaign-dialog"><div class="draft-kicker">New Operation</div><h2>Choose Battle Mode</h2><div class="campaign-fields"><label>Difficulty<select id="campaignDifficulty"><option value="0.8">Recruit</option><option value="1" selected>Standard</option><option value="1.25">Veteran</option><option value="1.5">Brutal</option></select></label><label>Campaign Length<select id="campaignLength"><option value="5">Short — 5 missions</option><option value="10" selected>Standard — 10 missions</option><option value="15">Long — 15 missions</option></select></label></div><div class="campaign-actions"><button class="primary" id="btnBeginCampaign">Start Campaign</button><button id="btnSandbox">Sandbox</button><button id="btnCampaignBack">Back</button></div></div></section>
+    <section id="rosterOverlay" class="roster-overlay" hidden><div class="roster-overlay-header"><div><div class="draft-kicker">Deployment Supply</div><h2>Choose a unit</h2></div><button id="rosterClose" class="roster-close" aria-label="Close expanded roster">×</button></div><div id="rosterFullList" class="roster-full-list"></div></section>
+    <section id="draftOverlay" class="draft-overlay" hidden><div class="draft-dialog"><div class="draft-kicker">Reinforcement Draft</div><h2>Choose one unit set</h2><div id="draftProgress" class="draft-progress"></div><div id="draftChoices" class="draft-choices"></div></div></section>
     <aside class="sheet" id="logSheet"><div class="sheet-header">Combat Log<button class="sheet-close" id="logClose">&times;</button></div><div class="sheet-body log" id="log"></div></aside>
     <div class="sheet-backdrop" id="sheetBackdrop"></div>
   </main>
   <script type="module">
     const fallbackBuild = { version: 'dev', commit: 'local' };
     let build = fallbackBuild;
-    try {
-      const response = await fetch(`./build-info.json?probe=${Date.now()}`, { cache: 'no-store' });
-      if (response.ok) build = await response.json();
-    } catch (error) { console.warn('Build metadata unavailable; using local fallback.', error); }
+    try { const response = await fetch(`./build-info.json?probe=${Date.now()}`, { cache: 'no-store' }); if (response.ok) build = await response.json(); }
+    catch (error) { console.warn('Build metadata unavailable; using local fallback.', error); }
     const currentUrl = new URL(window.location.href);
     const loadedBuild = currentUrl.searchParams.get('build');
-    if (build.commit !== 'local' && loadedBuild !== build.commit) {
-      currentUrl.searchParams.set('build', build.commit);
-      window.location.replace(currentUrl.toString());
-    } else {
-      window.BREACH_LINE_BUILD = Object.freeze(build);
-      await import(`./src-__BUILD_ID__/main.js`);
-    }
+    if (build.commit !== 'local' && loadedBuild !== build.commit) { currentUrl.searchParams.set('build', build.commit); window.location.replace(currentUrl.toString()); }
+    else { window.BREACH_LINE_BUILD = Object.freeze(build); await import(`./src-__BUILD_ID__/main.js`); }
   </script>
 </body>
 </html>
