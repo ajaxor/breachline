@@ -42,16 +42,24 @@ export class CanvasRenderer {
     const now = this.now();
     const activeEffects = model.effects.filter((effect) => now >= effect.start && now - effect.start < effect.duration);
     const attacksByUnit = new Map();
+    const healthEffectsByUnit = new Map();
+    for (const effect of model.effects) {
+      if (effect.type === EFFECT_TYPE.HEALTH_LOSS && now - effect.start < effect.duration) {
+        const effects = healthEffectsByUnit.get(effect.targetId) ?? [];
+        effects.push(effect);
+        healthEffectsByUnit.set(effect.targetId, effects);
+      }
+    }
     for (const effect of activeEffects) {
       if (effect.attackerId !== undefined && (effect.type === EFFECT_TYPE.MELEE || effect.type === EFFECT_TYPE.RANGED)) {
         attacksByUnit.set(effect.attackerId, effect);
       }
     }
-    model.units.filter((unit) => unit.alive).forEach((unit) => this.drawAnimatedUnit(unit, attacksByUnit.get(unit.id), now));
-    activeEffects.forEach((effect) => this.drawEffect(effect, now));
+    model.units.filter((unit) => unit.alive).forEach((unit) => this.drawAnimatedUnit(unit, attacksByUnit.get(unit.id), healthEffectsByUnit.get(unit.id) ?? [], now));
+    activeEffects.filter((effect) => effect.type !== EFFECT_TYPE.HEALTH_LOSS).forEach((effect) => this.drawEffect(effect, now));
   }
 
-  drawAnimatedUnit(unit, attack, now) {
+  drawAnimatedUnit(unit, attack, healthEffects, now) {
     const moveProgress = unit.animationStartedAt === undefined ? 1 : clamp01((now - unit.animationStartedAt) / Math.max(1, unit.animationDuration));
     let row = lerp(unit.previousRow ?? unit.row, unit.row, moveProgress);
     let column = lerp(unit.previousColumn ?? unit.column, unit.column, moveProgress);
@@ -64,7 +72,7 @@ export class CanvasRenderer {
       row += rowDelta / length * lunge;
       column += columnDelta / length * lunge;
     }
-    this.drawUnit(unit, false, row, column);
+    this.drawUnit(unit, false, row, column, healthEffects, now);
     if (unit.breached) this.drawBreachMarker(row, column);
   }
 
@@ -90,7 +98,7 @@ export class CanvasRenderer {
     columns.forEach((column) => this.context.fillRect(column * this.cellSize, 0, this.cellSize, GAME_CONFIG.rows * this.cellSize));
   }
 
-  drawUnit(unit, ghost, row = unit.row, column = unit.column) {
+  drawUnit(unit, ghost, row = unit.row, column = unit.column, healthEffects = [], now = this.now()) {
     const type = UNIT_TYPES[unit.type];
     const color = unit.team === TEAM.PLAYER ? '#38bdf8' : '#ff5d5d';
     const x = column * this.cellSize + this.cellSize / 2;
@@ -100,7 +108,7 @@ export class CanvasRenderer {
     this.prepareUnitContext(unit, ghost);
     this.context.globalAlpha = (unit.stealthed ? 0.28 : 1) * (ghost ? 0.55 : 1);
     drawUnitGraphic(this.context, type.graphic ?? type.shape, 0, 0, this.cellSize * 0.32, color);
-    if (this.shouldDrawHealthBar(unit, ghost)) this.drawHealthBar(unit);
+    if (this.shouldDrawHealthBar(unit, ghost)) this.drawHealthBar(unit, healthEffects, now);
     this.context.restore();
   }
 
@@ -110,13 +118,41 @@ export class CanvasRenderer {
     return !ghost;
   }
 
-  drawHealthBar(unit) {
+  drawHealthBar(unit, healthEffects = [], now = this.now()) {
     const width = this.cellSize * 0.7;
-    const health = Math.max(0, unit.hp / unit.maxHp);
+    const y = -this.cellSize / 2 + 5;
+    const sortedEffects = healthEffects.slice().sort((a, b) => a.start - b.start);
+    let displayedHp = unit.hp;
+    const nextEffect = sortedEffects.find((effect) => now < effect.start);
+    const activeEffect = sortedEffects.find((effect) => now >= effect.start && now - effect.start < effect.duration);
+    if (activeEffect) {
+      const progress = clamp01((now - activeEffect.start) / activeEffect.duration);
+      displayedHp = lerp(activeEffect.hpBefore, activeEffect.hpAfter, progress);
+    } else if (nextEffect) displayedHp = nextEffect.hpBefore;
+
+    const health = clamp01(displayedHp / unit.maxHp);
     this.context.fillStyle = '#0d141b';
-    this.context.fillRect(-width / 2, -this.cellSize / 2 + 5, width, 4);
+    this.context.fillRect(-width / 2, y, width, 4);
     this.context.fillStyle = health > 0.5 ? '#4ade80' : health > 0.2 ? '#fbbf24' : '#ff5d5d';
-    this.context.fillRect(-width / 2, -this.cellSize / 2 + 5, width * health, 4);
+    this.context.fillRect(-width / 2, y, width * health, 4);
+
+    if (activeEffect) this.drawFallingHealthSegment(activeEffect, width, y, now);
+  }
+
+  drawFallingHealthSegment(effect, width, y, now) {
+    const progress = clamp01((now - effect.start) / effect.duration);
+    const before = clamp01(effect.hpBefore / effect.maxHp);
+    const after = clamp01(effect.hpAfter / effect.maxHp);
+    const segmentWidth = width * Math.max(0, before - after);
+    if (segmentWidth <= 0) return;
+    const ctx = this.context;
+    ctx.save();
+    ctx.globalAlpha *= 1 - progress;
+    ctx.translate(progress * this.cellSize * 0.18, progress * this.cellSize * 0.42);
+    ctx.rotate(progress * 0.75);
+    ctx.fillStyle = before > 0.5 ? '#4ade80' : before > 0.2 ? '#fbbf24' : '#ff5d5d';
+    ctx.fillRect(-width / 2 + width * after, y, segmentWidth, 4);
+    ctx.restore();
   }
 
   drawEffect(effect, now) {
