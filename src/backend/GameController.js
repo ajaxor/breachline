@@ -1,5 +1,7 @@
 import { GAME_CONFIG, MODE, UNIT_TYPES } from '../data/gameConfig.js';
+import { EFFECT_TYPE } from '../data/gameTypes.js';
 
+const ATTACK_STAGGER_MS = 90;
 const defaultScheduler = Object.freeze({
   setInterval: (callback, delay) => window.setInterval(callback, delay),
   clearInterval: (handle) => window.clearInterval(handle),
@@ -8,6 +10,13 @@ const defaultScheduler = Object.freeze({
   setTimeout: (callback, delay) => window.setTimeout(callback, delay),
   clearTimeout: (handle) => window.clearTimeout(handle),
 });
+
+const ATTACK_EFFECTS = new Set([
+  EFFECT_TYPE.MELEE,
+  EFFECT_TYPE.RANGED,
+  EFFECT_TYPE.HEAL,
+  EFFECT_TYPE.EXPLOSION,
+]);
 
 export class GameController {
   constructor(model, view, renderer, buildInfo = {}, { scheduler = defaultScheduler, browser = window } = {}) {
@@ -44,7 +53,6 @@ export class GameController {
 
   bindEvents() {
     const { document, elements } = this.view;
-
     this.listen(elements.btnStartGame, 'click', () => {
       this.view.enterGame();
       this.afterDraft = () => {
@@ -54,10 +62,7 @@ export class GameController {
       this.view.renderDraft(this.model);
       this.view.openDraft();
     });
-
-    document.querySelectorAll('.tab-btn').forEach((button) => {
-      this.listen(button, 'click', () => this.activateTab(button.dataset.tab));
-    });
+    document.querySelectorAll('.tab-btn').forEach((button) => this.listen(button, 'click', () => this.activateTab(button.dataset.tab)));
     this.listen(elements.btnGoDeploy, 'click', () => this.activateTab('battle'));
     this.listen(elements.missionStrip, 'click', (event) => this.handleMissionClick(event));
     this.listen(elements.rosterList, 'click', (event) => this.handleRosterClick(event));
@@ -66,11 +71,7 @@ export class GameController {
     this.listen(elements.rosterOverlay, 'click', (event) => this.handleExpandedRosterClick(event));
     this.listen(elements.draftChoices, 'click', (event) => this.handleDraftClick(event));
     this.listen(elements.field, 'click', (event) => this.handleFieldClick(event));
-    this.listen(elements.clearLink, 'click', () => {
-      this.model.clearPlacement();
-      this.clearUnitInspection();
-      this.refresh();
-    });
+    this.listen(elements.clearLink, 'click', () => { this.model.clearPlacement(); this.clearUnitInspection(); this.refresh(); });
     this.listen(elements.btnLaunch, 'click', () => this.startBattle());
     this.listen(elements.btnRedesign, 'click', () => this.returnToDeployment(this.model.selectedMission));
     this.listen(elements.btnOpenLog, 'click', () => this.view.openSheet(elements.logSheet));
@@ -80,43 +81,18 @@ export class GameController {
     this.listen(this.browser, 'resize', () => this.resizeIfBattleVisible());
     this.listen(this.browser, 'orientationchange', () => {
       if (this.orientationTimer) this.scheduler.clearTimeout(this.orientationTimer);
-      this.orientationTimer = this.scheduler.setTimeout(() => {
-        this.orientationTimer = null;
-        this.resizeIfBattleVisible();
-      }, 60);
+      this.orientationTimer = this.scheduler.setTimeout(() => { this.orientationTimer = null; this.resizeIfBattleVisible(); }, 60);
     });
   }
 
-  handleMissionClick(event) {
-    const button = event.target.closest('[data-mission]');
-    if (button && this.model.selectMission(Number(button.dataset.mission))) this.refresh();
-  }
-
-  handleRosterClick(event) {
-    const button = event.target.closest('[data-unit-type]');
-    if (!button) return;
-    this.model.setSelectedUnitType(button.dataset.unitType);
-    this.view.renderRoster(this.model);
-    this.clearUnitInspection();
-  }
-
-  handleExpandedRosterClick(event) {
-    const button = event.target.closest('[data-full-roster-unit]');
-    if (!button) return;
-    this.model.setSelectedUnitType(button.dataset.fullRosterUnit);
-    this.view.renderRoster(this.model);
-    this.view.closeRoster();
-    this.clearUnitInspection();
-  }
-
+  handleMissionClick(event) { const button = event.target.closest('[data-mission]'); if (button && this.model.selectMission(Number(button.dataset.mission))) this.refresh(); }
+  handleRosterClick(event) { const button = event.target.closest('[data-unit-type]'); if (!button) return; this.model.setSelectedUnitType(button.dataset.unitType); this.view.renderRoster(this.model); this.clearUnitInspection(); }
+  handleExpandedRosterClick(event) { const button = event.target.closest('[data-full-roster-unit]'); if (!button) return; this.model.setSelectedUnitType(button.dataset.fullRosterUnit); this.view.renderRoster(this.model); this.view.closeRoster(); this.clearUnitInspection(); }
   handleDraftClick(event) {
     const button = event.target.closest('[data-draft-unit]');
     if (!button || !this.model.chooseDraft(button.dataset.draftUnit)) return;
     this.view.renderRoster(this.model);
-    if (this.model.pendingDrafts > 0) {
-      this.view.renderDraft(this.model);
-      return;
-    }
+    if (this.model.pendingDrafts > 0) { this.view.renderDraft(this.model); return; }
     this.view.closeDraft();
     const continuation = this.afterDraft;
     this.afterDraft = null;
@@ -130,10 +106,7 @@ export class GameController {
     if (enemy) {
       const key = `${cell.row}:${cell.column}`;
       if (this.inspectedEnemyCell === key) this.clearUnitInspection();
-      else {
-        this.inspectedEnemyCell = key;
-        this.view.showUnitInspector(UNIT_TYPES[enemy.type], 'Hostile unit', 'enemy');
-      }
+      else { this.inspectedEnemyCell = key; this.view.showUnitInspector(UNIT_TYPES[enemy.type], 'Hostile unit', 'enemy'); }
       return;
     }
     this.clearUnitInspection();
@@ -148,23 +121,9 @@ export class GameController {
     else this.returnToDeployment(next);
   }
 
-  clearUnitInspection() {
-    this.inspectedEnemyCell = null;
-    this.view.clearUnitInspector();
-  }
-
-  startDraftSequence(count, continuation) {
-    this.afterDraft = continuation;
-    this.model.beginDrafts(count);
-    this.view.renderDraft(this.model);
-    this.view.openDraft();
-  }
-
-  activateTab(tab) {
-    this.view.closeRoster();
-    this.view.setActiveTab(tab);
-    if (tab === 'battle') this.scheduler.requestAnimationFrame(() => this.renderer.resize(this.model));
-  }
+  clearUnitInspection() { this.inspectedEnemyCell = null; this.view.clearUnitInspector(); }
+  startDraftSequence(count, continuation) { this.afterDraft = continuation; this.model.beginDrafts(count); this.view.renderDraft(this.model); this.view.openDraft(); }
+  activateTab(tab) { this.view.closeRoster(); this.view.setActiveTab(tab); if (tab === 'battle') this.scheduler.requestAnimationFrame(() => this.renderer.resize(this.model)); }
 
   startBattle() {
     if (!this.model.startBattle()) return;
@@ -174,14 +133,40 @@ export class GameController {
     this.refresh();
     this.startAnimationLoop();
     this.stopTimer();
-    this.timer = this.scheduler.setInterval(() => {
+    this.scheduler.requestAnimationFrame(() => this.renderer.resize(this.model));
+    this.scheduleBattleTick(0);
+  }
+
+  scheduleBattleTick(delay) {
+    this.stopTimer();
+    this.timer = this.scheduler.setTimeout(() => {
+      this.timer = null;
+      const effectStart = this.model.effects.length;
       const result = this.model.tick();
+      const presentationDuration = this.sequenceAttackEffects(effectStart);
       this.refresh(false);
       if (result) {
-        this.stopTimer();
         this.view.showResult(result, this.model.selectedMission + 1 < this.model.campaign.length);
+        return;
       }
-    }, GAME_CONFIG.tickIntervalMs);
+      this.scheduleBattleTick(presentationDuration);
+    }, delay);
+  }
+
+  sequenceAttackEffects(effectStart) {
+    const effects = this.model.effects.slice(effectStart);
+    const baseStart = effects.reduce((earliest, effect) => Math.min(earliest, effect.start ?? Infinity), Infinity);
+    if (!Number.isFinite(baseStart)) return GAME_CONFIG.tickIntervalMs * 0.85;
+    const attackStarts = [...new Set(effects.filter((effect) => ATTACK_EFFECTS.has(effect.type)).map((effect) => effect.start))].sort((a, b) => a - b);
+    if (attackStarts.length === 0) return GAME_CONFIG.tickIntervalMs * 0.85;
+    const movementDuration = Math.max(110, Math.min(480, GAME_CONFIG.tickIntervalMs * 0.85));
+    const firstAttackAt = baseStart + movementDuration;
+    const offsetByStart = new Map(attackStarts.map((start, index) => [start, firstAttackAt + index * ATTACK_STAGGER_MS - start]));
+    for (const effect of effects) {
+      const matchingStart = attackStarts.find((start) => Math.abs((effect.start ?? 0) - start) < 1);
+      if (matchingStart !== undefined) effect.start += offsetByStart.get(matchingStart);
+    }
+    return movementDuration + (attackStarts.length - 1) * ATTACK_STAGGER_MS + movementDuration;
   }
 
   returnToDeployment(missionIndex) {
@@ -196,36 +181,15 @@ export class GameController {
     this.refresh();
   }
 
-  refresh(renderCanvas = true) {
-    this.view.render(this.model);
-    this.view.renderRoster(this.model);
-    if (renderCanvas) this.renderer.render(this.model);
-  }
-
+  refresh(renderCanvas = true) { this.view.render(this.model); this.view.renderRoster(this.model); if (renderCanvas) this.renderer.render(this.model); }
   startAnimationLoop() {
-    const frame = () => {
-      if (this.model.mode !== MODE.BATTLE) return;
-      this.renderer.render(this.model);
-      this.animationFrame = this.scheduler.requestAnimationFrame(frame);
-    };
+    const frame = () => { if (this.model.mode !== MODE.BATTLE) return; this.renderer.render(this.model); this.animationFrame = this.scheduler.requestAnimationFrame(frame); };
     this.stopAnimationLoop();
     this.animationFrame = this.scheduler.requestAnimationFrame(frame);
   }
-
-  stopAnimationLoop() {
-    if (this.animationFrame !== null) this.scheduler.cancelAnimationFrame(this.animationFrame);
-    this.animationFrame = null;
-  }
-
-  stopTimer() {
-    if (this.timer !== null) this.scheduler.clearInterval(this.timer);
-    this.timer = null;
-  }
-
-  resizeIfBattleVisible() {
-    if (!this.view.elements.gameShell.hidden && this.view.elements.screenBattle.classList.contains('active')) this.renderer.resize(this.model);
-  }
-
+  stopAnimationLoop() { if (this.animationFrame !== null) this.scheduler.cancelAnimationFrame(this.animationFrame); this.animationFrame = null; }
+  stopTimer() { if (this.timer !== null) this.scheduler.clearTimeout(this.timer); this.timer = null; }
+  resizeIfBattleVisible() { if (!this.view.elements.gameShell.hidden && this.view.elements.screenBattle.classList.contains('active')) this.renderer.resize(this.model); }
   dispose() {
     this.stopTimer();
     this.stopAnimationLoop();
