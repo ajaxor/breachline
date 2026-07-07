@@ -2,7 +2,19 @@ import { GAME_CONFIG, TEAM, UNIT_TYPES } from '../data/gameConfig.js';
 import { ATTACK_ANIMATION, COMBAT_EVENT, DEATH_ANIMATION, EFFECT_TYPE, LOG_TYPE } from '../data/gameTypes.js';
 
 const ATTACK_STAGGER_MS = 180;
+const BATTLE_SPEED = 0.5;
+const clamp01 = (value) => Math.max(0, Math.min(1, value));
+const lerp = (start, end, progress) => start + (end - start) * progress;
 const point = (unit) => ({ row: unit.row, column: unit.column });
+const animatedPoint = (unit, at) => {
+  if (unit.animationStartedAt === undefined || unit.animationDuration === undefined) return point(unit);
+  const duration = Math.max(1, unit.animationDuration / BATTLE_SPEED);
+  const progress = clamp01((at - unit.animationStartedAt) / duration);
+  return {
+    row: lerp(unit.previousRow ?? unit.row, unit.row, progress),
+    column: lerp(unit.previousColumn ?? unit.column, unit.column, progress),
+  };
+};
 const teamColor = (team) => team === TEAM.PLAYER ? '#38bdf8' : '#ff5d5d';
 
 function addDeathEffect(model, unit, at, duration, actionStart) {
@@ -74,9 +86,10 @@ function addAttackEffect(model, attacker, target, at, duration) {
     type: ranged ? EFFECT_TYPE.RANGED : EFFECT_TYPE.MELEE,
     attackStyle: animation,
     attackerId: attacker.id,
+    targetId: target.id,
     team: attacker.team,
-    from: point(attacker),
-    to: point(target),
+    from: animatedPoint(attacker, at),
+    to: animatedPoint(target, at),
     start: at,
     duration,
   });
@@ -97,7 +110,10 @@ export class CombatEventPresenter {
       this.sequenceIndex = -1;
       this.currentActionAt = at;
     }
-    if ([COMBAT_EVENT.UNIT_ATTACKED, COMBAT_EVENT.UNIT_HEALED, COMBAT_EVENT.BASE_ATTACKED, COMBAT_EVENT.UNIT_DODGED].includes(event.type)) {
+    const isAttack = event.type === COMBAT_EVENT.UNIT_ATTACKED || event.type === COMBAT_EVENT.UNIT_DODGED;
+    const isMelee = isAttack && UNIT_TYPES[event.attacker.type].animation.attack === ATTACK_ANIMATION.MELEE;
+    if (isMelee) return at;
+    if (isAttack || [COMBAT_EVENT.UNIT_HEALED, COMBAT_EVENT.BASE_ATTACKED].includes(event.type)) {
       this.sequenceIndex += 1;
       this.currentActionAt = at + this.sequenceIndex * ATTACK_STAGGER_MS;
     }
@@ -121,7 +137,7 @@ export class CombatEventPresenter {
         break;
       case COMBAT_EVENT.UNIT_ATTACKED: {
         const { impactAt } = addAttackEffect(model, event.attacker, event.target, at, duration);
-        model.effects.push({ type: EFFECT_TYPE.TEXT, ...point(event.target), text: `-${event.damage}`, color: '#ff5d5d', actionStart: at, start: impactAt, duration: duration * 1.3 });
+        model.effects.push({ type: EFFECT_TYPE.TEXT, ...animatedPoint(event.target, impactAt), text: `-${event.damage}`, color: '#ff5d5d', actionStart: at, start: impactAt, duration: duration * 1.3 });
         addHealthLossEffect(model, event.target, event.damage, at, impactAt, duration);
         model.addLog(`${UNIT_TYPES[event.attacker.type].name} #${event.attacker.id} hits ${UNIT_TYPES[event.target.type].name} #${event.target.id} for ${event.damage}.`, LOG_TYPE.HIT);
         break;
