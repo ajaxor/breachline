@@ -3,6 +3,7 @@ import { COMBAT_EVENT } from '../data/gameTypes.js';
 import { MovementPolicy } from './MovementPolicy.js';
 import { TargetingPolicy, gridDistance } from './TargetingPolicy.js';
 
+const STUN_TURNS = 2;
 const clamp01 = (value) => Math.max(0, Math.min(1, value));
 const lerp = (start, end, progress) => start + (end - start) * progress;
 const resolvedSnapshot = (unit) => ({
@@ -49,7 +50,7 @@ export class CombatActionResolver {
       if (!aura || aura.effect !== AURA_EFFECT.STUN) continue;
       for (const target of model.units) {
         if (!target.alive || target.team === source.team || target.row !== source.row) continue;
-        target.stunTurnsRemaining = Math.max(target.stunTurnsRemaining ?? 0, aura.value ?? 1);
+        target.stunTurnsRemaining = Math.max(target.stunTurnsRemaining ?? 0, STUN_TURNS);
       }
     }
   }
