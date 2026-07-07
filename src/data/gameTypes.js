@@ -26,6 +26,7 @@ export const COMBAT_EVENT = Object.freeze({
   BATTLE_STARTED: 'battle-started',
   UNIT_HEALED: 'unit-healed',
   UNIT_ATTACKED: 'unit-attacked',
+  UNIT_DODGED: 'unit-dodged',
   SPLASH_HIT: 'splash-hit',
   UNIT_DETONATED: 'unit-detonated',
   UNIT_BREACHED: 'unit-breached',
