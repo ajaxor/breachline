@@ -22,19 +22,61 @@ export class CombatActionResolver {
   constructor({ targeting = new TargetingPolicy(), movement = new MovementPolicy() } = {}) {
     this.targeting = targeting;
     this.movement = movement;
+    this.targetPlan = null;
+  }
+
+  buildTargetPlan(model, units) {
+    const plan = new Map();
+    for (const unit of units) {
+      if (!unit.alive || unit.breached) {
+        plan.set(unit.id, null);
+        continue;
+      }
+
+      const type = UNIT_TYPES[unit.type];
+      const nearby = model.spatialIndex.nearby(unit.row, unit.column, type.range);
+      if (hasUnitTag(type, UNIT_TAG.HEAL)) {
+        const allies = nearby.filter((candidate) => (
+          candidate.alive
+          && candidate.team === unit.team
+          && candidate.id !== unit.id
+          && candidate.hp < candidate.maxHp
+          && this.targeting.isInAttackPattern(unit, candidate, type)
+        ));
+        plan.set(unit.id, this.targeting.nearest(allies, unit)?.id ?? null);
+        continue;
+      }
+
+      if (type.attack <= 0) {
+        plan.set(unit.id, null);
+        continue;
+      }
+      const enemies = nearby.filter((candidate) => (
+        candidate.alive
+        && candidate.team !== unit.team
+        && this.targeting.canTarget(unit, candidate, type)
+      ));
+      plan.set(unit.id, this.targeting.nearest(enemies, unit)?.id ?? null);
+    }
+    return plan;
   }
 
   processQueue(model, units, now, duration) {
     const queue = units.slice();
     let consecutivePasses = 0;
-    while (queue.length > 0 && consecutivePasses < queue.length) {
-      const unit = queue.shift();
-      if (!unit.alive) continue;
-      if (this.processUnit(model, unit, now, duration)) consecutivePasses = 0;
-      else {
-        queue.push(unit);
-        consecutivePasses += 1;
+    this.targetPlan = this.buildTargetPlan(model, units);
+    try {
+      while (queue.length > 0 && consecutivePasses < queue.length) {
+        const unit = queue.shift();
+        if (!unit.alive) continue;
+        if (this.processUnit(model, unit, now, duration)) consecutivePasses = 0;
+        else {
+          queue.push(unit);
+          consecutivePasses += 1;
+        }
       }
+    } finally {
+      this.targetPlan = null;
     }
   }
 
@@ -67,18 +109,32 @@ export class CombatActionResolver {
     return !unit.movedThisTurn || hasUnitTag(type, UNIT_TAG.FAST_ATTACK) || hasUnitTag(type, UNIT_TAG.FLYING);
   }
 
+  plannedTarget(model, unit) {
+    if (!this.targetPlan?.has(unit.id)) return undefined;
+    const targetId = this.targetPlan.get(unit.id);
+    if (targetId === null) return null;
+    return model.units.find((candidate) => candidate.id === targetId && candidate.alive) ?? null;
+  }
+
   tryCombatAction(model, unit, type, now, duration) {
     if (!this.canActAfterMovement(unit, type)) return false;
-    const nearby = model.spatialIndex.nearby(unit.row, unit.column, type.range);
-    const enemies = nearby.filter((candidate) => candidate.alive && candidate.team !== unit.team);
-    const allies = nearby.filter((candidate) => candidate.alive && candidate.team === unit.team && candidate.id !== unit.id);
+    const plannedTarget = this.plannedTarget(model, unit);
+    const hasPlan = plannedTarget !== undefined;
 
     if (hasUnitTag(type, UNIT_TAG.HEAL)) {
-      const target = this.targeting.nearest(
-        allies.filter((ally) => ally.hp < ally.maxHp && this.targeting.isInAttackPattern(unit, ally, type)),
-        unit,
-      );
-      if (!target) return false;
+      const target = hasPlan
+        ? plannedTarget
+        : this.targeting.nearest(
+          model.spatialIndex.nearby(unit.row, unit.column, type.range).filter((ally) => (
+            ally.alive
+            && ally.team === unit.team
+            && ally.id !== unit.id
+            && ally.hp < ally.maxHp
+            && this.targeting.isInAttackPattern(unit, ally, type)
+          )),
+          unit,
+        );
+      if (!target || target.hp >= target.maxHp) return false;
       const healed = Math.min(type.healAmount, target.maxHp - target.hp);
       target.hp += healed;
       model.emitCombatEvent({
@@ -92,9 +148,17 @@ export class CombatActionResolver {
     }
 
     if (type.attack <= 0) return false;
-    const target = this.targeting.nearest(enemies.filter((enemy) => this.targeting.canTarget(unit, enemy, type)), unit);
+    const target = hasPlan
+      ? plannedTarget
+      : this.targeting.nearest(
+        model.spatialIndex.nearby(unit.row, unit.column, type.range).filter((enemy) => (
+          enemy.alive && enemy.team !== unit.team && this.targeting.canTarget(unit, enemy, type)
+        )),
+        unit,
+      );
     if (!target) return false;
-    this.attackUnit(model, unit, target, enemies, now, duration);
+    if (hasUnitTag(type, UNIT_TAG.BOMB)) this.detonate(model, unit, now, duration);
+    else this.attackUnit(model, unit, target, now, duration);
     return true;
   }
 
@@ -123,18 +187,43 @@ export class CombatActionResolver {
     return true;
   }
 
-  detonate(model, attacker, now) {
-    attacker.alive = false;
-    model.spatialIndex.remove(attacker);
-    model.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DETONATED, unit: animatedSnapshot(attacker, now), at: now });
+  destroyUnit(model, unit, now, duration) {
+    if (!unit.alive) return;
+    if (hasUnitTag(unit.type, UNIT_TAG.BOMB)) this.detonate(model, unit, now, duration);
+    else model.killUnit(unit, now, duration);
   }
 
-  attackUnit(model, attacker, target, enemies, now, duration) {
+  detonate(model, attacker, now, duration) {
+    if (!attacker.alive) return;
     const type = UNIT_TYPES[attacker.type];
-    if (this.tryAgileDodge(model, attacker, target, now, duration)) {
-      if (hasUnitTag(type, UNIT_TAG.BOMB)) this.detonate(model, attacker, now);
-      return;
+    const source = animatedSnapshot(attacker, now);
+    const victims = model.units.filter((unit) => (
+      unit.alive
+      && unit.team !== attacker.team
+      && gridDistance(attacker, unit) <= 1
+    ));
+
+    attacker.alive = false;
+    model.spatialIndex.remove(attacker);
+    model.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DETONATED, unit: source, at: now });
+
+    for (const victim of victims) {
+      if (!victim.alive) continue;
+      victim.hp -= type.attack;
+      model.emitCombatEvent({
+        type: COMBAT_EVENT.SPLASH_HIT,
+        source,
+        target: resolvedSnapshot(victim),
+        damage: type.attack,
+        at: now,
+      });
+      if (victim.hp <= 0) this.destroyUnit(model, victim, now, duration);
     }
+  }
+
+  attackUnit(model, attacker, target, now, duration) {
+    const type = UNIT_TYPES[attacker.type];
+    if (this.tryAgileDodge(model, attacker, target, now, duration)) return;
 
     target.hp -= type.attack;
     model.emitCombatEvent({
@@ -147,22 +236,21 @@ export class CombatActionResolver {
     });
 
     if (hasUnitTag(type, UNIT_TAG.AOE)) {
+      const enemies = model.units.filter((enemy) => enemy.alive && enemy.team !== attacker.team);
       for (const enemy of enemies) {
-        if (enemy.id === target.id || !enemy.alive || gridDistance(target, enemy) > 1) continue;
-        const splash = Math.round(type.attack * 0.55);
-        enemy.hp -= splash;
+        if (enemy.id === target.id || gridDistance(target, enemy) > 1) continue;
+        enemy.hp -= type.attack;
         model.emitCombatEvent({
           type: COMBAT_EVENT.SPLASH_HIT,
           source: resolvedSnapshot(attacker),
           target: resolvedSnapshot(enemy),
-          damage: splash,
+          damage: type.attack,
           at: now,
         });
-        if (enemy.hp <= 0) model.killUnit(enemy, now, duration);
+        if (enemy.hp <= 0) this.destroyUnit(model, enemy, now, duration);
       }
     }
 
-    if (hasUnitTag(type, UNIT_TAG.BOMB)) this.detonate(model, attacker, now);
-    if (target.alive && target.hp <= 0) model.killUnit(target, now, duration);
+    if (target.alive && target.hp <= 0) this.destroyUnit(model, target, now, duration);
   }
 }
