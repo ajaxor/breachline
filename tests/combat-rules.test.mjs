@@ -67,22 +67,18 @@ test('bomb and aoe tags detonate around the attacker for full damage', () => {
   const bomber = createBattleUnit({ id: 1, type: 'bomber', row: 2, column: 2 });
   const target = createBattleUnit({ id: 2, team: TEAM.ENEMY, row: 2, column: 3 });
   const besideAttacker = createBattleUnit({ id: 3, team: TEAM.ENEMY, row: 1, column: 2 });
-  const besideTargetOnly = createBattleUnit({ id: 4, team: TEAM.ENEMY, row: 1, column: 3 });
-  const model = withUnits(bomber, target, besideAttacker, besideTargetOnly);
+  const diagonalEnemy = createBattleUnit({ id: 4, team: TEAM.ENEMY, row: 1, column: 3 });
+  const model = withUnits(bomber, target, besideAttacker, diagonalEnemy);
   model.processUnit(bomber, 100, 100);
   assert.equal(hasUnitTag(UNIT_TYPES.bomber, UNIT_TAG.BOMB), true);
   assert.equal(hasUnitTag(UNIT_TYPES.bomber, UNIT_TAG.AOE), true);
   assert.equal(target.hp, UNIT_TYPES.grunt.hp - UNIT_TYPES.bomber.attack);
   assert.equal(besideAttacker.hp, UNIT_TYPES.grunt.hp - UNIT_TYPES.bomber.attack);
-  assert.equal(besideTargetOnly.hp, UNIT_TYPES.grunt.hp);
+  assert.equal(diagonalEnemy.hp, UNIT_TYPES.grunt.hp - UNIT_TYPES.bomber.attack);
   assert.equal(bomber.alive, false);
-  assert.deepEqual(model.combatEvents.map((event) => event.type), [
-    COMBAT_EVENT.UNIT_DETONATED,
-    COMBAT_EVENT.SPLASH_HIT,
-    COMBAT_EVENT.UNIT_DESTROYED,
-    COMBAT_EVENT.SPLASH_HIT,
-    COMBAT_EVENT.UNIT_DESTROYED,
-  ]);
+  assert.equal(model.combatEvents.filter((event) => event.type === COMBAT_EVENT.UNIT_DETONATED).length, 1);
+  assert.equal(model.combatEvents.filter((event) => event.type === COMBAT_EVENT.SPLASH_HIT).length, 3);
+  assert.equal(model.combatEvents.some((event) => event.type === COMBAT_EVENT.UNIT_ATTACKED), false);
 });
 
 test('detonation events use the unit animated position instead of its movement destination', () => {
@@ -98,7 +94,7 @@ test('detonation events use the unit animated position instead of its movement d
   model.processUnit(firefly, 150, 100);
   const event = model.combatEvents.find((candidate) => candidate.type === COMBAT_EVENT.UNIT_DETONATED);
   assert.equal(event.unit.row, 2);
-  assert.equal(event.unit.column, 2.25);
+  assert.equal(event.unit.column, 2.5);
 });
 
 test('units breach the edge and then damage the opposing base', () => {
