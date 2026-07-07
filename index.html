@@ -44,14 +44,32 @@
           <div class="battle-status-line" id="battleStatus" hidden></div>
           <div class="deploy-hint" id="deployHint">Choose a roster unit, then tap an open blue cell. Units remain in reserve until Launch; all launched units are permanently committed.</div>
           <div class="battle-content">
-            <aside class="roster-panel"><div class="roster-heading"><span>Unit Supply</span><button id="rosterExpand" class="roster-expand" aria-label="Expand unit roster" title="Expand roster">›</button></div><div id="sandboxTeam" class="sandbox-team" hidden><button data-sandbox-team="player" class="active">Player</button><button data-sandbox-team="enemy">Enemy</button></div><div class="roster-scroll" id="rosterList"></div><div class="roster-footer"><button class="clear-link" id="clearLink">Clear formation</button></div></aside>
+            <aside class="roster-panel"><div class="roster-heading"><span>Unit Supply</span><button id="rosterExpand" class="roster-expand" aria-label="Expand unit roster" title="Expand roster">›</button></div><div class="roster-scroll" id="rosterList"></div><div class="roster-footer"><button class="clear-link" id="clearLink">Clear formation</button></div></aside>
             <div class="field-wrap" id="fieldWrap"><canvas id="field"></canvas><div id="unitInspector" class="unit-inspector" hidden></div><div class="fab-row"><button class="fab" id="btnOpenLog" hidden>Log</button></div><div class="banner-overlay" id="bannerOverlay"></div></div>
           </div>
         </section>
       </div>
       <nav class="tabbar"><button class="tab-btn active" data-tab="missions"><span class="tdot"></span>Missions</button><button class="tab-btn" data-tab="battle"><span class="tdot"></span>Battle</button></nav>
     </div>
-    <section id="campaignOverlay" class="campaign-overlay" hidden><div class="campaign-dialog"><div class="draft-kicker">New Operation</div><h2>Choose Battle Mode</h2><div class="campaign-fields"><label>Difficulty<select id="campaignDifficulty"><option value="0.8">Recruit</option><option value="1" selected>Standard</option><option value="1.25">Veteran</option><option value="1.5">Brutal</option></select></label><label>Campaign Length<select id="campaignLength"><option value="5">Short — 5 missions</option><option value="10" selected>Standard — 10 missions</option><option value="15">Long — 15 missions</option></select></label></div><div class="campaign-actions"><button class="primary" id="btnBeginCampaign">Start Campaign</button><button id="btnSandbox">Sandbox</button><button id="btnCampaignBack">Back</button></div></div></section>
+    <section id="campaignOverlay" class="campaign-overlay" hidden>
+      <div class="campaign-dialog">
+        <div class="draft-kicker">New Operation</div><h2>Choose Battle Mode</h2>
+        <div class="campaign-fields">
+          <fieldset id="campaignDifficulty" class="radio-group"><legend>Difficulty</legend>
+            <label><input type="radio" name="campaignDifficulty" value="0.8"><span>Recruit</span></label>
+            <label><input type="radio" name="campaignDifficulty" value="1" checked><span>Standard</span></label>
+            <label><input type="radio" name="campaignDifficulty" value="1.25"><span>Veteran</span></label>
+            <label><input type="radio" name="campaignDifficulty" value="1.5"><span>Brutal</span></label>
+          </fieldset>
+          <fieldset id="campaignLength" class="radio-group"><legend>Campaign Length</legend>
+            <label><input type="radio" name="campaignLength" value="5"><span>Short · 5</span></label>
+            <label><input type="radio" name="campaignLength" value="10" checked><span>Standard · 10</span></label>
+            <label><input type="radio" name="campaignLength" value="15"><span>Long · 15</span></label>
+          </fieldset>
+        </div>
+        <div class="campaign-actions"><button class="primary" id="btnBeginCampaign">Start Campaign</button><button id="btnSandbox">Sandbox</button><button id="btnCampaignBack">Back</button></div>
+      </div>
+    </section>
     <section id="rosterOverlay" class="roster-overlay" hidden><div class="roster-overlay-header"><div><div class="draft-kicker">Deployment Supply</div><h2>Choose a unit</h2></div><button id="rosterClose" class="roster-close" aria-label="Close expanded roster">×</button></div><div id="rosterFullList" class="roster-full-list"></div></section>
     <section id="draftOverlay" class="draft-overlay" hidden><div class="draft-dialog"><div class="draft-kicker">Reinforcement Draft</div><h2>Choose one unit set</h2><div id="draftProgress" class="draft-progress"></div><div id="draftChoices" class="draft-choices"></div></div></section>
     <aside class="sheet" id="logSheet"><div class="sheet-header">Combat Log<button class="sheet-close" id="logClose">&times;</button></div><div class="sheet-body log" id="log"></div></aside>
