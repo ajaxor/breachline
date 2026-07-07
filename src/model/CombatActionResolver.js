@@ -1,4 +1,4 @@
-import { AURA_EFFECT, GAME_CONFIG, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
+import { AURA_EFFECT, GAME_CONFIG, TEAM, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
 import { COMBAT_EVENT } from '../data/gameTypes.js';
 import { MovementPolicy } from './MovementPolicy.js';
 import { TargetingPolicy, gridDistance } from './TargetingPolicy.js';
@@ -30,6 +30,7 @@ export class CombatActionResolver {
     this.targeting = targeting;
     this.movement = movement;
     this.targetPlan = null;
+    this.resolvedFormations = new Set();
   }
 
   auraValue(model, unit, effect, sourceTeam = unit.team) {
@@ -73,6 +74,11 @@ export class CombatActionResolver {
     return Math.max(1, damage - this.auraValue(model, target, AURA_EFFECT.SHIELD));
   }
 
+  validTargets(model, unit, type) {
+    return model.spatialIndex.nearby(unit.row, unit.column, type.range)
+      .filter((candidate) => candidate.alive && candidate.team !== unit.team && this.targeting.canTarget(unit, candidate, type));
+  }
+
   buildTargetPlan(model, units) {
     const plan = new Map();
     for (const unit of units) {
@@ -84,9 +90,10 @@ export class CombatActionResolver {
         plan.set(unit.id, this.targeting.nearest(allies, unit)?.id ?? null);
         continue;
       }
-      if (type.attack <= 0) { plan.set(unit.id, null); continue; }
+      if (type.attack <= 0 && !hasUnitTag(type, UNIT_TAG.PUSH)) { plan.set(unit.id, null); continue; }
       const enemies = nearby.filter((candidate) => candidate.alive && candidate.team !== unit.team && this.targeting.canTarget(unit, candidate, type));
-      plan.set(unit.id, this.targeting.nearest(enemies, unit)?.id ?? null);
+      if (hasUnitTag(type, UNIT_TAG.SALVO)) plan.set(unit.id, enemies.map((enemy) => enemy.id));
+      else plan.set(unit.id, this.targeting.nearest(enemies, unit)?.id ?? null);
     }
     return plan;
   }
@@ -95,6 +102,7 @@ export class CombatActionResolver {
     const queue = units.slice();
     let consecutivePasses = 0;
     this.applyStunFields(units);
+    this.resolvedFormations.clear();
     this.targetPlan = model.spatialIndex ? this.buildTargetPlan(model, units) : null;
     try {
       while (queue.length > 0 && consecutivePasses < queue.length) {
@@ -105,6 +113,7 @@ export class CombatActionResolver {
       }
     } finally {
       this.targetPlan = null;
+      this.resolvedFormations.clear();
       this.ageStuns(units);
     }
   }
@@ -118,12 +127,27 @@ export class CombatActionResolver {
     if (hasUnitTag(type, UNIT_TAG.FLYING)) return this.processFlyingUnit(model, unit, type, now, duration);
     if (this.tryCombatAction(model, unit, type, now, duration)) return true;
     if (this.shouldPassForIncomingTarget(model, unit, type)) return true;
+    if (hasUnitTag(type, UNIT_TAG.FORMATION)) return this.processFormationMovement(model, unit, now, duration);
     unit.movedThisTurn = this.movement.move(model, unit, now, duration);
     if (!unit.movedThisTurn) return false;
     if (hasUnitTag(type, UNIT_TAG.FAST_ATTACK)) {
       if (unit.breached) model.attackBase(unit, now, duration);
       else this.tryCombatAction(model, unit, type, now, duration);
     }
+    return true;
+  }
+
+  processFormationMovement(model, unit, now, duration) {
+    if (this.resolvedFormations.has(unit.team)) return true;
+    const formation = model.units.filter((candidate) => candidate.alive && !candidate.breached && candidate.team === unit.team && hasUnitTag(candidate.type, UNIT_TAG.FORMATION));
+    const memberHasAction = formation.some((member) => {
+      const planned = this.targetPlan?.get(member.id);
+      return Array.isArray(planned) ? planned.length > 0 : planned !== null && planned !== undefined;
+    });
+    this.resolvedFormations.add(unit.team);
+    if (memberHasAction || formation.some((member) => this.isStunned(member))) return true;
+    const moved = this.movement.moveFormation(model, formation, now, duration);
+    for (const member of formation) member.movedThisTurn = moved;
     return true;
   }
 
@@ -141,12 +165,22 @@ export class CombatActionResolver {
   plannedTarget(model, unit) {
     if (!this.targetPlan?.has(unit.id)) return undefined;
     const targetId = this.targetPlan.get(unit.id);
-    if (targetId === null) return null;
+    if (targetId === null || Array.isArray(targetId)) return targetId;
     return model.units.find((candidate) => candidate.id === targetId && candidate.alive) ?? null;
   }
 
+  plannedTargets(model, unit) {
+    if (!this.targetPlan?.has(unit.id)) return undefined;
+    const targetIds = this.targetPlan.get(unit.id);
+    if (!Array.isArray(targetIds)) return undefined;
+    const idSet = new Set(targetIds);
+    return model.units.filter((candidate) => candidate.alive && idSet.has(candidate.id));
+  }
+
   shouldPassForIncomingTarget(model, unit, type) {
-    if (type.range <= 1 || !this.targetPlan?.has(unit.id) || this.targetPlan.get(unit.id) !== null) return false;
+    if (type.range <= 1 || !this.targetPlan?.has(unit.id)) return false;
+    const planned = this.targetPlan.get(unit.id);
+    if (Array.isArray(planned) ? planned.length > 0 : planned !== null) return false;
     return model.units.some((enemy) => {
       if (!enemy.alive || enemy.team === unit.team || enemy.breached || enemy.previousRow === undefined || enemy.previousColumn === undefined) return false;
       if (enemy.row === enemy.previousRow && enemy.column === enemy.previousColumn) return false;
@@ -168,11 +202,39 @@ export class CombatActionResolver {
       model.emitCombatEvent({ type: COMBAT_EVENT.UNIT_HEALED, source: resolvedSnapshot(unit), target: resolvedSnapshot(target), amount: healed, at: now });
       return true;
     }
-    if (type.attack <= 0) return false;
-    const target = hasPlan ? plannedTarget : this.targeting.nearest(model.spatialIndex.nearby(unit.row, unit.column, type.range).filter((enemy) => enemy.alive && enemy.team !== unit.team && this.targeting.canTarget(unit, enemy, type)), unit);
+    if (hasUnitTag(type, UNIT_TAG.SALVO)) {
+      const targets = this.plannedTargets(model, unit) ?? this.validTargets(model, unit, type);
+      if (!targets.length) return false;
+      for (const target of targets) if (target.alive) this.attackUnit(model, unit, target, now, duration);
+      return true;
+    }
+    const target = hasPlan ? plannedTarget : this.targeting.nearest(this.validTargets(model, unit, type), unit);
     if (!target) return false;
+    if (hasUnitTag(type, UNIT_TAG.PUSH)) return this.pushUnit(model, unit, target, now, duration);
+    if (type.attack <= 0) return false;
     if (hasUnitTag(type, UNIT_TAG.BOMB)) this.detonate(model, unit, now, duration);
     else this.attackUnit(model, unit, target, now, duration);
+    return true;
+  }
+
+  pushUnit(model, attacker, target, now, duration) {
+    const direction = attacker.team === TEAM.PLAYER ? 1 : -1;
+    const nextColumn = target.column + direction;
+    if (nextColumn < 0 || nextColumn >= GAME_CONFIG.columns) {
+      model.breach(target, direction, now, duration);
+      return true;
+    }
+    if (model.occupantAt(target.row, nextColumn)) return true;
+    const before = resolvedSnapshot(target);
+    const previousRow = target.row;
+    const previousColumn = target.column;
+    target.column = nextColumn;
+    target.previousRow = previousRow;
+    target.previousColumn = previousColumn;
+    target.animationStartedAt = now;
+    target.animationDuration = duration;
+    model.spatialIndex.move(target, previousRow, previousColumn);
+    model.emitCombatEvent({ type: COMBAT_EVENT.UNIT_PUSHED, source: resolvedSnapshot(attacker), target: before, unit: resolvedSnapshot(target), at: now });
     return true;
   }
 
