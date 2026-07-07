@@ -4,6 +4,8 @@ import { EFFECT_TYPE } from '../data/gameTypes.js';
 const ATTACK_STAGGER_MS = 180;
 const PRE_ATTACK_HOLD_MS = 320;
 const POST_ATTACK_HOLD_MS = 360;
+const MODE_SWITCH_HOLD_MS = 900;
+const UNIT_TURN_DELAY_MS = 520;
 const defaultScheduler = Object.freeze({
   setInterval: (callback, delay) => window.setInterval(callback, delay),
   clearInterval: (handle) => window.clearInterval(handle),
@@ -17,6 +19,12 @@ const ATTACK_EFFECTS = new Set([
   EFFECT_TYPE.MELEE,
   EFFECT_TYPE.RANGED,
   EFFECT_TYPE.HEAL,
+  EFFECT_TYPE.EXPLOSION,
+]);
+
+const CONTACT_EFFECTS = new Set([
+  EFFECT_TYPE.MELEE,
+  EFFECT_TYPE.RANGED,
   EFFECT_TYPE.EXPLOSION,
 ]);
 
@@ -35,6 +43,7 @@ export class GameController {
     this.inspectedEnemyCell = null;
     this.listeners = [];
     this.initialized = false;
+    this.sequentialCombat = false;
   }
 
   initialize() {
@@ -129,6 +138,7 @@ export class GameController {
 
   startBattle() {
     if (!this.model.startBattle()) return;
+    this.sequentialCombat = false;
     this.view.closeRoster();
     this.view.clearBanner();
     this.clearUnitInspection();
@@ -143,16 +153,39 @@ export class GameController {
     this.stopTimer();
     this.timer = this.scheduler.setTimeout(() => {
       this.timer = null;
-      const effectStart = this.model.effects.length;
-      const result = this.model.tick();
-      const presentationDuration = this.sequenceAttackEffects(effectStart);
-      this.refresh(false);
-      if (result) {
-        this.view.showResult(result, this.model.selectedMission + 1 < this.model.campaign.length);
-        return;
-      }
-      this.scheduleBattleTick(presentationDuration);
+      if (this.sequentialCombat) this.runSequentialTurn();
+      else this.runSimultaneousTick();
     }, delay);
+  }
+
+  runSimultaneousTick() {
+    const effectStart = this.model.effects.length;
+    const result = this.model.tick();
+    const effects = this.model.effects.slice(effectStart);
+    const presentationDuration = this.sequenceAttackEffects(effectStart);
+    this.refresh(false);
+    if (result) {
+      this.view.showResult(result, this.model.selectedMission + 1 < this.model.campaign.length);
+      return;
+    }
+    if (effects.some((effect) => CONTACT_EFFECTS.has(effect.type))) {
+      this.sequentialCombat = true;
+      this.scheduleBattleTick(presentationDuration + MODE_SWITCH_HOLD_MS);
+      return;
+    }
+    this.scheduleBattleTick(presentationDuration);
+  }
+
+  runSequentialTurn() {
+    const effectStart = this.model.effects.length;
+    const outcome = this.model.stepTurn();
+    const presentationDuration = this.sequenceAttackEffects(effectStart);
+    this.refresh(false);
+    if (outcome.result) {
+      this.view.showResult(outcome.result, this.model.selectedMission + 1 < this.model.campaign.length);
+      return;
+    }
+    this.scheduleBattleTick(presentationDuration + UNIT_TURN_DELAY_MS);
   }
 
   sequenceAttackEffects(effectStart) {
@@ -178,6 +211,7 @@ export class GameController {
   returnToDeployment(missionIndex) {
     this.stopTimer();
     this.stopAnimationLoop();
+    this.sequentialCombat = false;
     this.model.returnToDeployment(missionIndex);
     this.view.closeSheets();
     this.view.closeRoster();
