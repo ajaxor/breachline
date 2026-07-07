@@ -5,7 +5,19 @@ import { TargetingPolicy, gridDistance } from './TargetingPolicy.js';
 
 const clamp01 = (value) => Math.max(0, Math.min(1, value));
 const lerp = (start, end, progress) => start + (end - start) * progress;
-const resolvedSnapshot = (unit) => ({ id: unit.id, team: unit.team, type: unit.type, row: unit.row, column: unit.column, hp: unit.hp, maxHp: unit.maxHp });
+const resolvedSnapshot = (unit) => ({
+  id: unit.id,
+  team: unit.team,
+  type: unit.type,
+  row: unit.row,
+  column: unit.column,
+  previousRow: unit.previousRow,
+  previousColumn: unit.previousColumn,
+  animationStartedAt: unit.animationStartedAt,
+  animationDuration: unit.animationDuration,
+  hp: unit.hp,
+  maxHp: unit.maxHp,
+});
 const animatedSnapshot = (unit, at) => {
   const duration = Math.max(1, unit.animationDuration ?? 1);
   const progress = unit.animationStartedAt === undefined ? 1 : clamp01((at - unit.animationStartedAt) / duration);
