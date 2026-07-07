@@ -47,14 +47,16 @@ function generateFormation(budget, missionIndex, random) {
   const barricadePairs = shuffle(rowPairs, random);
   const frontColumns = GAME_CONFIG.enemyZone.slice(0, 2);
   const desiredBarricadePairs = remaining >= barricadePairCost * 2 + cheapestMobilePair ? 2 : 1;
+  let placedBarricadePairs = 0;
   for (let index = 0; index < desiredBarricadePairs; index += 1) {
     if (remaining < barricadePairCost + cheapestMobilePair) break;
     addMirroredPair(formation, barricadePairs[index], frontColumns[Math.min(index, frontColumns.length - 1)], 'tollbooth');
     remaining -= barricadePairCost;
+    placedBarricadePairs += 1;
   }
 
   const occupied = new Set(formation.map((unit) => `${unit.row}:${unit.column}`));
-  const rearColumns = GAME_CONFIG.enemyZone.slice(1);
+  const rearColumns = GAME_CONFIG.enemyZone.slice(Math.max(1, placedBarricadePairs));
   const mobileSlots = shuffle(rearColumns.flatMap((column) => rowPairs.map((pair) => ({ column, pair }))), random);
   for (const slot of mobileSlots) {
     if (occupied.has(`${slot.pair[0]}:${slot.column}`) || occupied.has(`${slot.pair[1]}:${slot.column}`)) continue;
