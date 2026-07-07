@@ -5,7 +5,7 @@ const laneDistance = (a, b) => Math.abs(a.column - b.column);
 
 export class TargetingPolicy {
   isInAttackPattern(attacker, target, type = UNIT_TYPES[attacker.type]) {
-    if (hasUnitTag(type, UNIT_TAG.ATTACKS_OTHER_LANES)) return gridDistance(attacker, target) <= type.range;
+    if (hasUnitTag(type, UNIT_TAG.SWIVEL)) return gridDistance(attacker, target) <= type.range;
     return attacker.row === target.row && laneDistance(attacker, target) <= type.range;
   }
 
