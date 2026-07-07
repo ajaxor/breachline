@@ -1,4 +1,4 @@
-import { UNIT_ROLE } from '../data/gameConfig.js';
+import { UNIT_ROLE, UNIT_TAG, hasUnitTag } from '../data/gameConfig.js';
 import { drawUnitGraphic } from './UnitGraphics.js';
 
 const ROLE_LABEL = Object.freeze({
@@ -71,8 +71,9 @@ export class UnitPresentation {
 
     const details = this.document.createElement('div');
     details.className = 'unit-description-details';
-    const actionLabel = type.action === 'heal' ? 'HEAL' : 'ATK';
-    const actionValue = type.action === 'heal' ? type.healAmount : type.attack;
+    const heals = hasUnitTag(type, UNIT_TAG.HEAL);
+    const actionLabel = heals ? 'HEAL' : 'ATK';
+    const actionValue = heals ? type.healAmount : type.attack;
     details.innerHTML = `<span class="unit-description-stat">HP <strong>${type.hp}</strong></span><span class="unit-description-stat">${actionLabel} <strong>${actionValue}</strong></span>${type.range > 1 ? `<span class="unit-description-stat">RNG <strong>${type.range}</strong></span>` : ''}`;
 
     type.tags.forEach((tag) => {
