@@ -40,7 +40,7 @@ export class CanvasRenderer {
     }
 
     const now = this.now();
-    const activeEffects = model.effects.filter((effect) => now - effect.start < effect.duration);
+    const activeEffects = model.effects.filter((effect) => now >= effect.start && now - effect.start < effect.duration);
     const attacksByUnit = new Map();
     for (const effect of activeEffects) {
       if (effect.attackerId !== undefined && (effect.type === EFFECT_TYPE.MELEE || effect.type === EFFECT_TYPE.RANGED)) {
