@@ -1,6 +1,13 @@
-import { GAME_CONFIG, MODE, TEAM, UNIT_TYPES } from '../data/gameConfig.js';
+import { AURA_EFFECT, GAME_CONFIG, MODE, TEAM, UNIT_TYPES } from '../data/gameConfig.js';
 import { UNIT_ACTION } from '../data/gameTypes.js';
 import { BattlefieldRenderer } from './BattlefieldRenderer.js';
+
+const RANGE_STYLE = Object.freeze({
+  heal: { fill: 'rgba(74, 222, 128, 0.12)', stroke: 'rgba(74, 222, 128, 0.48)' },
+  [AURA_EFFECT.SHIELD]: { fill: 'rgba(56, 189, 248, 0.12)', stroke: 'rgba(56, 189, 248, 0.5)' },
+  [AURA_EFFECT.DAMAGE]: { fill: 'rgba(251, 191, 36, 0.12)', stroke: 'rgba(251, 191, 36, 0.5)' },
+  [AURA_EFFECT.STUN]: { fill: 'rgba(192, 132, 252, 0.12)', stroke: 'rgba(192, 132, 252, 0.5)' },
+});
 
 export class DeploymentBattlefieldRenderer extends BattlefieldRenderer {
   render(model) {
@@ -18,17 +25,21 @@ export class DeploymentBattlefieldRenderer extends BattlefieldRenderer {
   drawFriendlyEffectZones(formation) {
     for (const unit of formation) {
       const type = UNIT_TYPES[unit.type];
-      if (type?.action !== UNIT_ACTION.HEAL || type.range <= 0) continue;
-      this.drawRangeZone(unit.row, unit.column, type.range);
+      if (type?.action === UNIT_ACTION.HEAL) {
+        this.drawRangeZone(unit.row, unit.column, type.range, RANGE_STYLE.heal);
+        continue;
+      }
+      if (type?.aura) this.drawRangeZone(unit.row, unit.column, type.aura.range, RANGE_STYLE[type.aura.effect]);
     }
   }
 
-  drawRangeZone(originRow, originColumn, range) {
+  drawRangeZone(originRow, originColumn, range, style) {
+    if (!style) return;
     const ctx = this.context;
     const cell = this.cellSize;
     ctx.save();
-    ctx.fillStyle = 'rgba(74, 222, 128, 0.12)';
-    ctx.strokeStyle = 'rgba(74, 222, 128, 0.42)';
+    ctx.fillStyle = style.fill;
+    ctx.strokeStyle = style.stroke;
     ctx.lineWidth = Math.max(1, cell * 0.025);
 
     for (let row = 0; row < GAME_CONFIG.rows; row += 1) {
