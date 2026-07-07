@@ -1,6 +1,6 @@
 import { GameView } from './GameView.js';
 
-const FLOW_IDS = ['campaignOverlay', 'campaignDifficulty', 'campaignLength', 'btnBeginCampaign', 'btnSandbox', 'btnCampaignBack'];
+const FLOW_IDS = ['campaignOverlay', 'campaignDifficulty', 'campaignLength', 'btnBeginCampaign', 'btnSandbox', 'btnCampaignBack', 'btnReinforce', 'btnDraftBack'];
 
 export class FlowGameView extends GameView {
   constructor(documentRef = document) {
@@ -16,6 +16,7 @@ export class FlowGameView extends GameView {
     this.elements.screenTitle.hidden = false;
     this.elements.gameShell.hidden = true;
     this.closeCampaignMenu();
+    this.closeDraft();
   }
 
   openCampaignMenu() {
@@ -42,7 +43,7 @@ export class FlowGameView extends GameView {
 
   renderRoster(model) {
     const rows = model.rosterTypes.map((type) => this.unitPresentation.createRosterRow(type, type.key === model.selectedUnitType, model.isSandbox ? '∞' : model.availableCount(type.key)));
-    if (!rows.length) rows.push(this.createElement('div', { className: 'empty-roster', text: 'Complete a reinforcement draft to add units to your supply.' }));
+    if (!rows.length) rows.push(this.createElement('div', { className: 'empty-roster', text: model.pendingDrafts > 0 ? 'Open Reinforce to add units after reviewing the hostile formation.' : 'No units remain in supply.' }));
     this.elements.rosterList.replaceChildren(...rows);
   }
 
@@ -50,9 +51,15 @@ export class FlowGameView extends GameView {
     if (model.isSandbox) {
       this.elements.budgetSpent.textContent = `${model.placement.length} player · ${model.mission.enemyFormation.length} enemy`;
       this.elements.btnLaunch.disabled = model.placement.length === 0 || model.mission.enemyFormation.length === 0;
+      this.elements.btnReinforce.hidden = true;
       return;
     }
     super.renderSupply(model);
+    const pending = model.pendingDrafts;
+    this.elements.btnReinforce.hidden = false;
+    this.elements.btnReinforce.disabled = pending <= 0;
+    this.elements.btnReinforce.textContent = `Reinforce · ${pending}`;
+    this.elements.btnReinforce.classList.toggle('attention', pending > 0);
   }
 
   renderBattleChrome(model) {
@@ -61,6 +68,10 @@ export class FlowGameView extends GameView {
     this.elements.phaseLabel.textContent = `PHASE: ${model.mode === 'battle' ? 'BATTLE' : 'DEPLOYMENT'} — ${label}`;
     if (model.isSandbox && model.mode !== 'battle') {
       this.elements.deployHint.textContent = 'Choose any unit, then tap a blue cell to place it for the player or a red cell to place it for the enemy.';
+    } else if (!model.isSandbox && model.mode !== 'battle') {
+      this.elements.deployHint.textContent = model.pendingDrafts > 0
+        ? 'Review the hostile formation, then open Reinforce when you are ready to choose additional units.'
+        : 'Choose a roster unit, then tap an open blue cell. All launched units are permanently committed.';
     }
   }
 
@@ -78,7 +89,7 @@ export class FlowGameView extends GameView {
       retry.dataset.resultAction = 'retry';
       actions.appendChild(retry);
     } else if (result.playerWon) {
-      const next = this.createElement('button', { className: 'primary', text: hasNextMission ? 'Draft Reinforcement' : 'Finish Campaign' });
+      const next = this.createElement('button', { className: 'primary', text: hasNextMission ? 'Continue' : 'Finish Campaign' });
       next.dataset.resultAction = 'continue';
       actions.appendChild(next);
     } else {
