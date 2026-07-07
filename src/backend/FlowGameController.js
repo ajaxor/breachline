@@ -16,6 +16,8 @@ export class FlowGameController extends GameController {
     this.listen(elements.btnBeginCampaign, 'click', () => this.startCampaign());
     this.listen(elements.btnSandbox, 'click', () => this.startSandbox());
     this.listen(elements.btnCampaignBack, 'click', () => this.view.closeCampaignMenu());
+    this.listen(elements.btnReinforce, 'click', () => this.openReinforcements());
+    this.listen(elements.btnDraftBack, 'click', () => this.view.closeDraft());
     document.querySelectorAll('.tab-btn').forEach((button) => this.listen(button, 'click', () => this.activateTab(button.dataset.tab)));
     this.listen(elements.btnGoDeploy, 'click', () => this.activateTab('battle'));
     this.listen(elements.missionStrip, 'click', (event) => this.handleMissionClick(event));
@@ -48,14 +50,12 @@ export class FlowGameController extends GameController {
       difficulty: Number(this.selectedValue(this.view.elements.campaignDifficulty)),
       length: Number(this.selectedValue(this.view.elements.campaignLength)),
     });
+    this.model.beginDrafts(3);
     this.view.closeCampaignMenu();
     this.view.enterGame();
-    this.afterDraft = () => { this.activateTab('battle'); this.scheduler.requestAnimationFrame(() => this.renderer.resize(this.model)); };
-    this.model.beginDrafts(3);
-    this.view.renderDraft(this.model);
-    this.view.renderRoster(this.model);
+    this.activateTab('battle');
     this.refresh();
-    this.view.openDraft();
+    this.scheduler.requestAnimationFrame(() => this.renderer.resize(this.model));
   }
 
   startSandbox() {
@@ -65,6 +65,21 @@ export class FlowGameController extends GameController {
     this.activateTab('battle');
     this.refresh();
     this.scheduler.requestAnimationFrame(() => this.renderer.resize(this.model));
+  }
+
+  openReinforcements() {
+    if (this.model.pendingDrafts <= 0 || this.model.isSandbox) return;
+    this.view.renderDraft(this.model);
+    this.view.openDraft();
+  }
+
+  handleDraftClick(event) {
+    const button = event.target.closest('[data-draft-choice]');
+    if (!button || !this.model.chooseDraft(button.dataset.draftChoice)) return;
+    this.view.renderRoster(this.model);
+    this.view.renderSupply(this.model);
+    if (this.model.pendingDrafts > 0) this.view.renderDraft(this.model);
+    else this.view.closeDraft();
   }
 
   handleFieldClick(event) {
@@ -107,8 +122,18 @@ export class FlowGameController extends GameController {
       return;
     }
     if (action === 'continue') {
-      const next = Math.min(this.model.selectedMission + 1, this.model.campaign.length - 1);
-      this.startDraftSequence(2, () => this.returnToDeployment(next));
+      const hasNextMission = this.model.selectedMission + 1 < this.model.campaign.length;
+      if (!hasNextMission) {
+        this.stopTimer();
+        this.stopAnimationLoop();
+        this.view.clearBanner();
+        this.view.showTitle();
+        return;
+      }
+      const next = this.model.selectedMission + 1;
+      this.returnToDeployment(next);
+      this.model.beginDrafts(2);
+      this.refresh();
     }
   }
 
