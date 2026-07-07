@@ -46,7 +46,7 @@ export class CombatActionResolver {
   applyStunFields(units) {
     for (const source of units) {
       if (!source.alive || source.breached) continue;
-      const aura = UNIT_TYPES[source.type].aura;
+      const aura = UNIT_TYPES[source.type]?.aura;
       if (!aura || aura.effect !== AURA_EFFECT.STUN) continue;
       for (const target of units) {
         if (!target.alive || target.team === source.team || target.row !== source.row) continue;
