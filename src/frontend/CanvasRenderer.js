@@ -55,7 +55,9 @@ export class CanvasRenderer {
         attacksByUnit.set(effect.attackerId, effect);
       }
     }
-    model.units.filter((unit) => unit.alive).forEach((unit) => this.drawAnimatedUnit(unit, attacksByUnit.get(unit.id), healthEffectsByUnit.get(unit.id) ?? [], now));
+    model.units
+      .filter((unit) => unit.alive || (healthEffectsByUnit.get(unit.id) ?? []).some((effect) => now < effect.start))
+      .forEach((unit) => this.drawAnimatedUnit(unit, attacksByUnit.get(unit.id), healthEffectsByUnit.get(unit.id) ?? [], now));
     activeEffects.filter((effect) => effect.type !== EFFECT_TYPE.HEALTH_LOSS).forEach((effect) => this.drawEffect(effect, now));
   }
 
@@ -108,51 +110,36 @@ export class CanvasRenderer {
     this.prepareUnitContext(unit, ghost);
     this.context.globalAlpha = (unit.stealthed ? 0.28 : 1) * (ghost ? 0.55 : 1);
     drawUnitGraphic(this.context, type.graphic ?? type.shape, 0, 0, this.cellSize * 0.32, color);
-    if (this.shouldDrawHealthBar(unit, ghost)) this.drawHealthBar(unit, healthEffects, now);
+    const displayedHp = this.displayedHealth(unit, healthEffects, now);
+    if (this.shouldDrawHealthBar(unit, ghost, displayedHp)) this.drawHealthBar(unit, displayedHp);
     this.context.restore();
   }
 
   prepareUnitContext() {}
 
-  shouldDrawHealthBar(_unit, ghost) {
-    return !ghost;
+  shouldDrawHealthBar(unit, ghost, displayedHp) {
+    return !ghost && displayedHp > 0 && displayedHp < unit.maxHp;
   }
 
-  drawHealthBar(unit, healthEffects = [], now = this.now()) {
-    const width = this.cellSize * 0.7;
-    const y = -this.cellSize / 2 + 5;
+  displayedHealth(unit, healthEffects = [], now = this.now()) {
     const sortedEffects = healthEffects.slice().sort((a, b) => a.start - b.start);
-    let displayedHp = unit.hp;
-    const nextEffect = sortedEffects.find((effect) => now < effect.start);
     const activeEffect = sortedEffects.find((effect) => now >= effect.start && now - effect.start < effect.duration);
     if (activeEffect) {
       const progress = clamp01((now - activeEffect.start) / activeEffect.duration);
-      displayedHp = lerp(activeEffect.hpBefore, activeEffect.hpAfter, progress);
-    } else if (nextEffect) displayedHp = nextEffect.hpBefore;
+      return lerp(activeEffect.hpBefore, activeEffect.hpAfter, progress);
+    }
+    const nextEffect = sortedEffects.find((effect) => now < effect.start);
+    return nextEffect ? nextEffect.hpBefore : unit.hp;
+  }
 
+  drawHealthBar(unit, displayedHp) {
+    const width = this.cellSize * 0.7;
+    const y = -this.cellSize / 2 + 5;
     const health = clamp01(displayedHp / unit.maxHp);
     this.context.fillStyle = '#0d141b';
     this.context.fillRect(-width / 2, y, width, 4);
     this.context.fillStyle = health > 0.5 ? '#4ade80' : health > 0.2 ? '#fbbf24' : '#ff5d5d';
     this.context.fillRect(-width / 2, y, width * health, 4);
-
-    if (activeEffect) this.drawFallingHealthSegment(activeEffect, width, y, now);
-  }
-
-  drawFallingHealthSegment(effect, width, y, now) {
-    const progress = clamp01((now - effect.start) / effect.duration);
-    const before = clamp01(effect.hpBefore / effect.maxHp);
-    const after = clamp01(effect.hpAfter / effect.maxHp);
-    const segmentWidth = width * Math.max(0, before - after);
-    if (segmentWidth <= 0) return;
-    const ctx = this.context;
-    ctx.save();
-    ctx.globalAlpha *= 1 - progress;
-    ctx.translate(progress * this.cellSize * 0.18, progress * this.cellSize * 0.42);
-    ctx.rotate(progress * 0.75);
-    ctx.fillStyle = before > 0.5 ? '#4ade80' : before > 0.2 ? '#fbbf24' : '#ff5d5d';
-    ctx.fillRect(-width / 2 + width * after, y, segmentWidth, 4);
-    ctx.restore();
   }
 
   drawEffect(effect, now) {
