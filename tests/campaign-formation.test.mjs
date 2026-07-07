@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GAME_CONFIG, UNIT_TYPES } from '../src/data/gameConfig.js';
+import { GAME_CONFIG, UNIT_ROLE, UNIT_TYPES } from '../src/data/gameConfig.js';
 import { MISSION_STATUS } from '../src/data/gameTypes.js';
 import { createCampaign } from '../src/model/CampaignFactory.js';
 
@@ -33,9 +33,20 @@ test('enemy formations remain mirrored across the horizontal center line', () =>
   }
 });
 
-test('campaign formations respect unit unlock missions', () => {
+test('enemy bases always mix front barricades with mobile units behind them', () => {
   for (const mission of campaign) {
-    for (const unit of mission.enemyFormation) {
+    const barricades = mission.enemyFormation.filter((unit) => unit.type === 'tollbooth');
+    const mobile = mission.enemyFormation.filter((unit) => UNIT_TYPES[unit.type].role !== UNIT_ROLE.STRUCTURE);
+    assert.ok(barricades.length >= 2, `mission ${mission.index + 1} has no barricade line`);
+    assert.ok(mobile.length >= 2, `mission ${mission.index + 1} has no mobile defenders`);
+    const rearmostBarricadeColumn = Math.max(...barricades.map((unit) => unit.column));
+    assert.ok(mobile.every((unit) => unit.column > rearmostBarricadeColumn), `mission ${mission.index + 1} places mobile units in front of barricades`);
+  }
+});
+
+test('campaign formations respect mobile unit unlock missions', () => {
+  for (const mission of campaign) {
+    for (const unit of mission.enemyFormation.filter((candidate) => candidate.type !== 'tollbooth')) {
       assert.ok(
         UNIT_TYPES[unit.type].campaign.unlockMission <= mission.index,
         `${unit.type} appears before its unlock mission`,
