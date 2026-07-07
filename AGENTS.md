@@ -38,17 +38,18 @@ Every push to `main` runs the deployment workflow and publishes a machine-readab
 After the final task commit is pushed:
 
 1. Record the exact full commit SHA.
-2. Read `ci-status.json` from the `ci-status` branch repeatedly until its `commit` field exactly matches that SHA. A receipt for an older commit is stale and must not be treated as the result for the current task.
-3. Confirm all of the following in the matching receipt:
+2. Wait about 40 seconds before the first `ci-status.json` check. The workflow normally needs roughly that long, so immediately polling only produces stale receipts and unnecessary connector calls.
+3. Read `ci-status.json` from the `ci-status` branch repeatedly until its `commit` field exactly matches that SHA. If the first check is still stale or pending, wait another 40 seconds before checking again. A receipt for an older commit is stale and must not be treated as the result for the current task.
+4. Confirm all of the following in the matching receipt:
    - `status` is `success`;
    - `buildResult` is `success`;
    - `deployResult` is `success`;
    - `testsExitCode`, `balanceExitCode`, and `moduleGraphExitCode` are all `0`.
-4. If any validation fails, inspect the corresponding files on the same branch:
+5. If any validation fails, inspect the corresponding files on the same branch:
    - `diagnostics/tests.log` for the Node test suite;
    - `diagnostics/balance.log` for balance-regression failures;
    - `diagnostics/module-graph.log` for import/module validation failures.
-5. Diagnose and fix the failure, push the correction to `main`, then repeat this process using the replacement commit's exact SHA.
+6. Diagnose and fix the failure, push the correction to `main`, then repeat this process using the replacement commit's exact SHA.
 
 Do not report that checks are unavailable merely because a workflow-run query returns no result. Do not report the task complete while the matching `ci-status` receipt is stale, absent, pending, failed, or contains a nonzero validation exit code.
 
