@@ -49,7 +49,7 @@ export class CombatActionResolver {
       const aura = UNIT_TYPES[source.type]?.aura;
       if (!aura || aura.effect !== AURA_EFFECT.STUN) continue;
       for (const target of units) {
-        if (!target.alive || target.team === source.team || target.row !== source.row) continue;
+        if (!target.alive || target.team === source.team || target.column !== source.column) continue;
         target.stunTurnsRemaining = Math.max(target.stunTurnsRemaining ?? 0, STUN_TURNS);
       }
     }
