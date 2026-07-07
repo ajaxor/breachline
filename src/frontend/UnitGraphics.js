@@ -1,7 +1,7 @@
 const GRAPHIC_ROLE = Object.freeze({
   rifleman: 'grunt', gunner: 'grunt', bulwark: 'grunt',
   marksman: 'ranged', flak: 'ranged', artillery: 'ranged',
-  medic: 'support',
+  medic: 'support', aegis: 'support', amplifier: 'support', disruptor: 'support',
   midge: 'flying', wasp: 'flying', kite: 'flying', firefly: 'flying',
   demolisher: 'specialist', ranger: 'specialist', infiltrator: 'specialist',
   barricade: 'structure', turret: 'structure',
@@ -74,6 +74,24 @@ const drawUnitDetails = (ctx, graphic, radius) => {
     ctx.moveTo(-radius * 0.48, 0); ctx.lineTo(radius * 0.48, 0);
     ctx.moveTo(0, -radius * 0.48); ctx.lineTo(0, radius * 0.48);
     ctx.arc(0, 0, radius * 0.68, 0, Math.PI * 2);
+  } else if (graphic === 'aegis') {
+    ctx.moveTo(0, -radius * 0.65);
+    ctx.lineTo(radius * 0.5, -radius * 0.38);
+    ctx.lineTo(radius * 0.42, radius * 0.25);
+    ctx.quadraticCurveTo(0, radius * 0.7, -radius * 0.42, radius * 0.25);
+    ctx.lineTo(-radius * 0.5, -radius * 0.38);
+    ctx.closePath();
+    ctx.moveTo(0, -radius * 0.38); ctx.lineTo(0, radius * 0.38);
+  } else if (graphic === 'amplifier') {
+    ctx.moveTo(-radius * 0.58, radius * 0.48); ctx.lineTo(0, -radius * 0.58); ctx.lineTo(radius * 0.58, radius * 0.48);
+    ctx.moveTo(-radius * 0.3, radius * 0.48); ctx.lineTo(0, -radius * 0.05); ctx.lineTo(radius * 0.3, radius * 0.48);
+    ctx.arc(0, -radius * 0.2, radius * 0.13, 0, Math.PI * 2);
+  } else if (graphic === 'disruptor') {
+    ctx.arc(0, 0, radius * 0.2, 0, Math.PI * 2);
+    ctx.arc(0, 0, radius * 0.5, -Math.PI * 0.75, Math.PI * 0.15);
+    ctx.moveTo(-radius * 0.72, -radius * 0.28); ctx.lineTo(-radius * 0.48, -radius * 0.42);
+    ctx.moveTo(radius * 0.55, radius * 0.45); ctx.lineTo(radius * 0.75, radius * 0.28);
+    ctx.moveTo(-radius * 0.18, -radius * 0.72); ctx.lineTo(radius * 0.08, -radius * 0.5);
   } else if (graphic === 'ranger') {
     ctx.moveTo(-radius * 0.55, -radius * 0.48); ctx.lineTo(radius * 0.25, 0); ctx.lineTo(-radius * 0.55, radius * 0.48);
     ctx.moveTo(radius * 0.15, -radius * 0.52); ctx.lineTo(radius * 0.72, 0); ctx.lineTo(radius * 0.15, radius * 0.52);
