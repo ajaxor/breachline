@@ -7,15 +7,7 @@ export class MovementPolicy {
 
   maxSteps(model, unit) {
     const type = UNIT_TYPES[unit.type];
-    if (hasUnitTag(type, UNIT_TAG.FAST)) return 2;
-    if (!hasUnitTag(type, UNIT_TAG.CHARGE) || type.range !== 1) return 1;
-    const direction = this.directionFor(unit);
-    const distances = model.units
-      .filter((enemy) => enemy.alive && !enemy.breached && enemy.team !== unit.team && enemy.row === unit.row)
-      .map((enemy) => (enemy.column - unit.column) * direction)
-      .filter((distance) => distance > type.range);
-    const nearest = distances.length ? Math.min(...distances) : Infinity;
-    return nearest === 3 ? 2 : 1;
+    return hasUnitTag(type, UNIT_TAG.CHARGE) && !unit.chargeUsed ? 2 : 1;
   }
 
   move(model, unit, now, duration, forcedSteps = null) {
