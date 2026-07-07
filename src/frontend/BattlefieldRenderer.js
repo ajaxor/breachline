@@ -80,8 +80,17 @@ export class BattlefieldRenderer extends CanvasRenderer {
     super.drawAnimatedUnit(animated, attack, healthEffects, now);
     if (this.model?.mode !== MODE.BATTLE || !unit.alive) return;
     const moveProgress = animated.animationStartedAt === undefined ? 1 : clamp01((now - animated.animationStartedAt) / Math.max(1, animated.animationDuration));
-    const row = lerp(animated.previousRow ?? animated.row, animated.row, moveProgress);
-    const column = lerp(animated.previousColumn ?? animated.column, animated.column, moveProgress);
+    let row = lerp(animated.previousRow ?? animated.row, animated.row, moveProgress);
+    let column = lerp(animated.previousColumn ?? animated.column, animated.column, moveProgress);
+    if (attack) {
+      const progress = clamp01((now - attack.start) / attack.duration);
+      const lunge = Math.sin(progress * Math.PI) * (attack.type === 'melee' ? 0.32 : 0.08);
+      const rowDelta = attack.to.row - attack.from.row;
+      const columnDelta = attack.to.column - attack.from.column;
+      const length = Math.max(1, Math.hypot(rowDelta, columnDelta));
+      row += rowDelta / length * lunge;
+      column += columnDelta / length * lunge;
+    }
     this.drawAuraStatuses(unit, row, column, now);
   }
 
@@ -151,7 +160,7 @@ export class BattlefieldRenderer extends CanvasRenderer {
   }
 
   activeAuraStatuses(unit) {
-    const statuses = { shielded: false, amplified: false, stunned: false };
+    const statuses = { shielded: false, amplified: false, stunned: (unit.stunTurnsRemaining ?? 0) > 0 || unit.stunnedThisTick };
     const units = this.model?.units ?? [];
     for (const source of units) {
       if (!source.alive || source.breached) continue;
@@ -159,7 +168,6 @@ export class BattlefieldRenderer extends CanvasRenderer {
       if (!aura || gridDistance(source, unit) > aura.range) continue;
       if (source.team === unit.team && aura.effect === AURA_EFFECT.SHIELD) statuses.shielded = true;
       if (source.team === unit.team && aura.effect === AURA_EFFECT.DAMAGE) statuses.amplified = true;
-      if (source.team !== unit.team && aura.effect === AURA_EFFECT.STUN) statuses.stunned = true;
     }
     return statuses;
   }
