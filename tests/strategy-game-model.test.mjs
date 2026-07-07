@@ -84,7 +84,8 @@ test('flying unit definitions preserve their intended niches', () => {
   assert.ok(flyingTypes.every((type) => !hasUnitTag(type, UNIT_TAG.CAN_MOVE_SIDEWAYS)));
   assert.ok(UNIT_TYPES.midge.cost < UNIT_TYPES.flyer.cost);
   assert.equal(UNIT_TYPES.kite.range, 4);
-  assert.equal(UNIT_TYPES.firefly.onAttack, 'detonate');
+  assert.equal(hasUnitTag(UNIT_TYPES.firefly, UNIT_TAG.BOMB), true);
+  assert.equal(hasUnitTag(UNIT_TYPES.firefly, UNIT_TAG.AOE), true);
 });
 
 test('only flying and anti-air units can target flying units', () => {
