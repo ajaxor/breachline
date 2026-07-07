@@ -59,6 +59,7 @@ export class CombatActionResolver {
     if (unit.breached) { model.attackBase(unit, now, duration); return true; }
     if (hasUnitTag(type, UNIT_TAG.FLYING)) return this.processFlyingUnit(model, unit, type, now, duration);
     if (this.tryCombatAction(model, unit, type, now, duration)) return true;
+    if (this.shouldPassForIncomingTarget(model, unit, type)) return true;
     unit.movedThisTurn = this.movement.move(model, unit, now, duration);
     if (!unit.movedThisTurn) return false;
     if (hasUnitTag(type, UNIT_TAG.FAST_ATTACK)) {
@@ -84,6 +85,17 @@ export class CombatActionResolver {
     const targetId = this.targetPlan.get(unit.id);
     if (targetId === null) return null;
     return model.units.find((candidate) => candidate.id === targetId && candidate.alive) ?? null;
+  }
+
+  shouldPassForIncomingTarget(model, unit, type) {
+    if (type.range <= 1 || !this.targetPlan?.has(unit.id) || this.targetPlan.get(unit.id) !== null) return false;
+    return model.units.some((enemy) => {
+      if (!enemy.alive || enemy.team === unit.team || enemy.breached || enemy.previousRow === undefined || enemy.previousColumn === undefined) return false;
+      if (enemy.row === enemy.previousRow && enemy.column === enemy.previousColumn) return false;
+      if (!this.targeting.canTarget(unit, enemy, type)) return false;
+      const previousPosition = { ...enemy, row: enemy.previousRow, column: enemy.previousColumn };
+      return !this.targeting.canTarget(unit, previousPosition, type);
+    });
   }
 
   tryCombatAction(model, unit, type, now, duration) {
@@ -119,7 +131,13 @@ export class CombatActionResolver {
     target.animationStartedAt = now;
     target.animationDuration = duration;
     model.spatialIndex.move(target, previousRow, previousColumn);
-    model.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DODGED, attacker: resolvedSnapshot(attacker), unit: resolvedSnapshot(target), at: now });
+    model.emitCombatEvent({
+      type: COMBAT_EVENT.UNIT_DODGED,
+      attacker: resolvedSnapshot(attacker),
+      target: { ...resolvedSnapshot(target), row: previousRow, column: previousColumn },
+      unit: resolvedSnapshot(target),
+      at: now,
+    });
     return true;
   }
 
