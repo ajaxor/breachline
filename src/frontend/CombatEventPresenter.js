@@ -1,5 +1,5 @@
 import { GAME_CONFIG, TEAM, UNIT_TYPES } from '../data/gameConfig.js';
-import { COMBAT_EVENT, EFFECT_TYPE, LOG_TYPE } from '../data/gameTypes.js';
+import { ATTACK_ANIMATION, COMBAT_EVENT, EFFECT_TYPE, LOG_TYPE } from '../data/gameTypes.js';
 
 const ATTACK_STAGGER_MS = 180;
 const point = (unit) => ({ row: unit.row, column: unit.column });
@@ -12,6 +12,7 @@ function addDeathEffect(model, unit, at, duration, actionStart) {
     ...point(unit),
     shape: definition.shape,
     graphic: definition.graphic,
+    deathStyle: definition.animation.death,
     color: teamColor(unit.team),
     seed: unit.id * 2.399963229728653,
     actionStart,
@@ -35,6 +36,25 @@ function addHealthLossEffect(model, target, damage, actionStart, impactStart, du
 
 function latestHealthLoss(model, unitId) {
   return [...model.effects].reverse().find((effect) => effect.type === EFFECT_TYPE.HEALTH_LOSS && effect.targetId === unitId);
+}
+
+function addDetonationEffects(model, unit, at, duration) {
+  for (let rowOffset = -1; rowOffset <= 1; rowOffset += 1) {
+    for (let columnOffset = -1; columnOffset <= 1; columnOffset += 1) {
+      const row = unit.row + rowOffset;
+      const column = unit.column + columnOffset;
+      if (row < 0 || row >= GAME_CONFIG.rows || column < 0 || column >= GAME_CONFIG.columns) continue;
+      const distance = Math.hypot(rowOffset, columnOffset);
+      model.effects.push({
+        type: EFFECT_TYPE.EXPLOSION,
+        row,
+        column,
+        start: at + distance * 35,
+        duration: Math.max(duration, 320),
+        intensity: distance === 0 ? 1 : 0.72,
+      });
+    }
+  }
 }
 
 export class CombatEventPresenter {
@@ -74,10 +94,20 @@ export class CombatEventPresenter {
         model.addLog(`${UNIT_TYPES[event.source.type].name} #${event.source.id} restores ${event.amount} HP to ${UNIT_TYPES[event.target.type].name} #${event.target.id}.`, LOG_TYPE.HIT);
         break;
       case COMBAT_EVENT.UNIT_ATTACKED: {
-        const ranged = event.range > 1;
+        const animation = UNIT_TYPES[event.attacker.type].animation.attack;
+        const ranged = animation !== ATTACK_ANIMATION.MELEE;
         const impactAt = at + duration * (ranged ? 0.52 : 0.12);
         model.effects.push(
-          { type: ranged ? EFFECT_TYPE.RANGED : EFFECT_TYPE.MELEE, attackerId: event.attacker.id, team: event.attacker.team, from: point(event.attacker), to: point(event.target), start: at, duration },
+          {
+            type: ranged ? EFFECT_TYPE.RANGED : EFFECT_TYPE.MELEE,
+            attackStyle: animation,
+            attackerId: event.attacker.id,
+            team: event.attacker.team,
+            from: point(event.attacker),
+            to: point(event.target),
+            start: at,
+            duration,
+          },
           { type: EFFECT_TYPE.TEXT, ...point(event.target), text: `-${event.damage}`, color: '#ff5d5d', actionStart: at, start: impactAt, duration: duration * 1.3 },
         );
         addHealthLossEffect(model, event.target, event.damage, at, impactAt, duration);
@@ -96,7 +126,7 @@ export class CombatEventPresenter {
         break;
       }
       case COMBAT_EVENT.UNIT_DETONATED:
-        model.effects.push({ type: EFFECT_TYPE.EXPLOSION, ...point(event.unit), start: at, duration: Math.max(duration, 320) });
+        addDetonationEffects(model, event.unit, at, duration);
         addDeathEffect(model, event.unit, at, duration);
         model.addLog(`${UNIT_TYPES[event.unit.type].name} #${event.unit.id} detonates and is destroyed.`, event.unit.team === TEAM.PLAYER ? LOG_TYPE.PLAYER_LOSS : LOG_TYPE.KILL);
         break;
