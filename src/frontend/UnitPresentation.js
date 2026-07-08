@@ -152,11 +152,7 @@ export class UnitPresentation {
       details.appendChild(this.createTagChip(tag, tooltip, description));
     });
 
-    const behavior = this.document.createElement('div');
-    behavior.className = 'unit-description-behavior';
-    behavior.textContent = type.behavior;
-
-    description.append(header, details, tooltip, behavior);
+    description.append(header, details, tooltip);
     return description;
   }
 
