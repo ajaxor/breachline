@@ -39,13 +39,13 @@
         <section id="screenBattle" class="screen">
           <div class="phase-strip" id="phaseLabel"></div>
           <div class="battle-topbar">
-            <div class="topbar-row" id="deployTopbar"><div class="budget-mini"><div class="budget-mini-label"><span>SUPPLY</span><span id="budgetSpent"></span></div></div><button class="mini-btn reinforce-btn" id="btnReinforce" disabled>Reinforce · 0</button><button class="primary mini-btn" id="btnLaunch" disabled>Launch</button></div>
+            <div class="topbar-row" id="deployTopbar"><div class="budget-mini"><div class="budget-mini-label"><span>SUPPLY</span><span id="budgetSpent"></span></div></div><button class="primary mini-btn" id="btnLaunch" disabled>Launch</button></div>
             <div class="topbar-row" id="resolveTopbar" hidden><div class="base-mini player"><div class="base-mini-label">Your Base</div><div class="base-bar-track"><div class="base-bar-fill" id="playerHpFill"></div></div><div class="base-mini-text" id="playerHpText"></div></div><div class="base-mini enemy"><div class="base-mini-label">Hostile Base</div><div class="base-bar-track"><div class="base-bar-fill" id="enemyHpFill"></div></div><div class="base-mini-text" id="enemyHpText"></div></div><button class="mini-btn danger" id="btnRedesign">Redesign</button></div>
           </div>
           <div class="battle-status-line" id="battleStatus" hidden></div>
           <div class="deploy-hint" id="deployHint">Review the hostile formation, reinforce if needed, then deploy your units. All launched units are permanently committed.</div>
           <div class="battle-content">
-            <aside class="roster-panel"><div class="roster-heading"><span>Unit Supply</span><button id="rosterExpand" class="roster-expand" aria-label="Expand unit roster" title="Expand roster">›</button></div><div class="roster-scroll" id="rosterList"></div><div class="roster-footer"><button class="clear-link" id="clearLink">Clear formation</button></div></aside>
+            <aside class="roster-panel"><div class="roster-heading"><span>Unit Supply</span><button id="rosterExpand" class="roster-expand" aria-label="Expand unit roster" title="Expand roster">›</button></div><div class="roster-reinforce"><button class="reinforce-btn" id="btnReinforce" disabled>Reinforce · 0</button></div><div class="roster-scroll" id="rosterList"></div><div class="roster-footer"><button class="clear-link" id="clearLink">Clear formation</button></div></aside>
             <div class="field-wrap" id="fieldWrap"><canvas id="field"></canvas><div id="unitInspector" class="unit-inspector" hidden></div><div class="fab-row"><button class="fab" id="btnOpenLog" hidden>Log</button></div><div class="banner-overlay" id="bannerOverlay"></div></div>
           </div>
         </section>
