@@ -33,14 +33,35 @@ test('enemy formations remain mirrored across the horizontal center line', () =>
   }
 });
 
-test('enemy bases always mix front barricades with mobile units behind them', () => {
+test('barricades protect non-melee defenders while melee units occupy exposed front gaps', () => {
   for (const mission of campaign) {
     const barricades = mission.enemyFormation.filter((unit) => unit.type === 'tollbooth');
     const mobile = mission.enemyFormation.filter((unit) => UNIT_TYPES[unit.type].role !== UNIT_ROLE.STRUCTURE);
     assert.ok(barricades.length >= 2, `mission ${mission.index + 1} has no barricade line`);
     assert.ok(mobile.length >= 2, `mission ${mission.index + 1} has no mobile defenders`);
-    const rearmostBarricadeColumn = Math.max(...barricades.map((unit) => unit.column));
-    assert.ok(mobile.every((unit) => unit.column > rearmostBarricadeColumn), `mission ${mission.index + 1} places mobile units in front of barricades`);
+
+    for (const unit of mobile) {
+      const role = UNIT_TYPES[unit.type].role;
+      const barricadesAhead = barricades.filter((barricade) => barricade.row === unit.row && barricade.column < unit.column);
+      if (role === UNIT_ROLE.MELEE) {
+        assert.equal(barricadesAhead.length, 0, `mission ${mission.index + 1} puts melee ${unit.type} behind a barricade`);
+      } else {
+        assert.ok(unit.column > GAME_CONFIG.enemyZone[0], `mission ${mission.index + 1} exposes protected ${unit.type} on the front line`);
+      }
+    }
+  }
+});
+
+test('later missions field denser armies with both cheap and premium units', () => {
+  const earlyAverage = campaign.slice(0, 3).reduce((sum, mission) => sum + mission.enemyFormation.length, 0) / 3;
+  const lateAverage = campaign.slice(-3).reduce((sum, mission) => sum + mission.enemyFormation.length, 0) / 3;
+  assert.ok(lateAverage > earlyAverage, `late army density ${lateAverage} did not exceed early density ${earlyAverage}`);
+
+  for (const mission of campaign.slice(-3)) {
+    const mobile = mission.enemyFormation.filter((unit) => UNIT_TYPES[unit.type].role !== UNIT_ROLE.STRUCTURE);
+    const costs = mobile.map((unit) => UNIT_TYPES[unit.type].cost);
+    assert.ok(Math.min(...costs) <= 27, `mission ${mission.index + 1} lacks cheap mass units`);
+    assert.ok(Math.max(...costs) >= 32, `mission ${mission.index + 1} lacks a premium unit`);
   }
 });
 
