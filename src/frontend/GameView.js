@@ -11,7 +11,8 @@ const REQUIRED_ELEMENT_IDS = [
   'rosterList', 'rosterExpand', 'rosterOverlay', 'rosterFullList', 'rosterClose',
   'playerHpText', 'enemyHpText', 'playerHpFill', 'enemyHpFill', 'draftOverlay',
   'draftChoices', 'draftProgress', 'unitInspector', 'clearLink', 'logClose',
-  'screenMissions', 'screenBattle',
+  'screenMissions', 'screenBattle', 'surrenderOverlay', 'btnConfirmSurrender',
+  'btnCancelSurrender',
 ];
 
 function collectRequiredElements(documentRef) {
@@ -104,6 +105,8 @@ export class GameView {
 
   openDraft() { this.overlays.open(this.elements.draftOverlay, { initialFocus: () => this.elements.draftChoices.querySelector('button') }); }
   closeDraft() { if (this.overlays.active?.element === this.elements.draftOverlay) this.overlays.close(); else { this.elements.draftOverlay.classList.remove('open'); this.elements.draftOverlay.hidden = true; } }
+  openSurrenderConfirm() { this.overlays.open(this.elements.surrenderOverlay, { close: () => this.closeSurrenderConfirm(), initialFocus: () => this.elements.btnCancelSurrender }); }
+  closeSurrenderConfirm() { if (this.overlays.active?.element === this.elements.surrenderOverlay) this.overlays.close(); else { this.elements.surrenderOverlay.classList.remove('open'); this.elements.surrenderOverlay.hidden = true; } }
   showUnitInspector(type, label, tone = 'enemy') { this.elements.unitInspector.className = `unit-inspector ${tone}`; this.elements.unitInspector.replaceChildren(this.unitPresentation.createDescription(type, { label, tone })); this.elements.unitInspector.hidden = false; }
   clearUnitInspector() { this.elements.unitInspector.hidden = true; this.elements.unitInspector.replaceChildren(); this.elements.unitInspector.className = 'unit-inspector'; }
   renderSupply(model) { this.elements.budgetSpent.textContent = `${model.deployedSupply} deployed · ${model.totalSupply - model.deployedSupply} reserve`; this.elements.btnLaunch.disabled = !model.canLaunch; }
