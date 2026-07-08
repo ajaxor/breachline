@@ -2,6 +2,7 @@ import { ENEMY_UNIT_TYPES, GAME_CONFIG, UNIT_ROLE, UNIT_TYPES } from '../data/ga
 import { MISSION_STATUS } from '../data/gameTypes.js';
 
 const STRUCTURE_TYPES = ['tollbooth', 'sentry', 'flakTurret', 'rocketTurret', 'mortarNest', 'railTurret', 'factory'];
+const PROTECTED_ROLES = new Set([UNIT_ROLE.RANGED, UNIT_ROLE.SUPPORT, UNIT_ROLE.FLYING]);
 
 function shuffle(items, random) {
   const result = items.slice();
@@ -33,131 +34,92 @@ function weightedPick(weights, keys, random) {
   return entries.at(-1)[0];
 }
 
-function addMirroredPair(formation, pair, column, type) {
+function cellKey(row, column) { return `${row}:${column}`; }
+function pairKey(pair) { return `${pair[0]}:${pair[1]}`; }
+function rowPairs() { return Array.from({ length: GAME_CONFIG.rows / 2 }, (_, row) => [row, GAME_CONFIG.rows - 1 - row]); }
+function pairIndex(pair) { return Math.min(pair[0], pair[1]); }
+function isSlotOpen(occupied, { pair, column }) { return !occupied.has(cellKey(pair[0], column)) && !occupied.has(cellKey(pair[1], column)); }
+function occupyPair(occupied, pair, column) { occupied.add(cellKey(pair[0], column)); occupied.add(cellKey(pair[1], column)); }
+function addMirroredPair(formation, occupied, pair, column, type) {
   formation.push({ row: pair[0], column, type }, { row: pair[1], column, type });
+  occupyPair(occupied, pair, column);
 }
 
-function cellKey(row, column) {
-  return `${row}:${column}`;
+function centerOutPairs(pairs) {
+  const center = (pairs.length - 1) / 2;
+  return pairs.slice().sort((left, right) => Math.abs(pairIndex(left) - center) - Math.abs(pairIndex(right) - center) || pairIndex(left) - pairIndex(right));
 }
 
-function isSlotOpen(occupied, { pair, column }) {
-  return !occupied.has(cellKey(pair[0], column)) && !occupied.has(cellKey(pair[1], column));
-}
-
-function occupyPair(occupied, pair, column) {
-  occupied.add(cellKey(pair[0], column));
-  occupied.add(cellKey(pair[1], column));
-}
-
-function rowPairs() {
-  return Array.from({ length: GAME_CONFIG.rows / 2 }, (_, row) => [row, GAME_CONFIG.rows - 1 - row]);
-}
-
-function middleColumns({ includeFront = false } = {}) {
+function columnsByMiddle({ includeFront = false, includeBack = true } = {}) {
   const frontColumn = GAME_CONFIG.enemyZone[0];
-  const center = (GAME_CONFIG.enemyZone[0] + GAME_CONFIG.enemyZone.at(-1)) / 2;
+  const backColumn = GAME_CONFIG.enemyZone.at(-1);
+  const center = (frontColumn + backColumn) / 2;
   return GAME_CONFIG.enemyZone
-    .filter((column) => includeFront || column !== frontColumn)
+    .filter((column) => (includeFront || column !== frontColumn) && (includeBack || column !== backColumn))
     .slice()
     .sort((left, right) => Math.abs(left - center) - Math.abs(right - center) || left - right);
-}
-
-function formationSlots(pattern, pairs, columns, random) {
-  const centerPair = Math.floor((pairs.length - 1) / 2);
-  const centerColumn = columns[0];
-  const sideColumns = columns.slice(1, 4);
-
-  switch (pattern) {
-    case 'vertical-line':
-      return shuffle(pairs, random).map((pair) => ({ pair, column: centerColumn }));
-    case 'horizontal-line': {
-      const pair = pairs[Math.min(pairs.length - 1, centerPair + Math.floor(random() * 2))];
-      return columns.slice(0, 4).map((column) => ({ pair, column }));
-    }
-    case 'blob': {
-      const nearPairs = [pairs[centerPair], pairs[centerPair + 1], pairs[centerPair - 1]].filter(Boolean);
-      return shuffle([
-        { pair: nearPairs[0], column: centerColumn },
-        ...sideColumns.slice(0, 2).map((column) => ({ pair: nearPairs[0], column })),
-        ...nearPairs.slice(1).flatMap((pair) => columns.slice(0, 2).map((column) => ({ pair, column }))),
-      ], random);
-    }
-    case 'symmetric-columns':
-      return shuffle(columns.slice(0, 4).flatMap((column) => pairs.slice(0, 3).map((pair) => ({ pair, column }))), random);
-    default:
-      return shuffle(columns.flatMap((column) => pairs.map((pair) => ({ pair, column }))), random);
-  }
 }
 
 function uniqueSlots(slots) {
   const seen = new Set();
   return slots.filter((slot) => {
-    const key = `${slot.pair[0]}:${slot.pair[1]}:${slot.column}`;
+    const key = `${pairKey(slot.pair)}:${slot.column}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 }
 
-function choosePattern(missionIndex, random) {
-  const patterns = ['vertical-line', 'horizontal-line', 'blob', 'symmetric-columns'];
-  return patterns[(missionIndex + Math.floor(random() * patterns.length)) % patterns.length];
+function slotsForBase(pairs, columns, random) {
+  const orderedPairs = centerOutPairs(pairs);
+  const horizontal = orderedPairs.flatMap((pair) => columns.slice(0, 3).map((column) => ({ pair, column })));
+  const vertical = columns.slice(0, 2).flatMap((column) => orderedPairs.map((pair) => ({ pair, column })));
+  return uniqueSlots([...shuffle(horizontal, random), ...vertical]);
 }
 
-function chooseFormationUnit(keys, weights, remaining, missionIndex, pairIndex, random) {
-  const affordable = keys.filter((key) => UNIT_TYPES[key].cost * 2 <= remaining && (weights[key] ?? 0) > 0);
-  if (!affordable.length) return null;
-
-  const byCost = affordable.slice().sort((left, right) => UNIT_TYPES[left].cost - UNIT_TYPES[right].cost);
-  if (missionIndex >= 7 && pairIndex === 0) return byCost[0];
-
-  const split = Math.max(1, Math.ceil(byCost.length / 2));
-  const cheapPool = byCost.slice(0, split);
-  const premiumPool = byCost.slice(Math.floor(byCost.length / 2));
-  const premiumInterval = Math.max(3, 5 - Math.floor(missionIndex / 3));
-  const shouldAddPremium = premiumPool.length > 0 && pairIndex % premiumInterval === premiumInterval - 1;
-  const cheapBias = Math.min(0.82, 0.28 + missionIndex * 0.065);
-  const pool = shouldAddPremium ? premiumPool : (random() < cheapBias ? cheapPool : affordable);
-  return weightedPick(weights, pool, random);
+function slotsForMobile(pairs, columns, random) {
+  return uniqueSlots(shuffle(centerOutPairs(pairs).flatMap((pair) => columns.map((column) => ({ pair, column }))), random));
 }
 
-function addUnitsFromSlots(formation, occupied, slots, keys, weights, budget, missionIndex, random) {
-  let remaining = budget;
-  let placedPairs = 0;
+function isBlocker(typeKey) {
+  return UNIT_TYPES[typeKey].role === UNIT_ROLE.STRUCTURE;
+}
 
-  for (const slot of slots) {
-    if (!slot.keys?.length && !keys.length) continue;
-    if (!isSlotOpen(occupied, slot)) continue;
-    const type = chooseFormationUnit(slot.keys ?? keys, weights, remaining, missionIndex, placedPairs, random);
-    if (!type) continue;
-    addMirroredPair(formation, slot.pair, slot.column, type);
-    occupyPair(occupied, slot.pair, slot.column);
-    remaining -= UNIT_TYPES[type].cost * 2;
-    placedPairs += 1;
+function blockerColumnsByPair(formation) {
+  const result = new Map();
+  for (const unit of formation) {
+    if (!isBlocker(unit.type)) continue;
+    const key = Math.min(unit.row, GAME_CONFIG.rows - 1 - unit.row);
+    if (!result.has(key)) result.set(key, []);
+    result.get(key).push(unit.column);
   }
-
-  return { remaining, placedPairs };
+  for (const columns of result.values()) columns.sort((left, right) => left - right);
+  return result;
 }
 
-function wallSlotsForMission(pairs, missionIndex, random) {
-  const columns = middleColumns({ includeFront: true });
-  const pattern = ['horizontal-line', 'blob', 'vertical-line'][missionIndex % 3];
-  return formationSlots(pattern, pairs, columns, random);
+function hasBlockerAhead(slot, blockers) {
+  const columns = blockers.get(pairIndex(slot.pair)) ?? [];
+  return columns.some((column) => column < slot.column);
 }
 
-function addWallFormation(formation, occupied, pairs, wallBudget, missionIndex, random) {
+function affordableKeys(keys, budget) {
+  return keys.filter((key) => UNIT_TYPES[key].cost * 2 <= budget);
+}
+
+function addWallBase(formation, occupied, pairs, wallBudget, random) {
   const wallPairCost = UNIT_TYPES.wall.cost * 2;
   let remaining = wallBudget;
   let placedPairs = 0;
-  for (const slot of wallSlotsForMission(pairs, missionIndex, random)) {
+  const columns = columnsByMiddle({ includeFront: false, includeBack: false });
+
+  for (const slot of slotsForBase(pairs, columns, random)) {
     if (remaining < wallPairCost) break;
     if (!isSlotOpen(occupied, slot)) continue;
-    addMirroredPair(formation, slot.pair, slot.column, 'wall');
-    occupyPair(occupied, slot.pair, slot.column);
+    addMirroredPair(formation, occupied, slot.pair, slot.column, 'wall');
     remaining -= wallPairCost;
     placedPairs += 1;
   }
+
   return placedPairs;
 }
 
@@ -171,65 +133,119 @@ function requiredStructureKeys(missionIndex) {
   return keys;
 }
 
-function placeRequiredStructures(formation, occupied, slots, structureBudget, missionIndex) {
+function addStructureBase(formation, occupied, pairs, structureBudget, missionIndex, weights, random) {
   let remaining = structureBudget;
-  const openSlots = slots.slice();
+  const baseColumns = columnsByMiddle({ includeFront: false, includeBack: false });
+  const slots = slotsForBase(pairs, baseColumns, random);
+  const unlocked = STRUCTURE_TYPES.filter((key) => (weights[key] ?? 0) > 0);
+  const planned = requiredStructureKeys(missionIndex).filter((key) => unlocked.includes(key));
 
-  for (const key of requiredStructureKeys(missionIndex)) {
+  while (planned.length < Math.min(4, 1 + Math.floor(missionIndex / 2))) {
+    const candidates = unlocked.filter((key) => !planned.includes(key) && UNIT_TYPES[key].cost * 2 <= remaining);
+    if (!candidates.length) break;
+    planned.push(weightedPick(weights, candidates, random));
+  }
+
+  for (const key of planned) {
     const cost = UNIT_TYPES[key].cost * 2;
     if (remaining < cost) continue;
-    const slotIndex = openSlots.findIndex((slot) => isSlotOpen(occupied, slot));
+    const slotIndex = slots.findIndex((slot) => isSlotOpen(occupied, slot));
     if (slotIndex === -1) break;
-    const [slot] = openSlots.splice(slotIndex, 1);
-    addMirroredPair(formation, slot.pair, slot.column, key);
-    occupyPair(occupied, slot.pair, slot.column);
+    const [slot] = slots.splice(slotIndex, 1);
+    addMirroredPair(formation, occupied, slot.pair, slot.column, key);
     remaining -= cost;
   }
 
-  return { remaining, openSlots };
+  return remaining;
+}
+
+function pickDistinct(weights, keys, count, random) {
+  const result = [];
+  const pool = keys.slice();
+  while (result.length < count && pool.length) {
+    const key = weightedPick(weights, pool, random);
+    result.push(key);
+    pool.splice(pool.indexOf(key), 1);
+  }
+  return result;
+}
+
+function draftCampaignArmy(mobileBudget, missionIndex, weights, random) {
+  const unlockedMobile = ENEMY_UNIT_TYPES.filter((type) => type.role !== UNIT_ROLE.STRUCTURE && (weights[type.key] ?? 0) > 0);
+  const nonSupport = unlockedMobile.filter((type) => type.role !== UNIT_ROLE.SUPPORT).map((type) => type.key);
+  const supports = unlockedMobile.filter((type) => type.role === UNIT_ROLE.SUPPORT).map((type) => type.key);
+  const cheapMass = nonSupport.filter((key) => UNIT_TYPES[key].cost <= 30);
+  const premium = nonSupport.filter((key) => UNIT_TYPES[key].cost > 30);
+  const coreTypeCount = missionIndex >= 5 ? 2 : 3;
+  const core = pickDistinct(weights, cheapMass.length ? cheapMass : nonSupport, 1, random);
+  core.push(...pickDistinct(weights, premium.filter((key) => !core.includes(key)).length ? premium.filter((key) => !core.includes(key)) : nonSupport.filter((key) => !core.includes(key)), coreTypeCount - 1, random));
+  if (!core.length && nonSupport.length) core.push(nonSupport[0]);
+
+  const supportKey = missionIndex >= 4 && supports.length ? weightedPick(weights, supports, random) : null;
+  const supportBudget = supportKey ? Math.min(UNIT_TYPES[supportKey].cost * 2, mobileBudget * 0.14) : 0;
+  let remaining = mobileBudget - supportBudget;
+  const entries = [];
+
+  const coreShares = core.length === 1 ? [1] : (missionIndex >= 5 ? [0.68, 0.32] : [0.55, 0.3, 0.15]);
+  core.forEach((key, index) => {
+    const cost = UNIT_TYPES[key].cost * 2;
+    const targetBudget = Math.max(cost, remaining * (coreShares[index] ?? 0.15));
+    const pairs = Math.max(1, Math.floor(targetBudget / cost));
+    if (remaining >= cost) {
+      entries.push({ type: key, pairs, protected: PROTECTED_ROLES.has(UNIT_TYPES[key].role) });
+      remaining -= pairs * cost;
+    }
+  });
+
+  const refillKey = core.find((key) => UNIT_TYPES[key].cost <= 30) ?? core[0];
+  if (refillKey) {
+    const cost = UNIT_TYPES[refillKey].cost * 2;
+    const refill = Math.floor(Math.max(0, remaining) / cost);
+    if (refill > 0) entries.push({ type: refillKey, pairs: refill, protected: PROTECTED_ROLES.has(UNIT_TYPES[refillKey].role) });
+  }
+
+  if (supportKey && supportBudget >= UNIT_TYPES[supportKey].cost * 2) entries.push({ type: supportKey, pairs: 1, protected: true, support: true });
+  return entries;
+}
+
+function placeDraftedArmy(formation, occupied, draftedArmy, pairs, random) {
+  const blockers = blockerColumnsByPair(formation);
+  const protectedColumns = GAME_CONFIG.enemyZone.slice(3).reverse();
+  const frontColumns = columnsByMiddle({ includeFront: false });
+  const protectedSlots = slotsForMobile(pairs, protectedColumns, random).filter((slot) => hasBlockerAhead(slot, blockers));
+  const frontSlots = slotsForMobile(pairs, frontColumns, random);
+  const fallbackSlots = slotsForMobile(pairs, GAME_CONFIG.enemyZone.slice().reverse(), random);
+
+  const takeSlot = (slots) => {
+    const index = slots.findIndex((slot) => isSlotOpen(occupied, slot));
+    if (index === -1) return null;
+    const [slot] = slots.splice(index, 1);
+    return slot;
+  };
+
+  for (const entry of draftedArmy) {
+    for (let count = 0; count < entry.pairs; count += 1) {
+      const slot = takeSlot(entry.protected ? protectedSlots : frontSlots) ?? takeSlot(fallbackSlots);
+      if (!slot) return;
+      addMirroredPair(formation, occupied, slot.pair, slot.column, entry.type);
+    }
+  }
 }
 
 function generateFormation(mobileBudget, wallBudget, structureBudget, missionIndex, random) {
   const pairs = rowPairs();
-  const columns = middleColumns();
   const weights = weightsForMission(missionIndex);
   const formation = [];
   const occupied = new Set();
 
-  addWallFormation(formation, occupied, pairs, wallBudget, missionIndex, random);
-
-  const unlockedMobile = ENEMY_UNIT_TYPES.filter((type) => type.role !== UNIT_ROLE.STRUCTURE && (weights[type.key] ?? 0) > 0);
-  const unlockedStructures = STRUCTURE_TYPES.filter((key) => (weights[key] ?? 0) > 0);
-  const meleeKeys = unlockedMobile.filter((type) => type.role === UNIT_ROLE.MELEE).map((type) => type.key);
-  const nonMeleeKeys = unlockedMobile.filter((type) => type.role !== UNIT_ROLE.MELEE).map((type) => type.key);
-  const mobileKeys = unlockedMobile.map((type) => type.key);
-  const allNonWallKeys = [...mobileKeys, ...unlockedStructures];
-
-  const structurePattern = choosePattern(missionIndex + 1, random);
-  const structureSlots = uniqueSlots([
-    ...formationSlots(structurePattern, pairs, columns, random),
-    ...formationSlots('symmetric-columns', pairs, columns, random),
-  ]).filter((slot) => isSlotOpen(occupied, slot));
-  const requiredResult = placeRequiredStructures(formation, occupied, structureSlots, structureBudget, missionIndex);
-
-  const mobilePattern = choosePattern(missionIndex, random);
-  const mobileSlots = uniqueSlots([
-    ...formationSlots(mobilePattern, pairs, columns, random),
-    ...formationSlots('symmetric-columns', pairs, columns, random),
-  ]).filter((slot) => isSlotOpen(occupied, slot));
-  const tacticalSlots = mobileSlots.map((slot, index) => ({
-    ...slot,
-    keys: index % 3 === 0 && meleeKeys.length ? meleeKeys : (nonMeleeKeys.length ? nonMeleeKeys : mobileKeys),
-  }));
-  const mobileResult = addUnitsFromSlots(formation, occupied, tacticalSlots, mobileKeys, weights, mobileBudget, missionIndex, random);
-  addUnitsFromSlots(formation, occupied, requiredResult.openSlots, unlockedStructures, weights, requiredResult.remaining, missionIndex, random);
+  addWallBase(formation, occupied, pairs, wallBudget, random);
+  addStructureBase(formation, occupied, pairs, structureBudget, missionIndex, weights, random);
+  placeDraftedArmy(formation, occupied, draftCampaignArmy(mobileBudget, missionIndex, weights, random), pairs, random);
 
   if (!formation.some((unit) => UNIT_TYPES[unit.type].role !== UNIT_ROLE.STRUCTURE)) {
-    const fallback = allNonWallKeys
-      .filter((key) => UNIT_TYPES[key].role !== UNIT_ROLE.STRUCTURE && UNIT_TYPES[key].cost * 2 <= mobileResult.remaining)
-      .sort((left, right) => UNIT_TYPES[left].cost - UNIT_TYPES[right].cost)[0];
-    const fallbackSlot = mobileSlots.find((slot) => isSlotOpen(occupied, slot));
-    if (fallback && fallbackSlot) addMirroredPair(formation, fallbackSlot.pair, fallbackSlot.column, fallback);
+    const fallback = affordableKeys(ENEMY_UNIT_TYPES.filter((type) => type.role !== UNIT_ROLE.STRUCTURE && (weights[type.key] ?? 0) > 0).map((type) => type.key), mobileBudget).sort((left, right) => UNIT_TYPES[left].cost - UNIT_TYPES[right].cost)[0];
+    const slot = slotsForMobile(pairs, columnsByMiddle({ includeFront: false }), random).find((candidate) => isSlotOpen(occupied, candidate));
+    if (fallback && slot) addMirroredPair(formation, occupied, slot.pair, slot.column, fallback);
   }
 
   return formation;
