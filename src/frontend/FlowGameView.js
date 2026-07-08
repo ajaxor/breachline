@@ -1,6 +1,7 @@
 import { GameView } from './GameView.js';
 
 const FLOW_IDS = ['campaignOverlay', 'campaignDifficulty', 'campaignLength', 'btnBeginCampaign', 'btnSandbox', 'btnCampaignBack', 'btnReinforce', 'btnDraftBack'];
+const DIFFICULTY_LABELS = new Map([[0.8, 'RECRUIT'], [1, 'STANDARD'], [1.25, 'VETERAN'], [1.5, 'BRUTAL']]);
 
 export class FlowGameView extends GameView {
   constructor(documentRef = document) {
@@ -64,15 +65,12 @@ export class FlowGameView extends GameView {
 
   renderBattleChrome(model) {
     super.renderBattleChrome(model);
-    const label = model.isSandbox ? 'SANDBOX' : `MISSION ${model.selectedMission + 1}/${model.campaign.length}`;
-    this.elements.phaseLabel.textContent = `PHASE: ${model.mode === 'battle' ? 'BATTLE' : 'DEPLOYMENT'} — ${label}`;
-    if (model.isSandbox && model.mode !== 'battle') {
-      this.elements.deployHint.textContent = 'Choose any unit, then tap a blue cell to place it for the player or a red cell to place it for the enemy.';
-    } else if (!model.isSandbox && model.mode !== 'battle') {
-      this.elements.deployHint.textContent = model.pendingDrafts > 0
-        ? 'Review the hostile formation, then open Reinforce when you are ready to choose additional units.'
-        : 'Choose a roster unit, then tap an open blue cell. All launched units are permanently committed.';
+    if (model.isSandbox) {
+      this.elements.phaseLabel.textContent = 'SANDBOX';
+      return;
     }
+    const difficulty = DIFFICULTY_LABELS.get(model.campaignSettings.difficulty) ?? 'CUSTOM';
+    this.elements.phaseLabel.textContent = `${difficulty} · MISSION ${model.selectedMission + 1}/${model.campaign.length}`;
   }
 
   showResult(result, { hasNextMission, canRetry, sandbox }) {
