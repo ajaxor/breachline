@@ -25,7 +25,7 @@ The frame layer is shared rendering infrastructure. It must not be redrawn diffe
 - **Support:** circle
 - **Flying:** lens / winged lozenge
 - **Specialist:** diamond
-- **Structure:** hexagon
+- **Structure:** large horizontal rectangle
 
 Preserve these role associations unless the entire visual language is intentionally redesigned.
 
@@ -217,13 +217,3 @@ If an icon temporarily keeps a legacy drawing or placeholder, add a `TECH_DEBT.m
 - [ ] It remains legible at battlefield size.
 - [ ] It works with both player and enemy colors.
 - [ ] New helpers have a clear reuse case.
-
-## Recommended commit scope
-
-Batch icon changes into small coherent review groups:
-
-- one role family;
-- roughly 3 to 10 related units;
-- one focused consistency pass.
-
-Small groups make visual review easier and preserve the intent for future agents.
