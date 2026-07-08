@@ -1,4 +1,4 @@
-import { GAME_CONFIG, MODE, PLAYER_UNIT_TYPES, UNIT_ROLE, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
+import { GAME_CONFIG, MODE, PLAYER_UNIT_TYPES, UNIT_ROLE, UNIT_TAG, UNIT_TYPES, hasUnitTag, isUnitTechAvailable } from '../data/gameConfig.js';
 import { MISSION_STATUS, RESULT_TYPE } from '../data/gameTypes.js';
 import { createCampaign } from './CampaignFactory.js';
 import { SupplyDeploymentPolicy } from './DeploymentPolicies.js';
@@ -19,6 +19,7 @@ export class StrategyGameModel extends GameModel {
     this.sessionRandom = sessionRandom;
     this.supply = Object.fromEntries(PLAYER_UNIT_TYPES.map((type) => [type.key, 0]));
     this.currentDraftBudget = this.mission.draftBudget;
+    this.currentDraftMissionIndex = this.mission.index;
     this.campaignSettings = { difficulty: 1, length: GAME_CONFIG.missionCount };
     this.isSandbox = false;
     this.lastBattle = null;
@@ -52,6 +53,7 @@ export class StrategyGameModel extends GameModel {
     this.sandboxGeneratedMissionIndex = null;
     this.resetBattle();
     this.currentDraftBudget = this.mission.draftBudget;
+    this.currentDraftMissionIndex = this.mission.index;
   }
 
   configureSandbox({ difficulty = 1, length = GAME_CONFIG.missionCount } = {}) {
@@ -69,6 +71,7 @@ export class StrategyGameModel extends GameModel {
     this.sandboxGeneratorMissionIndex = 0;
     this.sandboxGeneratedMissionIndex = null;
     this.resetBattle();
+    this.currentDraftMissionIndex = 0;
   }
 
   generateSandboxCampaignDeployment() {
@@ -89,8 +92,10 @@ export class StrategyGameModel extends GameModel {
 
   beginDrafts(count = 1, draftBudget = null) {
     const nextMission = this.campaign[Math.min(this.selectedMission + 1, this.campaign.length - 1)];
-    const defaultBudget = this.mission.status === MISSION_STATUS.CLEARED ? nextMission.draftBudget : this.mission.draftBudget;
+    const isPostMissionDraft = this.mission.status === MISSION_STATUS.CLEARED;
+    const defaultBudget = isPostMissionDraft ? nextMission.draftBudget : this.mission.draftBudget;
     this.currentDraftBudget = draftBudget ?? defaultBudget;
+    this.currentDraftMissionIndex = isPostMissionDraft ? nextMission.index : this.mission.index;
     this.pendingDrafts += count;
     this.rollDraftChoices();
     return this.draftChoices;
@@ -116,12 +121,18 @@ export class StrategyGameModel extends GameModel {
     };
   }
 
+  campaignTechPool(types) {
+    if (this.isSandbox) return types;
+    const missionCount = this.campaignSettings.length || this.campaign.length || GAME_CONFIG.missionCount;
+    return types.filter((type) => isUnitTechAvailable(type, this.currentDraftMissionIndex, this.random, missionCount));
+  }
+
   rollDraftChoices() {
     if (this.pendingDrafts <= 0) { this.draftChoices = []; return this.draftChoices; }
-    const lockedTypes = PLAYER_UNIT_TYPES.filter((type) => !this.roster[type.key]);
-    const preferredPool = lockedTypes.length ? lockedTypes : PLAYER_UNIT_TYPES;
+    const lockedTypes = this.campaignTechPool(PLAYER_UNIT_TYPES.filter((type) => !this.roster[type.key]));
+    const preferredPool = lockedTypes.length ? lockedTypes : this.campaignTechPool(PLAYER_UNIT_TYPES);
     const singlePool = preferredPool.filter((type) => type.role !== UNIT_ROLE.SUPPORT);
-    const pairPool = preferredPool.length >= 2 ? preferredPool : PLAYER_UNIT_TYPES;
+    const pairPool = preferredPool.length >= 2 ? preferredPool : this.campaignTechPool(PLAYER_UNIT_TYPES);
     const choices = [];
     const usedRoles = new Set();
     const usedUnitKeys = new Set();
