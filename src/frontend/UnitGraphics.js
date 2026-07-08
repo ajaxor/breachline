@@ -1,1 +1,388 @@
-const GRAPHIC_ROLE = Object.freeze({ rifleman: 'melee', gunner: 'melee', bulwark: 'melee', ram: 'melee', lancer: 'melee', runner: 'melee', phalanx: 'melee', marksman: 'ranged', fusilier: 'ranged', flak: 'ranged', artillery: 'ranged', medic: 'support', aegis: 'support', amplifier: 'support', disruptor: 'support', jammer: 'support', midge: 'flying', wasp: 'flying', kite: 'flying', firefly: 'flying', demolisher: 'specialist', ranger: 'specialist', infiltrator: 'specialist', barricade: 'structure', turret: 'structure', }); const ABSTRACT_UNIT_DRAWERS = Object.freeze({ rifleman: drawRiflemanSymbol, gunner: drawGunnerSymbol, bulwark: drawBulwarkSymbol, ram: drawRamSymbol, lancer: drawLancerSymbol, marksman: drawMarksmanSymbol, fusilier: drawFusilierSymbol, medic: drawMedicSymbol, aegis: drawAegisSymbol, amplifier: drawAmplifierSymbol, }); const ROLE_FRAME_SCALE = Object.freeze({ melee: 0.78, ranged: 1, support: 1, flying: 1, specialist: 1.05, structure: 1, }); export const drawUnitGraphic = (context, graphic, x, y, radius, color, role = null) => { const silhouetteRole = role ?? GRAPHIC_ROLE[graphic] ?? null; context.save(); context.translate(x, y); drawRoleFrame(context, silhouetteRole, radius, color); drawUnitDetails(context, graphic, radius, silhouetteRole, color); context.restore(); }; const drawRoleFrame = (ctx, role, radius, color) => { const frameRadius = radius * (ROLE_FRAME_SCALE[role] ?? 1); ctx.save(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = Math.max(1.5, radius * 0.12); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha *= 0.18; ctx.beginPath(); unitBodyPath(ctx, role, frameRadius); ctx.fill(); ctx.globalAlpha = 1; ctx.beginPath(); unitBodyPath(ctx, role, frameRadius); ctx.stroke(); ctx.restore(); }; const unitBodyPath = (ctx, role, radius) => { if (role === 'melee') ctx.roundRect(-radius, -radius, radius * 2, radius * 2, radius * 0.23); else if (role === 'ranged') polygon(ctx, radius, 3, -Math.PI / 2); else if (role === 'support') ctx.arc(0, 0, radius, 0, Math.PI * 2); else if (role === 'flying') { ctx.moveTo(-radius, 0); ctx.quadraticCurveTo(-radius * 0.35, -radius, 0, -radius * 0.2); ctx.quadraticCurveTo(radius * 0.35, -radius, radius, 0); ctx.quadraticCurveTo(radius * 0.35, radius, 0, radius * 0.2); ctx.quadraticCurveTo(-radius * 0.35, radius, -radius, 0); ctx.closePath(); } else if (role === 'specialist') polygon(ctx, radius, 4, -Math.PI / 2); else if (role === 'structure') polygon(ctx, radius, 6, Math.PI / 6); else ctx.rect(-radius, -radius, radius * 2, radius * 2); }; const drawUnitDetails = (ctx, graphic, radius, role, color) => { const abstractDrawer = ABSTRACT_UNIT_DRAWERS[graphic]; ctx.save(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; if (abstractDrawer) { abstractDrawer(ctx, radius, role); } else { drawLegacyUnitDetails(ctx, graphic, radius); } ctx.restore(); }; const drawLegacyUnitDetails = (ctx, graphic, radius) => { ctx.lineWidth = Math.max(1.2, radius * 0.09); ctx.beginPath(); if (graphic === 'runner') { ctx.moveTo(-radius * 0.65, -radius * 0.35); ctx.lineTo(radius * 0.25, -radius * 0.35); ctx.moveTo(-radius * 0.45, 0); ctx.lineTo(radius * 0.55, 0); ctx.moveTo(-radius * 0.25, radius * 0.35); ctx.lineTo(radius * 0.75, radius * 0.35); } else if (graphic === 'phalanx') { ctx.moveTo(-radius * 0.55, -radius * 0.55); ctx.lineTo(-radius * 0.55, radius * 0.55); ctx.moveTo(0, -radius * 0.55); ctx.lineTo(0, radius * 0.55); ctx.moveTo(radius * 0.55, -radius * 0.55); ctx.lineTo(radius * 0.55, radius * 0.55); ctx.moveTo(-radius * 0.7, 0); ctx.lineTo(radius * 0.7, 0); } else if (graphic === 'flak') { ctx.arc(0, radius * 0.18, radius * 0.26, 0, Math.PI * 2); ctx.moveTo(-radius * 0.12, 0); ctx.lineTo(-radius * 0.46, -radius * 0.62); ctx.moveTo(radius * 0.12, 0); ctx.lineTo(radius * 0.46, -radius * 0.62); ctx.moveTo(-radius * 0.55, radius * 0.5); ctx.lineTo(radius * 0.55, radius * 0.5); } else if (graphic === 'demolisher') { ctx.arc(0, radius * 0.08, radius * 0.42, 0, Math.PI * 2); ctx.moveTo(radius * 0.18, -radius * 0.34); ctx.quadraticCurveTo(radius * 0.65, -radius * 0.75, radius * 0.72, -radius * 0.2); ctx.moveTo(-radius * 0.24, radius * 0.08); ctx.lineTo(radius * 0.24, radius * 0.08); } else if (graphic === 'disruptor') { ctx.arc(0, 0, radius * 0.2, 0, Math.PI * 2); ctx.arc(0, 0, radius * 0.5, -Math.PI * 0.75, Math.PI * 0.15); ctx.moveTo(-radius * 0.72, -radius * 0.28); ctx.lineTo(-radius * 0.48, -radius * 0.42); ctx.moveTo(radius * 0.55, radius * 0.45); ctx.lineTo(radius * 0.75, radius * 0.28); ctx.moveTo(-radius * 0.18, -radius * 0.72); ctx.lineTo(radius * 0.08, -radius * 0.5); } else if (graphic === 'jammer') { ctx.arc(0, 0, radius * 0.16, 0, Math.PI * 2); ctx.arc(0, 0, radius * 0.42, -Math.PI * 0.72, Math.PI * 0.72); ctx.arc(0, 0, radius * 0.7, -Math.PI * 0.62, Math.PI * 0.62); ctx.moveTo(-radius * 0.15, radius * 0.05); ctx.lineTo(-radius * 0.52, radius * 0.58); ctx.moveTo(radius * 0.15, radius * 0.05); ctx.lineTo(radius * 0.52, radius * 0.58); } else if (graphic === 'ranger') { ctx.moveTo(-radius * 0.55, -radius * 0.48); ctx.lineTo(radius * 0.25, 0); ctx.lineTo(-radius * 0.55, radius * 0.48); ctx.moveTo(radius * 0.15, -radius * 0.52); ctx.lineTo(radius * 0.72, 0); ctx.lineTo(radius * 0.15, radius * 0.52); } else if (graphic === 'infiltrator') { ctx.moveTo(-radius * 0.5, radius * 0.05); ctx.quadraticCurveTo(0, -radius * 0.45, radius * 0.5, radius * 0.05); ctx.moveTo(-radius * 0.28, radius * 0.2); ctx.lineTo(radius * 0.28, radius * 0.2); } else if (graphic === 'midge') { ctx.ellipse(0, 0, radius * 0.16, radius * 0.5, 0, 0, Math.PI * 2); ctx.moveTo(-radius * 0.55, -radius * 0.15); ctx.lineTo(radius * 0.55, radius * 0.15); } else if (graphic === 'wasp') { ctx.ellipse(0, 0, radius * 0.24, radius * 0.65, 0, 0, Math.PI * 2); ctx.moveTo(-radius * 0.18, -radius * 0.2); ctx.lineTo(radius * 0.18, -radius * 0.2); ctx.moveTo(-radius * 0.2, radius * 0.15); ctx.lineTo(radius * 0.2, radius * 0.15); ctx.moveTo(0, -radius * 0.65); ctx.lineTo(0, -radius * 0.95); } else if (graphic === 'kite') { ctx.moveTo(0, -radius * 0.72); ctx.lineTo(0, radius * 0.72); ctx.moveTo(-radius * 0.48, 0); ctx.lineTo(radius * 0.48, 0); ctx.moveTo(0, radius * 0.35); ctx.lineTo(radius * 0.5, radius * 0.72); } else if (graphic === 'firefly') { ctx.arc(0, 0, radius * 0.34, 0, Math.PI * 2); ctx.moveTo(-radius * 0.5, -radius * 0.4); ctx.lineTo(radius * 0.5, radius * 0.4); ctx.moveTo(radius * 0.5, -radius * 0.4); ctx.lineTo(-radius * 0.5, radius * 0.4); } else if (graphic === 'artillery') { ctx.arc(0, radius * 0.08, radius * 0.48, 0, Math.PI * 2); ctx.moveTo(0, -radius * 0.1); ctx.lineTo(radius * 0.76, -radius * 0.68); ctx.moveTo(-radius * 0.52, radius * 0.62); ctx.lineTo(radius * 0.52, radius * 0.62); } else if (graphic === 'barricade') { ctx.moveTo(-radius * 0.78, -radius * 0.48); ctx.lineTo(radius * 0.15, radius * 0.48); ctx.moveTo(-radius * 0.15, -radius * 0.48); ctx.lineTo(radius * 0.78, radius * 0.48); ctx.moveTo(-radius * 0.72, radius * 0.75); ctx.lineTo(-radius * 0.5, radius * 0.42); ctx.moveTo(radius * 0.72, radius * 0.75); ctx.lineTo(radius * 0.5, radius * 0.42); } else if (graphic === 'turret') { ctx.arc(0, 0, radius * 0.55, 0, Math.PI * 2); ctx.moveTo(0, 0); ctx.lineTo(radius * 0.9, -radius * 0.42); ctx.moveTo(-radius * 0.42, radius * 0.55); ctx.lineTo(-radius * 0.7, radius * 0.88); ctx.moveTo(radius * 0.42, radius * 0.55); ctx.lineTo(radius * 0.7, radius * 0.88); } ctx.stroke(); }; function drawRiflemanSymbol(ctx, radius) { ctx.save(); fillShape(ctx, radius, [[-0.66, 0.5], [-0.24, 0.22], [-0.24, -0.48], [-0.42, -0.36], [-0.42, 0.12], [-0.72, 0.3]]); fillRectScaled(ctx, radius, -0.1, -0.66, 0.2, 1.28); fillShape(ctx, radius, [[0.66, 0.5], [0.24, 0.22], [0.24, -0.48], [0.42, -0.36], [0.42, 0.12], [0.72, 0.3]]); ctx.restore(); } function drawGunnerSymbol(ctx, radius) { ctx.save(); fillShape(ctx, radius, [[-0.42, -0.58], [0.42, -0.58], [0.6, -0.42], [0.6, 0.08], [0.3, 0.08], [0.18, 0.36], [-0.18, 0.36], [-0.3, 0.08], [-0.6, 0.08], [-0.6, -0.42]]); fillShape(ctx, radius, [[-0.28, 0.14], [0.28, 0.14], [0, 0.58]]); ctx.restore(); } function drawBulwarkSymbol(ctx, radius) { ctx.save(); ctx.lineWidth = Math.max(1.4, radius * 0.11); ctx.beginPath(); pathPoints(ctx, radius, [[0, -0.62], [0.54, -0.34], [0.44, 0.3], [0, 0.62], [-0.44, 0.3], [-0.54, -0.34]]); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-radius * 0.28, -radius * 0.08); ctx.lineTo(0, radius * 0.04); ctx.lineTo(radius * 0.28, -radius * 0.08); ctx.moveTo(-radius * 0.24, radius * 0.18); ctx.lineTo(0, radius * 0.3); ctx.lineTo(radius * 0.24, radius * 0.18); ctx.stroke(); ctx.restore(); } function drawRamSymbol(ctx, radius) { ctx.save(); fillRectScaled(ctx, radius, -0.3, -0.64, 0.6, 0.16); fillShape(ctx, radius, [[-0.58, -0.26], [0.58, -0.26], [0, 0.56]]); ctx.restore(); } function drawLancerSymbol(ctx, radius) { ctx.save(); fillShape(ctx, radius, [[0, -0.76], [0.22, -0.38], [-0.22, -0.38]]); fillRectScaled(ctx, radius, -0.07, -0.38, 0.14, 0.96); fillShape(ctx, radius, [[-0.44, -0.04], [-0.12, 0.14], [-0.12, 0.58], [-0.38, 0.42]]); fillShape(ctx, radius, [[0.44, -0.04], [0.12, 0.14], [0.12, 0.58], [0.38, 0.42]]); ctx.restore(); } function drawMarksmanSymbol(ctx, radius) { ctx.save(); ctx.lineWidth = Math.max(1.3, radius * 0.09); ctx.beginPath(); ctx.moveTo(-radius * 0.52, -radius * 0.22); ctx.lineTo(-radius * 0.52, -radius * 0.46); ctx.lineTo(-radius * 0.28, -radius * 0.46); ctx.moveTo(radius * 0.52, -radius * 0.22); ctx.lineTo(radius * 0.52, -radius * 0.46); ctx.lineTo(radius * 0.28, -radius * 0.46); ctx.moveTo(-radius * 0.52, radius * 0.22); ctx.lineTo(-radius * 0.52, radius * 0.46); ctx.lineTo(-radius * 0.28, radius * 0.46); ctx.moveTo(radius * 0.52, radius * 0.22); ctx.lineTo(radius * 0.52, radius * 0.46); ctx.lineTo(radius * 0.28, radius * 0.46); ctx.arc(0, 0, radius * 0.2, 0, Math.PI * 2); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, radius * 0.06, 0, Math.PI * 2); ctx.fill(); ctx.restore(); } function drawFusilierSymbol(ctx, radius) { ctx.save(); ctx.lineWidth = Math.max(1.5, radius * 0.11); ctx.beginPath(); ctx.moveTo(-radius * 0.46, -radius * 0.28); ctx.lineTo(0, -radius * 0.08); ctx.lineTo(radius * 0.46, -radius * 0.28); ctx.moveTo(-radius * 0.46, 0); ctx.lineTo(0, radius * 0.2); ctx.lineTo(radius * 0.46, 0); ctx.moveTo(-radius * 0.46, radius * 0.28); ctx.lineTo(0, radius * 0.48); ctx.lineTo(radius * 0.46, radius * 0.28); ctx.stroke(); ctx.restore(); } function drawMedicSymbol(ctx, radius) { ctx.save(); ctx.lineWidth = Math.max(1.4, radius * 0.1); ctx.beginPath(); ctx.arc(0, 0, radius * 0.52, 0, Math.PI * 2); ctx.stroke(); fillRectScaled(ctx, radius, -0.1, -0.34, 0.2, 0.68); fillRectScaled(ctx, radius, -0.34, -0.1, 0.68, 0.2); ctx.restore(); } function drawAegisSymbol(ctx, radius) { ctx.save(); ctx.lineWidth = Math.max(1.4, radius * 0.1); ctx.beginPath(); pathPoints(ctx, radius, [[0, -0.56], [0.42, -0.3], [0.42, 0.2], [0, 0.56], [-0.42, 0.2], [-0.42, -0.3]]); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, radius * 0.18, 0, Math.PI * 2); ctx.fill(); ctx.restore(); } function drawAmplifierSymbol(ctx, radius) { ctx.save(); ctx.lineWidth = Math.max(1.4, radius * 0.1); ctx.beginPath(); ctx.arc(0, 0, radius * 0.16, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(0, 0, radius * 0.38, -Math.PI * 0.65, Math.PI * 0.65); ctx.arc(0, 0, radius * 0.62, -Math.PI * 0.55, Math.PI * 0.55); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, radius * 0.18); ctx.lineTo(0, radius * 0.46); ctx.stroke(); ctx.restore(); } const fillRectScaled = (ctx, radius, x, y, width, height) => { ctx.fillRect(x * radius, y * radius, width * radius, height * radius); }; const fillShape = (ctx, radius, points) => { ctx.beginPath(); pathPoints(ctx, radius, points); ctx.fill(); }; const pathPoints = (ctx, radius, points) => { points.forEach(([x, y], index) => { if (index) ctx.lineTo(x * radius, y * radius); else ctx.moveTo(x * radius, y * radius); }); ctx.closePath(); }; const polygon = (ctx, radius, sides, offset = 0) => { for (let i = 0; i < sides; i += 1) { const angle = offset + i * Math.PI * 2 / sides; const x = radius * Math.cos(angle); const y = radius * Math.sin(angle); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.closePath(); };
+const GRAPHIC_ROLE = Object.freeze({
+  rifleman: 'melee',
+  gunner: 'melee',
+  bulwark: 'melee',
+  ram: 'melee',
+  lancer: 'melee',
+  runner: 'melee',
+  phalanx: 'melee',
+  marksman: 'ranged',
+  fusilier: 'ranged',
+  flak: 'ranged',
+  artillery: 'ranged',
+  medic: 'support',
+  aegis: 'support',
+  amplifier: 'support',
+  disruptor: 'support',
+  jammer: 'support',
+  midge: 'flying',
+  wasp: 'flying',
+  kite: 'flying',
+  firefly: 'flying',
+  demolisher: 'specialist',
+  ranger: 'specialist',
+  infiltrator: 'specialist',
+  barricade: 'structure',
+  turret: 'structure',
+});
+
+const ABSTRACT_UNIT_DRAWERS = Object.freeze({
+  rifleman: drawRiflemanSymbol,
+  gunner: drawGunnerSymbol,
+  bulwark: drawBulwarkSymbol,
+  ram: drawRamSymbol,
+  lancer: drawLancerSymbol,
+  runner: drawRunnerSymbol,
+  phalanx: drawPhalanxSymbol,
+  marksman: drawMarksmanSymbol,
+  fusilier: drawFusilierSymbol,
+  flak: drawFlakSymbol,
+  artillery: drawArtillerySymbol,
+  medic: drawMedicSymbol,
+  aegis: drawAegisSymbol,
+  amplifier: drawAmplifierSymbol,
+  disruptor: drawDisruptorSymbol,
+  jammer: drawJammerSymbol,
+  midge: drawMidgeSymbol,
+  wasp: drawWaspSymbol,
+  kite: drawKiteSymbol,
+  firefly: drawFireflySymbol,
+  demolisher: drawDemolisherSymbol,
+  ranger: drawRangerSymbol,
+  infiltrator: drawInfiltratorSymbol,
+  barricade: drawBarricadeSymbol,
+  turret: drawTurretSymbol,
+});
+
+const ROLE_FRAME_SCALE = Object.freeze({
+  melee: 0.86,
+  ranged: 1.08,
+  support: 1,
+  flying: 1,
+  specialist: 1.05,
+  structure: 1,
+});
+
+export const drawUnitGraphic = (context, graphic, x, y, radius, color, role = null) => {
+  const silhouetteRole = role ?? GRAPHIC_ROLE[graphic] ?? null;
+  context.save();
+  context.translate(x, y);
+  drawRoleFrame(context, silhouetteRole, radius, color);
+  drawUnitDetails(context, graphic, radius, color);
+  context.restore();
+};
+
+const drawRoleFrame = (ctx, role, radius, color) => {
+  const frameRadius = radius * (ROLE_FRAME_SCALE[role] ?? 1);
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = Math.max(1.5, radius * 0.12);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.globalAlpha *= 0.18;
+  ctx.beginPath();
+  unitBodyPath(ctx, role, frameRadius);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.beginPath();
+  unitBodyPath(ctx, role, frameRadius);
+  ctx.stroke();
+  ctx.restore();
+};
+
+const unitBodyPath = (ctx, role, radius) => {
+  if (role === 'melee') ctx.roundRect(-radius, -radius, radius * 2, radius * 2, radius * 0.23);
+  else if (role === 'ranged') polygon(ctx, radius, 3, -Math.PI / 2);
+  else if (role === 'support') ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  else if (role === 'flying') {
+    ctx.moveTo(-radius, 0);
+    ctx.quadraticCurveTo(-radius * 0.35, -radius, 0, -radius * 0.2);
+    ctx.quadraticCurveTo(radius * 0.35, -radius, radius, 0);
+    ctx.quadraticCurveTo(radius * 0.35, radius, 0, radius * 0.2);
+    ctx.quadraticCurveTo(-radius * 0.35, radius, -radius, 0);
+    ctx.closePath();
+  } else if (role === 'specialist') polygon(ctx, radius, 4, -Math.PI / 2);
+  else if (role === 'structure') polygon(ctx, radius, 6, Math.PI / 6);
+  else ctx.rect(-radius, -radius, radius * 2, radius * 2);
+};
+
+const drawUnitDetails = (ctx, graphic, radius, color) => {
+  const abstractDrawer = ABSTRACT_UNIT_DRAWERS[graphic];
+  if (!abstractDrawer) return;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  abstractDrawer(ctx, radius);
+  ctx.restore();
+};
+
+function drawRiflemanSymbol(ctx, radius) {
+  fillShape(ctx, radius, [[-0.66, 0.5], [-0.24, 0.22], [-0.24, -0.48], [-0.42, -0.36], [-0.42, 0.12], [-0.72, 0.3]]);
+  fillRectScaled(ctx, radius, -0.1, -0.66, 0.2, 1.28);
+  fillShape(ctx, radius, [[0.66, 0.5], [0.24, 0.22], [0.24, -0.48], [0.42, -0.36], [0.42, 0.12], [0.72, 0.3]]);
+}
+
+function drawGunnerSymbol(ctx, radius) {
+  fillShape(ctx, radius, [[-0.42, -0.58], [0.42, -0.58], [0.6, -0.42], [0.6, 0.08], [0.3, 0.08], [0.18, 0.36], [-0.18, 0.36], [-0.3, 0.08], [-0.6, 0.08], [-0.6, -0.42]]);
+  fillShape(ctx, radius, [[-0.28, 0.14], [0.28, 0.14], [0, 0.58]]);
+}
+
+function drawBulwarkSymbol(ctx, radius) {
+  ctx.lineWidth = Math.max(1.4, radius * 0.11);
+  ctx.beginPath();
+  pathPoints(ctx, radius, [[0, -0.62], [0.54, -0.34], [0.44, 0.3], [0, 0.62], [-0.44, 0.3], [-0.54, -0.34]]);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-radius * 0.28, -radius * 0.08);
+  ctx.lineTo(0, radius * 0.04);
+  ctx.lineTo(radius * 0.28, -radius * 0.08);
+  ctx.moveTo(-radius * 0.24, radius * 0.18);
+  ctx.lineTo(0, radius * 0.3);
+  ctx.lineTo(radius * 0.24, radius * 0.18);
+  ctx.stroke();
+}
+
+function drawRamSymbol(ctx, radius) {
+  fillRectScaled(ctx, radius, -0.3, -0.64, 0.6, 0.16);
+  fillShape(ctx, radius, [[-0.58, -0.26], [0.58, -0.26], [0, 0.56]]);
+}
+
+function drawLancerSymbol(ctx, radius) {
+  fillShape(ctx, radius, [[0, -0.76], [0.22, -0.38], [-0.22, -0.38]]);
+  fillRectScaled(ctx, radius, -0.07, -0.38, 0.14, 0.96);
+  fillShape(ctx, radius, [[-0.44, -0.04], [-0.12, 0.14], [-0.12, 0.58], [-0.38, 0.42]]);
+  fillShape(ctx, radius, [[0.44, -0.04], [0.12, 0.14], [0.12, 0.58], [0.38, 0.42]]);
+}
+
+function drawRunnerSymbol(ctx, radius) {
+  fillShape(ctx, radius, [[-0.62, -0.48], [0.08, -0.48], [0.4, -0.2], [-0.3, -0.2]]);
+  fillShape(ctx, radius, [[-0.34, -0.08], [0.36, -0.08], [0.68, 0.2], [-0.02, 0.2]]);
+  fillShape(ctx, radius, [[-0.62, 0.32], [0.08, 0.32], [0.4, 0.6], [-0.3, 0.6]]);
+}
+
+function drawPhalanxSymbol(ctx, radius) {
+  fillRectScaled(ctx, radius, -0.62, -0.5, 0.28, 1);
+  fillRectScaled(ctx, radius, -0.14, -0.5, 0.28, 1);
+  fillRectScaled(ctx, radius, 0.34, -0.5, 0.28, 1);
+  fillRectScaled(ctx, radius, -0.68, -0.08, 1.36, 0.16);
+}
+
+function drawMarksmanSymbol(ctx, radius) {
+  ctx.lineWidth = Math.max(1.3, radius * 0.09);
+  ctx.beginPath();
+  ctx.moveTo(-radius * 0.52, -radius * 0.22);
+  ctx.lineTo(-radius * 0.52, -radius * 0.46);
+  ctx.lineTo(-radius * 0.28, -radius * 0.46);
+  ctx.moveTo(radius * 0.52, -radius * 0.22);
+  ctx.lineTo(radius * 0.52, -radius * 0.46);
+  ctx.lineTo(radius * 0.28, -radius * 0.46);
+  ctx.moveTo(-radius * 0.52, radius * 0.22);
+  ctx.lineTo(-radius * 0.52, radius * 0.46);
+  ctx.lineTo(-radius * 0.28, radius * 0.46);
+  ctx.moveTo(radius * 0.52, radius * 0.22);
+  ctx.lineTo(radius * 0.52, radius * 0.46);
+  ctx.lineTo(radius * 0.28, radius * 0.46);
+  ctx.arc(0, 0, radius * 0.2, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 0.06, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawFusilierSymbol(ctx, radius) {
+  ctx.lineWidth = Math.max(1.5, radius * 0.11);
+  ctx.beginPath();
+  ctx.moveTo(-radius * 0.46, -radius * 0.28);
+  ctx.lineTo(0, -radius * 0.08);
+  ctx.lineTo(radius * 0.46, -radius * 0.28);
+  ctx.moveTo(-radius * 0.46, 0);
+  ctx.lineTo(0, radius * 0.2);
+  ctx.lineTo(radius * 0.46, 0);
+  ctx.moveTo(-radius * 0.46, radius * 0.28);
+  ctx.lineTo(0, radius * 0.48);
+  ctx.lineTo(radius * 0.46, radius * 0.28);
+  ctx.stroke();
+}
+
+function drawFlakSymbol(ctx, radius) {
+  fillShape(ctx, radius, [[-0.46, 0.38], [-0.16, 0.12], [-0.16, -0.52], [-0.34, -0.52], [-0.6, 0.22]]);
+  fillShape(ctx, radius, [[0.46, 0.38], [0.16, 0.12], [0.16, -0.52], [0.34, -0.52], [0.6, 0.22]]);
+  fillRectScaled(ctx, radius, -0.46, 0.38, 0.92, 0.16);
+}
+
+function drawArtillerySymbol(ctx, radius) {
+  ctx.lineWidth = Math.max(1.5, radius * 0.11);
+  ctx.beginPath();
+  ctx.arc(-radius * 0.08, radius * 0.2, radius * 0.34, Math.PI, Math.PI * 2);
+  ctx.moveTo(-radius * 0.42, radius * 0.2);
+  ctx.lineTo(radius * 0.3, radius * 0.2);
+  ctx.moveTo(radius * 0.08, -radius * 0.02);
+  ctx.lineTo(radius * 0.62, -radius * 0.48);
+  ctx.stroke();
+  fillShape(ctx, radius, [[0.54, -0.6], [0.76, -0.66], [0.7, -0.44]]);
+}
+
+function drawMedicSymbol(ctx, radius) {
+  ctx.lineWidth = Math.max(1.4, radius * 0.1);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 0.52, 0, Math.PI * 2);
+  ctx.stroke();
+  fillRectScaled(ctx, radius, -0.1, -0.34, 0.2, 0.68);
+  fillRectScaled(ctx, radius, -0.34, -0.1, 0.68, 0.2);
+}
+
+function drawAegisSymbol(ctx, radius) {
+  ctx.lineWidth = Math.max(1.4, radius * 0.1);
+  ctx.beginPath();
+  pathPoints(ctx, radius, [[0, -0.56], [0.42, -0.3], [0.42, 0.2], [0, 0.56], [-0.42, 0.2], [-0.42, -0.3]]);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 0.18, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawAmplifierSymbol(ctx, radius) {
+  ctx.lineWidth = Math.max(1.4, radius * 0.1);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 0.16, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 0.38, -Math.PI * 0.65, Math.PI * 0.65);
+  ctx.arc(0, 0, radius * 0.62, -Math.PI * 0.55, Math.PI * 0.55);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, radius * 0.18);
+  ctx.lineTo(0, radius * 0.46);
+  ctx.stroke();
+}
+
+function drawDisruptorSymbol(ctx, radius) {
+  ctx.lineWidth = Math.max(1.5, radius * 0.11);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 0.52, -Math.PI * 0.78, -Math.PI * 0.16);
+  ctx.arc(0, 0, radius * 0.52, Math.PI * 0.22, Math.PI * 0.84);
+  ctx.stroke();
+  fillShape(ctx, radius, [[-0.08, -0.58], [0.18, -0.14], [-0.02, -0.14], [0.12, 0.5], [-0.24, 0.02], [0, 0.02]]);
+}
+
+function drawJammerSymbol(ctx, radius) {
+  ctx.lineWidth = Math.max(1.4, radius * 0.1);
+  ctx.beginPath();
+  ctx.arc(0, -radius * 0.1, radius * 0.12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, radius * 0.5);
+  ctx.moveTo(0, radius * 0.22);
+  ctx.lineTo(-radius * 0.34, radius * 0.56);
+  ctx.moveTo(0, radius * 0.22);
+  ctx.lineTo(radius * 0.34, radius * 0.56);
+  ctx.arc(0, -radius * 0.1, radius * 0.34, -Math.PI * 0.72, -Math.PI * 0.28);
+  ctx.arc(0, -radius * 0.1, radius * 0.56, -Math.PI * 0.68, -Math.PI * 0.32);
+  ctx.stroke();
+}
+
+function drawMidgeSymbol(ctx, radius) {
+  fillShape(ctx, radius, [[0, -0.62], [0.13, -0.16], [0.08, 0.58], [-0.08, 0.58], [-0.13, -0.16]]);
+  fillShape(ctx, radius, [[-0.12, -0.18], [-0.62, -0.42], [-0.34, 0.08]]);
+  fillShape(ctx, radius, [[0.12, -0.18], [0.62, -0.42], [0.34, 0.08]]);
+}
+
+function drawWaspSymbol(ctx, radius) {
+  fillShape(ctx, radius, [[0, -0.68], [0.22, -0.3], [0.16, 0.32], [0, 0.68], [-0.16, 0.32], [-0.22, -0.3]]);
+  fillRectScaled(ctx, radius, -0.26, -0.12, 0.52, 0.12);
+  fillRectScaled(ctx, radius, -0.22, 0.16, 0.44, 0.12);
+  fillShape(ctx, radius, [[-0.16, -0.28], [-0.62, -0.5], [-0.34, 0.02]]);
+  fillShape(ctx, radius, [[0.16, -0.28], [0.62, -0.5], [0.34, 0.02]]);
+}
+
+function drawKiteSymbol(ctx, radius) {
+  fillShape(ctx, radius, [[0, -0.68], [0.5, -0.06], [0, 0.34], [-0.5, -0.06]]);
+  fillRectScaled(ctx, radius, -0.06, 0.28, 0.12, 0.34);
+  fillShape(ctx, radius, [[0, 0.46], [0.38, 0.62], [0.12, 0.66]]);
+}
+
+function drawFireflySymbol(ctx, radius) {
+  ctx.lineWidth = Math.max(1.4, radius * 0.1);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 0.24, 0, Math.PI * 2);
+  ctx.fill();
+  for (let i = 0; i < 6; i += 1) {
+    const angle = -Math.PI / 2 + i * Math.PI / 3;
+    ctx.moveTo(Math.cos(angle) * radius * 0.36, Math.sin(angle) * radius * 0.36);
+    ctx.lineTo(Math.cos(angle) * radius * 0.62, Math.sin(angle) * radius * 0.62);
+  }
+  ctx.stroke();
+}
+
+function drawDemolisherSymbol(ctx, radius) {
+  ctx.lineWidth = Math.max(1.4, radius * 0.1);
+  ctx.beginPath();
+  ctx.arc(0, radius * 0.08, radius * 0.38, 0, Math.PI * 2);
+  ctx.stroke();
+  fillShape(ctx, radius, [[-0.14, -0.34], [0.08, -0.64], [0.24, -0.3]]);
+  fillShape(ctx, radius, [[0.28, -0.5], [0.48, -0.7], [0.5, -0.4]]);
+}
+
+function drawRangerSymbol(ctx, radius) {
+  fillShape(ctx, radius, [[-0.58, -0.48], [0.12, 0], [-0.58, 0.48], [-0.3, 0]]);
+  fillShape(ctx, radius, [[0.02, -0.48], [0.72, 0], [0.02, 0.48], [0.3, 0]]);
+}
+
+function drawInfiltratorSymbol(ctx, radius) {
+  ctx.lineWidth = Math.max(1.5, radius * 0.11);
+  ctx.beginPath();
+  ctx.moveTo(-radius * 0.58, 0);
+  ctx.quadraticCurveTo(0, -radius * 0.48, radius * 0.58, 0);
+  ctx.quadraticCurveTo(0, radius * 0.48, -radius * 0.58, 0);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 0.13, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawBarricadeSymbol(ctx, radius) {
+  fillShape(ctx, radius, [[-0.64, -0.42], [-0.46, -0.58], [0.64, 0.42], [0.46, 0.58]]);
+  fillShape(ctx, radius, [[0.64, -0.42], [0.46, -0.58], [-0.64, 0.42], [-0.46, 0.58]]);
+  fillRectScaled(ctx, radius, -0.64, -0.08, 1.28, 0.16);
+}
+
+function drawTurretSymbol(ctx, radius) {
+  ctx.lineWidth = Math.max(1.5, radius * 0.11);
+  ctx.beginPath();
+  ctx.arc(-radius * 0.08, radius * 0.06, radius * 0.34, 0, Math.PI * 2);
+  ctx.stroke();
+  fillShape(ctx, radius, [[0.08, -0.12], [0.7, -0.48], [0.78, -0.28], [0.2, 0.04]]);
+  fillRectScaled(ctx, radius, -0.42, 0.38, 0.84, 0.16);
+}
+
+const fillRectScaled = (ctx, radius, x, y, width, height) => {
+  ctx.fillRect(x * radius, y * radius, width * radius, height * radius);
+};
+
+const fillShape = (ctx, radius, points) => {
+  ctx.beginPath();
+  pathPoints(ctx, radius, points);
+  ctx.fill();
+};
+
+const pathPoints = (ctx, radius, points) => {
+  points.forEach(([x, y], index) => {
+    if (index) ctx.lineTo(x * radius, y * radius);
+    else ctx.moveTo(x * radius, y * radius);
+  });
+  ctx.closePath();
+};
+
+const polygon = (ctx, radius, sides, offset = 0) => {
+  for (let i = 0; i < sides; i += 1) {
+    const angle = offset + i * Math.PI * 2 / sides;
+    const x = radius * Math.cos(angle);
+    const y = radius * Math.sin(angle);
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.closePath();
+};
