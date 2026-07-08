@@ -1,13 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GAME_CONFIG, ROLE_SHAPE, TEAM, UNIT_ROLE, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../src/data/gameConfig.js';
-import { COMBAT_EVENT } from '../src/data/gameTypes.js';
+import { COMBAT_EVENT, MODE } from '../src/data/gameTypes.js';
 import { GameModel } from '../src/model/GameModel.js';
 import { SpatialIndex } from '../src/model/SpatialIndex.js';
 import { StrategyGameModel } from '../src/model/StrategyGameModel.js';
 import { createBattleUnit } from './helpers/createBattleUnit.mjs';
 
 const createModel = () => new StrategyGameModel({ random: () => 0.5, now: () => 0 });
+
+function prepareBattleModel(units, random = () => 0.5) {
+  const model = new GameModel({ random, now: () => 0 });
+  model.mode = MODE.BATTLE;
+  model.units = units;
+  model.spatialIndex = new SpatialIndex(model.units);
+  return model;
+}
 
 test('draft quantity is derived from budget and finite supply limits deployment', () => {
   const model = createModel();
@@ -65,14 +73,15 @@ test('unit roles determine the common icon silhouette', () => {
   for (const type of Object.values(UNIT_TYPES)) assert.equal(type.shape, ROLE_SHAPE[type.role]);
   assert.equal(UNIT_TYPES.grunt.shape, UNIT_TYPES.tank.shape);
   assert.equal(UNIT_TYPES.gunner.shape, UNIT_TYPES.sniper.shape);
-  assert.equal(UNIT_TYPES.flak.shape, UNIT_TYPES.bomber.shape);
+  assert.equal(UNIT_TYPES.flak.shape, UNIT_TYPES.gunner.shape);
   assert.equal(UNIT_TYPES.grunt.role, UNIT_ROLE.MELEE);
   assert.equal(UNIT_TYPES.gunner.role, UNIT_ROLE.RANGED);
-  assert.equal(UNIT_TYPES.flak.role, UNIT_ROLE.SPECIALIST);
+  assert.equal(UNIT_TYPES.flak.role, UNIT_ROLE.RANGED);
   assert.equal(UNIT_TYPES.firefly.role, UNIT_ROLE.FLYING);
   assert.equal(UNIT_TYPES.wall.role, UNIT_ROLE.WALL);
   assert.equal(UNIT_TYPES.wall.shape, 'rectangle');
   assert.equal(UNIT_TYPES.sentry.role, UNIT_ROLE.STRUCTURE);
+  assert.equal(UNIT_TYPES.factory.role, UNIT_ROLE.STRUCTURE);
   assert.equal(UNIT_TYPES.sentry.shape, 'hex');
 });
 
@@ -88,7 +97,7 @@ test('role definitions follow unit design constraints', () => {
   assert.ok(meleeTypes.every((type) => type.range === 1));
   assert.ok(wallTypes.every((type) => type.attack === 0));
   assert.ok(wallTypes.every((type) => hasUnitTag(type, UNIT_TAG.AI_ONLY)));
-  assert.ok(structureTypes.every((type) => type.attack > 0));
+  assert.ok(structureTypes.every((type) => type.attack > 0 || hasUnitTag(type, UNIT_TAG.FACTORY)));
   assert.ok(structureTypes.every((type) => hasUnitTag(type, UNIT_TAG.AI_ONLY)));
   assert.ok([...wallTypes, ...structureTypes].every((type) => type.hp > maxMobileHp));
   assert.ok(flyingTypes.every((type) => type.role === UNIT_ROLE.FLYING));
@@ -107,6 +116,24 @@ test('flying unit definitions preserve their intended niches', () => {
   assert.equal(UNIT_TYPES.kite.range, 4);
   assert.equal(hasUnitTag(UNIT_TYPES.firefly, UNIT_TAG.BOMB), true);
   assert.equal(hasUnitTag(UNIT_TYPES.firefly, UNIT_TAG.AOE), true);
+});
+
+test('factory produces weaker scatter infantry', () => {
+  assert.equal(UNIT_TYPES.factory.role, UNIT_ROLE.STRUCTURE);
+  assert.equal(UNIT_TYPES.factory.production.type, 'skitter');
+  assert.ok(UNIT_TYPES.skitter.hp < UNIT_TYPES.grunt.hp);
+  assert.ok(UNIT_TYPES.skitter.attack < UNIT_TYPES.grunt.attack);
+  assert.equal(hasUnitTag(UNIT_TYPES.skitter, UNIT_TAG.SCATTER), true);
+  assert.equal(hasUnitTag(UNIT_TYPES.skitter, UNIT_TAG.AI_ONLY), true);
+});
+
+test('scatter units move sideways when blocked', () => {
+  const skitter = createBattleUnit({ id: 1, team: TEAM.ENEMY, type: 'skitter', row: 2, column: 5 });
+  const blocker = createBattleUnit({ id: 2, team: TEAM.ENEMY, type: 'grunt', row: 2, column: 4 });
+  const model = prepareBattleModel([skitter, blocker], () => 0.99);
+  assert.equal(model.moveUnit(skitter, 0, 100), true);
+  assert.equal(skitter.column, 5);
+  assert.equal(skitter.row, 3);
 });
 
 test('only flying and anti-air units can target flying units', () => {
