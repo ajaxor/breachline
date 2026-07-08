@@ -1,4 +1,0 @@
-button.danger{border-color:var(--enemy);color:#ffd7d7;background:#35191d}
-#btnBack,#btnSurrender{flex:0 0 auto;white-space:nowrap}
-.game-shell:has(#resolveTopbar:not([hidden])) .field-wrap{inset:72px 0 0}
-@media(max-width:560px){#resolveTopbar{gap:7px}#btnSurrender{padding:8px 10px}.base-mini-label,.base-mini-text{font-size:9px}}
