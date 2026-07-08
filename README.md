@@ -12,6 +12,7 @@ A dependency-free browser strategy game deployed as static files.
 - `src/main.js` is the composition root that validates configuration and wires the layers together.
 - `assets/` contains presentation-only styles and future static assets.
 - `docs/unit-icon-style.md` contains the reproducible symbolic unit-icon process for coding agents.
+- `docs/unit-design.md` defines unit role identity, design constraints, and the balancing workflow.
 
 Dependencies flow inward: the front end and controller depend on the model/data, while the model never imports UI code. Combat rules emit semantic events; the frontend presenter chooses wording, colors, and animation timing. This keeps combat independently testable and makes it straightforward to add persistence, multiplayer transport, alternate renderers, localization, replay tooling, or new unit data later.
 
@@ -35,7 +36,7 @@ npm run balance
 
 The command executes mirrored equal-budget matchups and mixed-army contribution scenarios, prints a summary, and writes `reports/balance-report.json`. Use `-- --seed=12345` to select a reproducible seed or `-- --output=path/to/report.json` to change the output path.
 
-Scoring is intentionally extensible. Add scorer objects to `src/simulation/scorers.js`, add new scenario families through `ScenarioFactory`, or inject alternate simulators, scenario factories, and scorer arrays into `BalanceAnalyzer`. Duel scores should not be treated as the sole measure for support or specialist units; the report keeps matchup, survival margin, contribution, and timeout metrics separate for that reason.
+Scoring is intentionally extensible. Add scorer objects to `src/simulation/scorers.js`, add new scenario families through `ScenarioFactory`, or inject alternate simulators, scenario factories, and scorer arrays into `BalanceAnalyzer`. Duel scores should not be treated as the sole measure for support or specialist units; the report keeps matchup, survival margin, mixed-army contribution, objective pressure, and timeout metrics separate for that reason.
 
 Every deployment also runs the reviewed regression envelope in `reports/balance-baseline.json`:
 
@@ -65,6 +66,6 @@ Serve the repository root with any static HTTP server. ES modules generally do n
 
 ## Agent workflow
 
-Repository-wide instructions for coding agents are maintained in [`AGENTS.md`](AGENTS.md). Technical debt is tracked in [`TECH_DEBT.md`](TECH_DEBT.md). Reproducible unit-icon guidance for agents is maintained in [`docs/unit-icon-style.md`](docs/unit-icon-style.md).
+Repository-wide instructions for coding agents are maintained in [`AGENTS.md`](AGENTS.md). Technical debt is tracked in [`TECH_DEBT.md`](TECH_DEBT.md). Unit design guidance is maintained in [`docs/unit-design.md`](docs/unit-design.md), and reproducible unit-icon guidance is maintained in [`docs/unit-icon-style.md`](docs/unit-icon-style.md).
 
 After pushing a task to `main`, the agent must check the GitHub Actions run for that exact commit and must not report the task as complete while tests or deployment validation are pending. A failed check must be diagnosed and corrected, and the replacement commit's checks must finish successfully before the final response.
