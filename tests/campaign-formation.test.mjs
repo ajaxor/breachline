@@ -28,6 +28,11 @@ function isStationary(unit) {
   return STATIONARY_ROLES.has(UNIT_TYPES[unit.type].role);
 }
 
+function expectedDraftBudget(index) {
+  const taper = index * Math.max(0, index - 1) * GAME_CONFIG.draftBudgetTaper;
+  return Math.max(GAME_CONFIG.startingDraftBudget, GAME_CONFIG.startingDraftBudget + index * GAME_CONFIG.draftBudgetStep - taper);
+}
+
 function blockersByPair(mission) {
   const blockers = new Map();
   for (const unit of mission.enemyFormation) {
@@ -169,6 +174,6 @@ test('mission budgets grow according to configuration', () => {
     assert.equal(mission.enemyBudget, mission.playerBudget + GAME_CONFIG.enemyBudgetBonus + mission.index * GAME_CONFIG.enemyBudgetStep);
     assert.equal(mission.wallBudget, GAME_CONFIG.wallBudgetBase + mission.index * GAME_CONFIG.wallBudgetStep);
     assert.equal(mission.structureBudget, GAME_CONFIG.structureBudgetBase + mission.index * GAME_CONFIG.structureBudgetStep);
-    assert.equal(mission.draftBudget, GAME_CONFIG.startingDraftBudget + mission.index * GAME_CONFIG.draftBudgetStep);
+    assert.equal(mission.draftBudget, expectedDraftBudget(mission.index));
   }
 });
