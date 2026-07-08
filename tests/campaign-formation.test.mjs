@@ -8,6 +8,14 @@ const campaign = createCampaign(() => 0.5);
 const PROTECTED_ROLES = new Set([UNIT_ROLE.RANGED, UNIT_ROLE.SUPPORT, UNIT_ROLE.FLYING]);
 const STATIONARY_ROLES = new Set([UNIT_ROLE.WALL, UNIT_ROLE.STRUCTURE]);
 
+function seededRandom(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
+}
+
 function costOf(units) {
   return units.reduce((sum, unit) => sum + UNIT_TYPES[unit.type].cost, 0);
 }
@@ -31,10 +39,24 @@ function blockersByPair(mission) {
   return blockers;
 }
 
+function earlyMobileSignature(seed) {
+  return createCampaign(seededRandom(seed), { missionCount: 2 })
+    .flatMap((mission) => mission.enemyFormation
+      .filter((unit) => !isStationary(unit))
+      .map((unit) => unit.type)
+      .sort())
+    .join('|');
+}
+
 test('campaign has the configured mission count and unlock state', () => {
   assert.equal(campaign.length, GAME_CONFIG.missionCount);
   assert.equal(campaign[0].status, MISSION_STATUS.AVAILABLE);
   assert.ok(campaign.slice(1).every((mission) => mission.status === MISSION_STATUS.LOCKED));
+});
+
+test('early campaign missions vary mobile army cores across seeds', () => {
+  const signatures = new Set(Array.from({ length: 10 }, (_, index) => earlyMobileSignature(index + 1)));
+  assert.ok(signatures.size > 1, `early missions generated only one mobile signature: ${[...signatures][0]}`);
 });
 
 test('enemy formations use unique enemy-zone cells and stay within their mobile wall and structure budgets', () => {
