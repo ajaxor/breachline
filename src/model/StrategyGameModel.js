@@ -8,6 +8,9 @@ import { createSeededRandom } from './SeededRandom.js';
 const cloneFormation = (formation) => formation.map((unit) => ({ ...unit }));
 const ROLE_ORDER = new Map(Object.values(UNIT_ROLE).map((role, index) => [role, index]));
 const byRoleThenName = (left, right) => (ROLE_ORDER.get(left.role) - ROLE_ORDER.get(right.role)) || left.name.localeCompare(right.name);
+const choiceUnits = (choice) => choice.units ?? [choice];
+const choiceRoles = (choice) => new Set(choiceUnits(choice).map((unit) => unit.role));
+const isSupportPair = (first, second) => first.role === UNIT_ROLE.SUPPORT && second.role === UNIT_ROLE.SUPPORT;
 
 export class StrategyGameModel extends GameModel {
   constructor(options = {}) {
@@ -119,32 +122,57 @@ export class StrategyGameModel extends GameModel {
     const preferredPool = lockedTypes.length ? lockedTypes : PLAYER_UNIT_TYPES;
     const singlePool = preferredPool.filter((type) => type.role !== UNIT_ROLE.SUPPORT);
     const pairPool = preferredPool.length >= 2 ? preferredPool : PLAYER_UNIT_TYPES;
-    const supportPool = pairPool.filter((type) => type.role === UNIT_ROLE.SUPPORT);
     const choices = [];
-    const usedSingleRoles = new Set();
+    const usedRoles = new Set();
+    const usedUnitKeys = new Set();
+
+    const addChoice = (choice) => {
+      choices.push(choice);
+      for (const role of choiceRoles(choice)) usedRoles.add(role);
+      for (const unit of choiceUnits(choice)) usedUnitKeys.add(unit.key);
+    };
+
+    const rolePenalty = (types) => {
+      const roles = types.map((type) => type.role);
+      const repeatedRoles = roles.length - new Set(roles).size;
+      const usedRoleCount = roles.filter((role) => usedRoles.has(role)).length;
+      const usedUnitCount = types.filter((type) => usedUnitKeys.has(type.key)).length;
+      return usedRoleCount * 8 + repeatedRoles * 3 + usedUnitCount;
+    };
+
+    const bestSingle = () => {
+      const candidates = this.shuffle(singlePool.length ? singlePool : preferredPool);
+      return candidates.sort((left, right) => rolePenalty([left]) - rolePenalty([right]))[0] ?? null;
+    };
+
+    const bestPair = () => {
+      const pairs = [];
+      for (let firstIndex = 0; firstIndex < pairPool.length; firstIndex += 1) {
+        for (let secondIndex = firstIndex + 1; secondIndex < pairPool.length; secondIndex += 1) {
+          const first = pairPool[firstIndex];
+          const second = pairPool[secondIndex];
+          if (isSupportPair(first, second)) continue;
+          pairs.push([first, second]);
+        }
+      }
+      return this.shuffle(pairs).sort((left, right) => rolePenalty(left) - rolePenalty(right))[0] ?? null;
+    };
 
     for (let index = 0; index < 3; index += 1) {
       const shouldPair = pairPool.length >= 2 && (this.random() < 0.45 || singlePool.length === 0);
       if (shouldPair) {
-        const firstCandidates = this.shuffle(pairPool);
-        const first = firstCandidates.find((type) => !choices.some((choice) => choice.units.some((unit) => unit.key === type.key))) ?? firstCandidates[0];
-        const preferSupport = supportPool.length > 0 && !choices.some((choice) => choice.units.some((unit) => unit.role === UNIT_ROLE.SUPPORT));
-        const secondCandidates = this.shuffle(preferSupport ? supportPool : pairPool).filter((type) => type.key !== first.key);
-        const second = secondCandidates[0] ?? this.shuffle(pairPool).find((type) => type.key !== first.key);
-        if (first && second) { choices.push(this.createPairDraft(first, second)); continue; }
+        const pair = bestPair();
+        if (pair) { addChoice(this.createPairDraft(pair[0], pair[1])); continue; }
       }
 
-      const candidates = this.shuffle(singlePool);
-      const single = candidates.find((type) => !usedSingleRoles.has(type.role)) ?? candidates[0];
-      if (single) {
-        choices.push(this.createSingleDraft(single));
-        usedSingleRoles.add(single.role);
-      }
+      const single = bestSingle();
+      if (single) addChoice(this.createSingleDraft(single));
     }
 
     while (choices.length < 3 && pairPool.length >= 2) {
-      const [first, second] = this.shuffle(pairPool).slice(0, 2);
-      choices.push(this.createPairDraft(first, second));
+      const pair = bestPair();
+      if (!pair) break;
+      addChoice(this.createPairDraft(pair[0], pair[1]));
     }
     this.draftChoices = choices;
     return this.draftChoices;
