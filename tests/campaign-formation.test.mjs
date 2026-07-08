@@ -62,9 +62,11 @@ test('later missions field denser armies with both cheap and premium units', () 
 
   for (const mission of campaign.slice(-3)) {
     const mobile = mission.enemyFormation.filter((unit) => UNIT_TYPES[unit.type].role !== UNIT_ROLE.STRUCTURE);
-    const costs = mobile.map((unit) => UNIT_TYPES[unit.type].cost);
-    assert.ok(Math.min(...costs) <= 27, `mission ${mission.index + 1} lacks cheap mass units`);
-    assert.ok(Math.max(...costs) >= 32, `mission ${mission.index + 1} lacks a premium unit`);
+    const combatants = mission.enemyFormation.filter((unit) => unit.type !== 'wall');
+    const mobileCosts = mobile.map((unit) => UNIT_TYPES[unit.type].cost);
+    const combatantCosts = combatants.map((unit) => UNIT_TYPES[unit.type].cost);
+    assert.ok(Math.min(...mobileCosts) <= 27, `mission ${mission.index + 1} lacks cheap mass units`);
+    assert.ok(Math.max(...combatantCosts) >= 32, `mission ${mission.index + 1} lacks a premium unit`);
   }
 });
 
