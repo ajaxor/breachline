@@ -16,8 +16,8 @@ export class FlowGameController extends GameController {
     this.listen(elements.btnBeginCampaign, 'click', () => this.startCampaign());
     this.listen(elements.btnSandbox, 'click', () => this.startSandbox());
     this.listen(elements.btnCampaignBack, 'click', () => this.view.closeCampaignMenu());
-    this.listen(elements.btnBack, 'click', () => this.activateTab('missions'));
-    this.listen(elements.btnSurrender, 'click', () => this.surrenderCampaign());
+    this.listen(elements.btnBack, 'click', () => this.requestSurrender());
+    this.listen(elements.btnSurrender, 'click', () => this.requestSurrender());
     this.listen(elements.btnReinforce, 'click', () => this.openReinforcements());
     this.listen(elements.btnSandboxGenerate, 'click', () => this.generateSandboxDeployment());
     this.listen(elements.btnDraftBack, 'click', () => this.view.closeDraft());
@@ -76,10 +76,20 @@ export class FlowGameController extends GameController {
     this.refresh();
   }
 
+  requestSurrender() {
+    const confirmed = typeof this.browser.confirm === 'function'
+      ? this.browser.confirm('Surrender this operation and return to the main menu? Current progress will be lost.')
+      : true;
+    if (confirmed) this.surrenderCampaign();
+  }
+
   surrenderCampaign() {
     this.stopTimer();
     this.stopAnimationLoop();
+    this.view.closeSheets();
+    this.view.closeRoster();
     this.view.clearBanner();
+    this.clearUnitInspection();
     this.view.showTitle();
   }
 
@@ -126,7 +136,7 @@ export class FlowGameController extends GameController {
       if (this.model.replayLastBattle()) { this.refresh(); this.startAnimationLoop(); this.scheduleBattleTick(0); }
       return;
     }
-    if (action === 'surrender') { this.surrenderCampaign(); return; }
+    if (action === 'surrender') { this.requestSurrender(); return; }
     if (action === 'retry') {
       if (this.model.canRetry) this.returnToDeployment(this.model.selectedMission);
       return;
