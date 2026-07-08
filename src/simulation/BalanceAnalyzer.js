@@ -2,7 +2,12 @@ import { PLAYER_UNIT_TYPES } from '../data/gameConfig.js';
 import { createSeededRandom } from './SeededRandom.js';
 import { BattleSimulator } from './BattleSimulator.js';
 import { ScenarioFactory } from './ScenarioFactory.js';
-import { contributionLift, defaultScorers, summarizePair } from './scorers.js';
+import {
+  contributionLift,
+  defaultScorers,
+  objectivePressureLift,
+  summarizePair,
+} from './scorers.js';
 
 const swap = ({ playerFormation, enemyFormation }) => ({
   playerFormation: enemyFormation,
@@ -54,6 +59,7 @@ export class BalanceAnalyzer {
         const mirrorBaseline = run(swap(scenario.baseline));
         units[type.key].contributions.push({
           lift: contributionLift(test, mirrorTest, baseline, mirrorBaseline),
+          objectivePressure: objectivePressureLift(test, mirrorTest, baseline, mirrorBaseline),
         });
         units[type.key].allResults.push(test, mirrorTest, baseline, mirrorBaseline);
       }
