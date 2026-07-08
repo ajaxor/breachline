@@ -17,6 +17,8 @@ export const GAME_CONFIG = Object.freeze({
   budgetStep: 25,
   enemyBudgetBonus: 20,
   enemyBudgetStep: 10,
+  wallBudgetBase: 45,
+  wallBudgetStep: 15,
   startingDraftBudget: 100,
   draftBudgetStep: 40,
   playerZone: Object.freeze([0, 1, 2, 3, 4, 5, 6]),
@@ -24,7 +26,7 @@ export const GAME_CONFIG = Object.freeze({
 });
 
 export const UNIT_TAG = Object.freeze({
-  AGILE: 'agile', STATIONARY: 'stationary', SWIVEL: 'swivel', FAST_ATTACK: 'fast-attack', STEALTH: 'stealth', AI_ONLY: 'ai-only', FLYING: 'flying', ANTI_AIR: 'anti-air', BOMB: 'bomb', AOE: 'aoe', HEAL: 'heal', SHIELD: 'shield', ENHANCE: 'enhance', STUN_FIELD: 'stun-field', JAMMER: 'jammer', SALVO: 'salvo', PUSH: 'push', CHARGE: 'charge', RELOAD: 'reload', FORMATION: 'formation',
+  AGILE: 'agile', STATIONARY: 'stationary', SWIVEL: 'swivel', FAST_ATTACK: 'fast-attack', STEALTH: 'stealth', AI_ONLY: 'ai-only', FLYING: 'flying', ANTI_AIR: 'anti-air', BOMB: 'bomb', AOE: 'aoe', HEAL: 'heal', SHIELD: 'shield', ENHANCE: 'enhance', STUN_FIELD: 'stun-field', JAMMER: 'jammer', SALVO: 'salvo', PUSH: 'push', CHARGE: 'charge', RELOAD: 'reload', FORMATION: 'formation', THORNS: 'thorns', FACTORY: 'factory',
 });
 
 export const AURA_EFFECT = Object.freeze({ SHIELD: 'shield', DAMAGE: 'damage', STUN: 'stun', STEALTH: 'stealth' });
@@ -45,7 +47,9 @@ const unit = (definition) => {
   const campaign = Object.freeze({ unlockMission: 0, initialWeight: 0, weightGrowth: 0, ...(definition.campaign ?? {}) });
   const animation = Object.freeze({ ...DEFAULT_ANIMATION, ...(tags.has(UNIT_TAG.FLYING) ? FLYING_ANIMATION : {}), ...(tags.has(UNIT_TAG.STATIONARY) ? STATIONARY_ANIMATION : {}), ...(definition.animation ?? {}) });
   const aura = definition.aura ? Object.freeze({ ...definition.aura }) : undefined;
-  return Object.freeze({ ...definition, aura, shape: ROLE_SHAPE[definition.role] ?? 'square', animation, campaign, tags: Object.freeze([...tags]) });
+  const production = definition.production ? Object.freeze({ ...definition.production }) : undefined;
+  const thorns = definition.thorns ? Object.freeze({ ...definition.thorns }) : undefined;
+  return Object.freeze({ ...definition, aura, production, thorns, shape: ROLE_SHAPE[definition.role] ?? 'square', animation, campaign, tags: Object.freeze([...tags]) });
 };
 
 export const UNIT_TYPES = Object.freeze({
@@ -72,8 +76,14 @@ export const UNIT_TYPES = Object.freeze({
   kite: unit({ key: 'kite', name: 'Kite', role: UNIT_ROLE.FLYING, cost: 46, hp: 14, attack: 8, range: 4, tags: [UNIT_TAG.SALVO], campaign: { unlockMission: 7, initialWeight: 0.11, weightGrowth: 0.02 }, behavior: 'A fragile long-range flyer that fires on every valid target in range while continuously advancing.', graphic: 'kite' }),
   firefly: unit({ key: 'firefly', name: 'Firefly', role: UNIT_ROLE.FLYING, cost: 29, hp: 12, attack: 40, range: 1, tags: [UNIT_TAG.BOMB, UNIT_TAG.AOE, UNIT_TAG.SWIVEL], campaign: { unlockMission: 7, initialWeight: 0.12, weightGrowth: 0.025 }, behavior: 'A disposable flying charge that explodes at its own position on contact or destruction.', graphic: 'firefly' }),
   mortar: unit({ key: 'mortar', name: 'Artillery', role: UNIT_ROLE.RANGED, cost: 39, hp: 24, attack: 17, range: 3, tags: [UNIT_TAG.SWIVEL], campaign: { unlockMission: 7, initialWeight: 0.14, weightGrowth: 0.03 }, behavior: 'Bombards ground targets within range by swiveling across lanes.', graphic: 'artillery', animation: { attack: ATTACK_ANIMATION.LOB } }),
-  tollbooth: unit({ key: 'tollbooth', name: 'Barricade', role: UNIT_ROLE.STRUCTURE, cost: 35, hp: 180, attack: 0, range: 1, campaign: { unlockMission: 4, initialWeight: 0.16, weightGrowth: 0.03 }, behavior: 'An enemy-only obstacle with exceptional durability that blocks its lane.', graphic: 'barricade' }),
-  sentry: unit({ key: 'sentry', name: 'Turret', role: UNIT_ROLE.STRUCTURE, cost: 65, hp: 140, attack: 11, range: 3, tags: [UNIT_TAG.SWIVEL, UNIT_TAG.ANTI_AIR], campaign: { unlockMission: 8, initialWeight: 0.12, weightGrowth: 0.03 }, behavior: 'An enemy-only fortified weapon that swivels toward ground or flying units in other lanes.', graphic: 'turret', animation: { attack: ATTACK_ANIMATION.LASER } }),
+  wall: unit({ key: 'wall', name: 'Wall', role: UNIT_ROLE.STRUCTURE, cost: 15, hp: 135, attack: 0, range: 1, campaign: { unlockMission: 0, initialWeight: 0 }, behavior: 'A blank enemy-only barrier that spends from the wall budget and simply blocks a lane.', graphic: 'blank' }),
+  tollbooth: unit({ key: 'tollbooth', name: 'Barricade', role: UNIT_ROLE.STRUCTURE, cost: 35, hp: 180, attack: 0, range: 1, tags: [UNIT_TAG.THORNS], thorns: { reflectRatio: 0.5 }, campaign: { unlockMission: 3, initialWeight: 0.12, weightGrowth: 0.02 }, behavior: 'An enemy-only obstacle with exceptional durability that reflects half of melee damage back at attackers.', graphic: 'barricade' }),
+  sentry: unit({ key: 'sentry', name: 'Turret', role: UNIT_ROLE.STRUCTURE, cost: 56, hp: 135, attack: 10, range: 3, tags: [UNIT_TAG.SWIVEL], campaign: { unlockMission: 4, initialWeight: 0.14, weightGrowth: 0.025 }, behavior: 'An enemy-only fortified weapon that swivels toward ground units in other lanes.', graphic: 'turret', animation: { attack: ATTACK_ANIMATION.LASER } }),
+  flakTurret: unit({ key: 'flakTurret', name: 'Flak Turret', role: UNIT_ROLE.STRUCTURE, cost: 62, hp: 125, attack: 12, range: 3, tags: [UNIT_TAG.SWIVEL, UNIT_TAG.ANTI_AIR], campaign: { unlockMission: 5, initialWeight: 0.11, weightGrowth: 0.02 }, behavior: 'A fortified anti-air turret that can swivel toward aircraft and nearby lanes.', graphic: 'flak-turret', animation: { attack: ATTACK_ANIMATION.MISSILE } }),
+  rocketTurret: unit({ key: 'rocketTurret', name: 'Rocket Turret', role: UNIT_ROLE.STRUCTURE, cost: 72, hp: 120, attack: 18, range: 4, tags: [UNIT_TAG.AOE, UNIT_TAG.RELOAD, UNIT_TAG.SWIVEL], campaign: { unlockMission: 6, initialWeight: 0.1, weightGrowth: 0.02 }, behavior: 'A slow enemy-only launcher that fires splash rockets across nearby lanes, then reloads.', graphic: 'rocket-turret', animation: { attack: ATTACK_ANIMATION.MISSILE } }),
+  mortarNest: unit({ key: 'mortarNest', name: 'Mortar Nest', role: UNIT_ROLE.STRUCTURE, cost: 68, hp: 130, attack: 16, range: 5, tags: [UNIT_TAG.SWIVEL, UNIT_TAG.RELOAD], campaign: { unlockMission: 7, initialWeight: 0.09, weightGrowth: 0.02 }, behavior: 'A hardened back-line emplacement that lobs long-range shots, then reloads.', graphic: 'mortar-nest', animation: { attack: ATTACK_ANIMATION.LOB } }),
+  railTurret: unit({ key: 'railTurret', name: 'Rail Turret', role: UNIT_ROLE.STRUCTURE, cost: 82, hp: 115, attack: 28, range: 5, tags: [UNIT_TAG.RELOAD], campaign: { unlockMission: 8, initialWeight: 0.07, weightGrowth: 0.018 }, behavior: 'A narrow-lane cannon with very high single-target damage, limited by reload time and fixed facing.', graphic: 'rail-turret', animation: { attack: ATTACK_ANIMATION.LASER } }),
+  factory: unit({ key: 'factory', name: 'Factory', role: UNIT_ROLE.STRUCTURE, cost: 74, hp: 165, attack: 0, range: 1, tags: [UNIT_TAG.FACTORY], production: { type: 'grunt', interval: 2 }, campaign: { unlockMission: 6, initialWeight: 0.08, weightGrowth: 0.018 }, behavior: 'A fortified enemy-only spawner that produces a steady stream of cheap melee Grunts when the lane ahead is clear.', graphic: 'factory' }),
 });
 
 export const hasUnitTag = (typeOrKey, tag) => { const type = typeof typeOrKey === 'string' ? UNIT_TYPES[typeOrKey] : typeOrKey; return Boolean(type?.tags.includes(tag)); };
