@@ -1,30 +1,8 @@
-const GRAPHIC_ROLE = Object.freeze({
-  rifleman: 'melee',
-  gunner: 'melee',
-  bulwark: 'melee',
-  ram: 'melee',
-  lancer: 'melee',
-  runner: 'melee',
-  phalanx: 'melee',
-  marksman: 'ranged',
-  fusilier: 'ranged',
-  flak: 'ranged',
-  artillery: 'ranged',
-  medic: 'support',
-  aegis: 'support',
-  amplifier: 'support',
-  disruptor: 'support',
-  jammer: 'support',
-  midge: 'flying',
-  wasp: 'flying',
-  kite: 'flying',
-  firefly: 'flying',
-  demolisher: 'specialist',
-  ranger: 'specialist',
-  infiltrator: 'specialist',
-  barricade: 'structure',
-  turret: 'structure',
-});
+import { UNIT_TYPES } from '../data/gameConfig.js';
+
+const TYPE_BY_GRAPHIC = Object.freeze(Object.fromEntries(
+  Object.values(UNIT_TYPES).map((type) => [type.graphic ?? type.shape, type]),
+));
 
 const ABSTRACT_UNIT_DRAWERS = Object.freeze({
   rifleman: drawRiflemanSymbol,
@@ -64,9 +42,10 @@ const ROLE_FRAME_SCALE = Object.freeze({
 });
 
 export const drawUnitGraphic = (context, graphic, x, y, radius, color, role = null) => {
-  const silhouetteRole = role ?? GRAPHIC_ROLE[graphic] ?? null;
+  const silhouetteRole = role ?? TYPE_BY_GRAPHIC[graphic]?.role ?? null;
   context.save();
   context.translate(x, y);
+  if (silhouetteRole === 'ranged') context.translate(0, radius * 0.08);
   drawRoleFrame(context, silhouetteRole, radius, color);
   drawUnitDetails(context, graphic, radius, color);
   context.restore();
@@ -80,11 +59,12 @@ const drawRoleFrame = (ctx, role, radius, color) => {
   ctx.lineWidth = Math.max(1.5, radius * 0.12);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
+  ctx.save();
   ctx.globalAlpha *= 0.18;
   ctx.beginPath();
   unitBodyPath(ctx, role, frameRadius);
   ctx.fill();
-  ctx.globalAlpha = 1;
+  ctx.restore();
   ctx.beginPath();
   unitBodyPath(ctx, role, frameRadius);
   ctx.stroke();
@@ -103,7 +83,7 @@ const unitBodyPath = (ctx, role, radius) => {
     ctx.quadraticCurveTo(-radius * 0.35, radius, -radius, 0);
     ctx.closePath();
   } else if (role === 'specialist') polygon(ctx, radius, 4, -Math.PI / 2);
-  else if (role === 'structure') polygon(ctx, radius, 6, Math.PI / 6);
+  else if (role === 'structure') ctx.roundRect(-radius, -radius * 0.72, radius * 2, radius * 1.44, radius * 0.12);
   else ctx.rect(-radius, -radius, radius * 2, radius * 2);
 };
 
