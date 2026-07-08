@@ -1,5 +1,4 @@
-import { PLAYER_DEPLOYMENT_ZONE } from '../data/deploymentZones.js';
-import { MODE, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
+import { GAME_CONFIG, MODE, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
 
 function placementIndex(model, row, column) {
   return model.placement.findIndex((unit) => unit.row === row && unit.column === column);
@@ -25,7 +24,7 @@ export class BudgetDeploymentPolicy {
   }
 
   togglePlacement(row, column) {
-    if (this.model.mode !== MODE.DEPLOY || !PLAYER_DEPLOYMENT_ZONE.includes(column)) return false;
+    if (this.model.mode !== MODE.DEPLOY || !GAME_CONFIG.playerZone.includes(column)) return false;
     const existing = placementIndex(this.model, row, column);
     if (existing >= 0) {
       this.model.placement.splice(existing, 1);
@@ -54,7 +53,7 @@ export class SupplyDeploymentPolicy {
   }
 
   togglePlacement(row, column) {
-    if (this.model.mode !== MODE.DEPLOY || !PLAYER_DEPLOYMENT_ZONE.includes(column)) return false;
+    if (this.model.mode !== MODE.DEPLOY || !GAME_CONFIG.playerZone.includes(column)) return false;
     const existing = placementIndex(this.model, row, column);
     if (existing >= 0) {
       this.model.placement.splice(existing, 1);
