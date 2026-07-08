@@ -47,7 +47,7 @@ test('ranged units treat structures like other units', () => {
   const targeting = new TargetingPolicy();
   const attacker = { id: 1, team: TEAM.PLAYER, type: 'sniper', row: 3, column: 3 };
   const nearbyTurret = { id: 2, team: TEAM.ENEMY, type: 'sentry', row: 3, column: 4 };
-  const nearbyFactory = { id: 3, team: TEAM.ENEMY, type: 'factory', row: 2, column: 4 };
+  const nearbyFactory = { id: 3, team: TEAM.ENEMY, type: 'factory', row: 3, column: 5 };
   const farGrunt = { id: 4, team: TEAM.ENEMY, type: 'grunt', row: 3, column: 7 };
 
   assert.equal(targeting.canTarget(attacker, nearbyTurret), true);
