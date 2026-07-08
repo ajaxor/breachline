@@ -224,17 +224,17 @@ export class GameModel {
   killUnit(unit, now) { unit.alive = false; this.spatialIndex.remove(unit); this.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DESTROYED, unit: snapshot(unit), at: now }); }
 
   determineResult() {
-    if (this.playerBaseHp <= 0 && this.enemyBaseHp <= 0) return { cssClass: RESULT_TYPE.DRAW, text: 'DRAW — BOTH BASES FALL SIMULTANEOUSLY', playerWon: false };
+    if (this.playerBaseHp <= 0 && this.enemyBaseHp <= 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — BOTH BASES FALL SIMULTANEOUSLY', playerWon: false };
     if (this.enemyBaseHp <= 0) return { cssClass: RESULT_TYPE.PLAYER_WIN, text: 'VICTORY — HOSTILE BASE DESTROYED', playerWon: true };
     if (this.playerBaseHp <= 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — YOUR BASE IS DESTROYED', playerWon: false };
-    if (this.livingPlayerCount === 0 && this.livingEnemyCount === 0) return { cssClass: RESULT_TYPE.DRAW, text: 'DRAW — MUTUAL ANNIHILATION', playerWon: false };
+    if (this.livingPlayerCount === 0 && this.livingEnemyCount === 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — MUTUAL ANNIHILATION', playerWon: false };
     if (this.livingPlayerCount === 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — YOUR FORCE ELIMINATED', playerWon: false };
     if (this.livingEnemyCount === 0) return { cssClass: RESULT_TYPE.PLAYER_WIN, text: 'VICTORY — HOSTILE FORCE ELIMINATED', playerWon: true };
     return null;
   }
 
   finishBattle(result) { return this.campaignProgression.finishBattle(this, result); }
-  returnToDeployment(missionIndex = this.selectedMission) { this.resetBattle(); this.selectedMission = missionIndex; }
+  returnToDeployment(missionIndex = this.selectedMission) { this.resetBattle(); this.selectedMission = missionIndex; this.clearPlacement(); }
   emitCombatEvent(event) { this.combatEvents.push(event); this.eventPresenter?.present(this, event); }
   addLog(message, cssClass = '') { this.logEntries.push({ message, cssClass }); if (this.logEntries.length > GAME_CONFIG.maxLogEntries) this.logEntries.splice(0, this.logEntries.length - GAME_CONFIG.maxLogEntries); }
   point(unit) { return { row: unit.row, column: unit.column }; }
