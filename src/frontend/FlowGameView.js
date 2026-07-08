@@ -1,6 +1,7 @@
+import { MODE } from '../data/gameConfig.js';
 import { GameView } from './GameView.js';
 
-const FLOW_IDS = ['campaignOverlay', 'campaignDifficulty', 'campaignLength', 'btnBeginCampaign', 'btnSandbox', 'btnCampaignBack', 'btnReinforce', 'btnDraftBack'];
+const FLOW_IDS = ['campaignOverlay', 'campaignDifficulty', 'campaignLength', 'btnBeginCampaign', 'btnSandbox', 'btnCampaignBack', 'btnReinforce', 'btnDraftBack', 'btnSandboxGenerate'];
 const DIFFICULTY_LABELS = new Map([[0.8, 'RECRUIT'], [1, 'STANDARD'], [1.25, 'VETERAN'], [1.5, 'BRUTAL']]);
 
 export class FlowGameView extends GameView {
@@ -34,7 +35,8 @@ export class FlowGameView extends GameView {
   renderCampaign(model) {
     if (model.isSandbox) {
       this.elements.missionStrip.replaceChildren();
-      this.elements.missionInfo.textContent = 'Sandbox mode — select any unit, place it in either deployment zone, then launch a deterministic mock battle.';
+      const generated = model.sandboxGeneratedMissionIndex === null ? '' : ` Generated campaign mission ${model.sandboxGeneratedMissionIndex + 1} is loaded as the hostile deployment.`;
+      this.elements.missionInfo.textContent = `Sandbox mode — select any unit, place it in either deployment zone, or generate a campaign hostile deployment for testing.${generated}`;
       this.elements.btnGoDeploy.textContent = 'Return to Sandbox';
       return;
     }
@@ -53,11 +55,15 @@ export class FlowGameView extends GameView {
       this.elements.budgetSpent.textContent = `${model.placement.length} player · ${model.mission.enemyFormation.length} enemy`;
       this.elements.btnLaunch.disabled = model.placement.length === 0 || model.mission.enemyFormation.length === 0;
       this.elements.btnReinforce.hidden = true;
+      this.elements.btnSandboxGenerate.hidden = false;
+      this.elements.btnSandboxGenerate.disabled = model.mode !== MODE.DEPLOY;
+      this.elements.btnSandboxGenerate.textContent = model.sandboxGeneratorLabel;
       return;
     }
     super.renderSupply(model);
     const pending = model.pendingDrafts;
     this.elements.btnReinforce.hidden = false;
+    this.elements.btnSandboxGenerate.hidden = true;
     this.elements.btnReinforce.disabled = pending <= 0;
     this.elements.btnReinforce.textContent = `Reinforce · ${pending}`;
     this.elements.btnReinforce.classList.toggle('attention', pending > 0);
