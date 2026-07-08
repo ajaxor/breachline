@@ -42,6 +42,7 @@ function validateConfig() {
   assertPositiveNumber(GAME_CONFIG.wallBudgetStep, 'wallBudgetStep', { integer: true, allowZero: true });
   assertPositiveNumber(GAME_CONFIG.startingDraftBudget, 'startingDraftBudget', { integer: true });
   assertPositiveNumber(GAME_CONFIG.draftBudgetStep, 'draftBudgetStep', { integer: true, allowZero: true });
+  assertPositiveNumber(GAME_CONFIG.draftBudgetTaper, 'draftBudgetTaper', { integer: true, allowZero: true });
 
   validateZone(GAME_CONFIG.playerZone, 'playerZone');
   validateZone(GAME_CONFIG.enemyZone, 'enemyZone');
