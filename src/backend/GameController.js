@@ -81,8 +81,8 @@ export class GameController {
   handleRosterClick(event) { const button = event.target.closest('[data-unit-type]'); if (!button) return; this.model.setSelectedUnitType(button.dataset.unitType); this.view.renderRoster(this.model); this.clearUnitInspection(); }
   handleExpandedRosterClick(event) { const button = event.target.closest('[data-full-roster-unit]'); if (!button) return; this.model.setSelectedUnitType(button.dataset.fullRosterUnit); this.view.renderRoster(this.model); this.view.closeRoster(); this.clearUnitInspection(); }
   handleDraftClick(event) {
-    const button = event.target.closest('[data-draft-unit]');
-    if (!button || !this.model.chooseDraft(button.dataset.draftUnit)) return;
+    const button = event.target.closest('[data-draft-choice]');
+    if (!button || !this.model.chooseDraft(button.dataset.draftChoice)) return;
     this.view.renderRoster(this.model);
     if (this.model.pendingDrafts > 0) { this.view.renderDraft(this.model); return; }
     this.view.closeDraft();
@@ -98,7 +98,7 @@ export class GameController {
     if (enemy) {
       const key = `${cell.row}:${cell.column}`;
       if (this.inspectedEnemyCell === key) this.clearUnitInspection();
-      else { this.inspectedEnemyCell = key; this.view.showUnitInspector(UNIT_TYPES[enemy.type], 'Hostile unit', 'enemy'); }
+      else { this.inspectedEnemyCell = key; this.view.showUnitInspector(UNIT_TYPES[enemy.type], 'Hostile unit', 'enemy', { includeTechLevel: this.model.isSandbox }); }
       return;
     }
     this.clearUnitInspection();
