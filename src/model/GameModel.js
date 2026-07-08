@@ -51,8 +51,6 @@ export class GameModel {
     this.enemyBaseHp = GAME_CONFIG.baseHp;
     this.result = null;
     this.spatialIndex = new SpatialIndex();
-    this.turnQueue = null;
-    this.consecutiveTurnPasses = 0;
   }
 
   beginDrafts(count = 1) { this.pendingDrafts += count; this.rollDraftChoices(); return this.draftChoices; }
@@ -113,8 +111,6 @@ export class GameModel {
 
   tick() {
     if (this.mode !== MODE.BATTLE || this.battleOver) return this.result;
-    this.turnQueue = null;
-    this.consecutiveTurnPasses = 0;
     this.tickCount += 1;
     const now = this.now();
     this.effects = this.effects.filter((effect) => now - effect.start < effect.duration);
@@ -128,57 +124,6 @@ export class GameModel {
     this.result = this.determineResult();
     if (this.result) this.finishBattle(this.result);
     return this.result;
-  }
-
-  stepTurn() {
-    if (this.mode !== MODE.BATTLE || this.battleOver) return { result: this.result, roundComplete: true, acted: false };
-    const now = this.now();
-    const duration = Math.max(110, Math.min(480, GAME_CONFIG.tickIntervalMs * 0.85));
-    this.effects = this.effects.filter((effect) => now - effect.start < effect.duration);
-    if (!this.turnQueue) {
-      this.tickCount += 1;
-      const livingUnits = this.units.filter((unit) => unit.alive);
-      livingUnits.forEach((unit) => { unit.actedThisTick = false; });
-      this.turnQueue = this.shuffle(livingUnits);
-      this.consecutiveTurnPasses = 0;
-      this.spatialIndex = new SpatialIndex(this.units);
-      this.refreshStealth();
-    }
-
-    while (this.turnQueue.length > 0 && this.consecutiveTurnPasses < this.turnQueue.length) {
-      const unit = this.turnQueue.shift();
-      if (!unit.alive) continue;
-      unit.previousRow = unit.row;
-      unit.previousColumn = unit.column;
-      unit.animationStartedAt = now;
-      unit.animationDuration = duration;
-      unit.movedThisTurn = false;
-      if (!this.processUnit(unit, now, duration)) {
-        this.turnQueue.push(unit);
-        this.consecutiveTurnPasses += 1;
-        continue;
-      }
-
-      unit.actedThisTick = true;
-      this.consecutiveTurnPasses = 0;
-      this.refreshStealth();
-      this.result = this.determineResult();
-      if (this.result) {
-        this.turnQueue = null;
-        this.finishBattle(this.result);
-        return { result: this.result, roundComplete: true, acted: true };
-      }
-      const roundComplete = this.turnQueue.length === 0;
-      if (roundComplete) this.turnQueue = null;
-      return { result: null, roundComplete, acted: true };
-    }
-
-    this.turnQueue = null;
-    this.consecutiveTurnPasses = 0;
-    this.refreshStealth();
-    this.result = this.determineResult();
-    if (this.result) this.finishBattle(this.result);
-    return { result: this.result, roundComplete: true, acted: false };
   }
 
   processActionQueue(units, now, duration) { return this.actionResolver.processQueue(this, units, now, duration); }
