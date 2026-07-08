@@ -37,9 +37,8 @@
           <footer class="missions-footer"><button class="primary full-btn" id="btnGoDeploy">Deploy Mission 1</button></footer>
         </section>
         <section id="screenBattle" class="screen">
-          <div class="phase-strip" id="phaseLabel"></div>
           <div class="battle-topbar">
-            <div class="topbar-row" id="deployTopbar"><button class="mini-btn" id="btnBack">Back</button><div class="budget-mini"><div class="budget-mini-label"><span>SUPPLY</span><span id="budgetSpent"></span></div></div><button class="primary mini-btn" id="btnLaunch" disabled>Launch</button></div>
+            <div class="topbar-row" id="deployTopbar"><button class="mini-btn" id="btnBack">Back</button><div class="budget-mini"><div class="budget-mini-label"><span id="phaseLabel"></span><span id="budgetSpent"></span></div></div><button class="primary mini-btn" id="btnLaunch" disabled>Launch</button></div>
             <div class="topbar-row" id="resolveTopbar" hidden><button class="mini-btn danger" id="btnSurrender">Surrender</button><div class="base-mini player"><div class="base-mini-label">Your Base</div><div class="base-bar-track"><div class="base-bar-fill" id="playerHpFill"></div></div><div class="base-mini-text" id="playerHpText"></div></div><div class="base-mini enemy"><div class="base-mini-label">Hostile Base</div><div class="base-bar-track"><div class="base-bar-fill" id="enemyHpFill"></div></div><div class="base-mini-text" id="enemyHpText"></div></div></div>
           </div>
           <div class="battle-status-line" id="battleStatus" hidden></div>
