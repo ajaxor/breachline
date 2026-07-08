@@ -107,7 +107,7 @@ export class UnitPresentation {
     return chip;
   }
 
-  createDescription(type, { tone = 'player', includeCost = true, quantity = null, meta = '' } = {}) {
+  createDescription(type, { tone = 'player', includeCost = true, includeTechLevel = false, quantity = null, meta = '', label = '' } = {}) {
     const description = this.document.createElement('div');
     description.className = `unit-description ${tone}`;
 
@@ -121,10 +121,11 @@ export class UnitPresentation {
     name.className = 'unit-description-name';
     name.textContent = type.name;
     identity.append(name, this.createRole(type));
-    if (meta) {
+    const detailText = meta || label;
+    if (detailText) {
       const detail = this.document.createElement('div');
       detail.className = 'unit-description-meta';
-      detail.textContent = meta;
+      detail.textContent = detailText;
       identity.appendChild(detail);
     }
     header.appendChild(identity);
@@ -147,7 +148,7 @@ export class UnitPresentation {
     const heals = hasUnitTag(type, UNIT_TAG.HEAL);
     const actionLabel = heals ? 'HEAL' : 'ATK';
     const actionValue = heals ? type.healAmount : type.attack;
-    details.innerHTML = `<span class="unit-description-stat">HP <strong>${type.hp}</strong></span><span class="unit-description-stat">${actionLabel} <strong>${actionValue}</strong></span>${type.range > 1 ? `<span class="unit-description-stat">RNG <strong>${type.range}</strong></span>` : ''}`;
+    details.innerHTML = `<span class="unit-description-stat">HP <strong>${type.hp}</strong></span><span class="unit-description-stat">${actionLabel} <strong>${actionValue}</strong></span>${type.range > 1 ? `<span class="unit-description-stat">RNG <strong>${type.range}</strong></span>` : ''}${includeTechLevel ? `<span class="unit-description-stat">TL <strong>${type.techLevel}</strong></span>` : ''}`;
 
     const tooltip = this.document.createElement('div');
     tooltip.className = 'unit-ability-tooltip';
