@@ -25,7 +25,8 @@ The frame layer is shared rendering infrastructure. It must not be redrawn diffe
 - **Support:** circle
 - **Flying:** lens / winged lozenge
 - **Specialist:** diamond
-- **Structure:** large horizontal rectangle
+- **Wall:** wide horizontal rectangle
+- **Structure:** hexagon
 
 Preserve these role associations unless the entire visual language is intentionally redesigned.
 
@@ -95,7 +96,8 @@ Icons in the same role should feel related without becoming interchangeable.
 - Support: circular, radiating, symmetric, medical, or utility forms.
 - Flying: light, vertical, wing-like, or aerodynamic forms.
 - Specialist: unusual but still simple high-concept forms.
-- Structure: static, fortified, mounted, or anchored forms.
+- Wall: broad, fortified, blocking, braced, or barricade-like forms.
+- Structure: static, mounted, weaponized, anchored, or mechanical forms.
 
 ### 7. Optimize for gameplay size
 
