@@ -16,7 +16,7 @@ function weightsForMission(index) {
     const weight = index < unlockMission ? 0 : initialWeight + weightGrowth * (index - unlockMission);
     return [type.key, weight];
   }));
-  const specialistWeight = Object.entries(weights).filter(([key]) => key !== 'grunt').reduce((sum, [, value]) => sum + value, 0);
+  const specialistWeight = Object.entries(weights).filter(([key]) => key !== 'grunt' && key !== 'wall').reduce((sum, [, value]) => sum + value, 0);
   weights.grunt = Math.max(0.25, 1 - specialistWeight * 0.42);
   return weights;
 }
@@ -52,35 +52,46 @@ function chooseFormationUnit(keys, weights, remaining, missionIndex, pairIndex, 
   return weightedPick(weights, pool, random);
 }
 
-function generateFormation(budget, missionIndex, random) {
+function addWallLine(formation, rowPairs, wallBudget, random) {
+  const wallPairCost = UNIT_TYPES.wall.cost * 2;
+  let remaining = wallBudget;
+  let placedPairs = 0;
+  const occupied = new Set(formation.map((unit) => `${unit.row}:${unit.column}`));
+  const frontColumns = GAME_CONFIG.enemyZone.slice(0, 2);
+  const wallSlots = shuffle(frontColumns.flatMap((column) => rowPairs.map((pair) => ({ column, pair }))), random);
+
+  for (const slot of wallSlots) {
+    if (remaining < wallPairCost) break;
+    if (occupied.has(`${slot.pair[0]}:${slot.column}`) || occupied.has(`${slot.pair[1]}:${slot.column}`)) continue;
+    addMirroredPair(formation, slot.pair, slot.column, 'wall');
+    occupied.add(`${slot.pair[0]}:${slot.column}`);
+    occupied.add(`${slot.pair[1]}:${slot.column}`);
+    remaining -= wallPairCost;
+    placedPairs += 1;
+  }
+  return placedPairs;
+}
+
+function generateFormation(budget, wallBudget, missionIndex, random) {
   const rowPairs = Array.from({ length: GAME_CONFIG.rows / 2 }, (_, row) => [row, GAME_CONFIG.rows - 1 - row]);
   const weights = weightsForMission(missionIndex);
-  const unlockedMobile = ENEMY_UNIT_TYPES.filter((type) => type.role !== UNIT_ROLE.STRUCTURE && (weights[type.key] ?? 0) > 0);
-  const meleeKeys = unlockedMobile.filter((type) => type.role === UNIT_ROLE.MELEE).map((type) => type.key);
-  const protectedKeys = unlockedMobile.filter((type) => type.role !== UNIT_ROLE.MELEE).map((type) => type.key);
-  const allMobileKeys = unlockedMobile.map((type) => type.key);
   const formation = [];
-  let remaining = budget;
+  const wallPairs = addWallLine(formation, rowPairs, wallBudget, random);
 
-  const barricadePairCost = UNIT_TYPES.tollbooth.cost * 2;
-  const cheapestMobilePair = Math.min(...allMobileKeys.map((key) => UNIT_TYPES[key].cost * 2));
-  const barricadePairs = shuffle(rowPairs, random);
-  const frontColumns = GAME_CONFIG.enemyZone.slice(0, 2);
-  const desiredBarricadePairs = remaining >= barricadePairCost * 2 + cheapestMobilePair ? 2 : 1;
-  let placedBarricadePairs = 0;
-  for (let index = 0; index < desiredBarricadePairs; index += 1) {
-    if (remaining < barricadePairCost + cheapestMobilePair) break;
-    addMirroredPair(formation, barricadePairs[index], frontColumns[Math.min(index, frontColumns.length - 1)], 'tollbooth');
-    remaining -= barricadePairCost;
-    placedBarricadePairs += 1;
-  }
+  const unlockedMobile = ENEMY_UNIT_TYPES.filter((type) => type.role !== UNIT_ROLE.STRUCTURE && (weights[type.key] ?? 0) > 0);
+  const unlockedStructures = ENEMY_UNIT_TYPES.filter((type) => type.role === UNIT_ROLE.STRUCTURE && type.key !== 'wall' && (weights[type.key] ?? 0) > 0);
+  const meleeKeys = unlockedMobile.filter((type) => type.role === UNIT_ROLE.MELEE).map((type) => type.key);
+  const protectedKeys = [...unlockedMobile.filter((type) => type.role !== UNIT_ROLE.MELEE).map((type) => type.key), ...unlockedStructures.map((type) => type.key)];
+  const allNonWallKeys = [...unlockedMobile.map((type) => type.key), ...unlockedStructures.map((type) => type.key)];
+  let remaining = budget;
 
   const occupied = new Set(formation.map((unit) => `${unit.row}:${unit.column}`));
   const frontColumn = GAME_CONFIG.enemyZone[0];
   const frontMeleeSlots = shuffle(rowPairs, random)
     .filter((pair) => !occupied.has(`${pair[0]}:${frontColumn}`) && !occupied.has(`${pair[1]}:${frontColumn}`))
     .map((pair) => ({ column: frontColumn, pair, keys: meleeKeys }));
-  const rearColumns = GAME_CONFIG.enemyZone.slice(Math.max(1, placedBarricadePairs));
+  const rearStartOffset = Math.min(2, Math.max(1, wallPairs));
+  const rearColumns = GAME_CONFIG.enemyZone.slice(rearStartOffset);
   const protectedSlots = shuffle(rearColumns.flatMap((column) => rowPairs.map((pair) => ({ column, pair, keys: protectedKeys }))), random)
     .filter(({ column, pair }) => !occupied.has(`${pair[0]}:${column}`) && !occupied.has(`${pair[1]}:${column}`));
 
@@ -104,7 +115,7 @@ function generateFormation(budget, missionIndex, random) {
   }
 
   if (!formation.some((unit) => UNIT_TYPES[unit.type].role !== UNIT_ROLE.STRUCTURE)) {
-    const fallback = allMobileKeys.filter((key) => UNIT_TYPES[key].cost * 2 <= remaining).sort((left, right) => UNIT_TYPES[left].cost - UNIT_TYPES[right].cost)[0];
+    const fallback = allNonWallKeys.filter((key) => UNIT_TYPES[key].cost * 2 <= remaining && UNIT_TYPES[key].role !== UNIT_ROLE.STRUCTURE).sort((left, right) => UNIT_TYPES[left].cost - UNIT_TYPES[right].cost)[0];
     const fallbackSlot = fallback && UNIT_TYPES[fallback].role === UNIT_ROLE.MELEE ? frontMeleeSlots[0] : protectedSlots[0];
     if (fallback && fallbackSlot) addMirroredPair(formation, fallbackSlot.pair, fallbackSlot.column, fallback);
   }
@@ -116,7 +127,8 @@ export function createCampaign(random = Math.random, { missionCount = GAME_CONFI
     const playerBudget = GAME_CONFIG.startingBudget + index * GAME_CONFIG.budgetStep;
     const baseEnemyBudget = playerBudget + GAME_CONFIG.enemyBudgetBonus + index * GAME_CONFIG.enemyBudgetStep;
     const enemyBudget = Math.round(baseEnemyBudget * difficulty);
+    const wallBudget = Math.round((GAME_CONFIG.wallBudgetBase + index * GAME_CONFIG.wallBudgetStep) * difficulty);
     const draftBudget = GAME_CONFIG.startingDraftBudget + index * GAME_CONFIG.draftBudgetStep;
-    return { index, playerBudget, enemyBudget, draftBudget, enemyFormation: generateFormation(enemyBudget, index, random), status: index === 0 ? MISSION_STATUS.AVAILABLE : MISSION_STATUS.LOCKED };
+    return { index, playerBudget, enemyBudget, wallBudget, draftBudget, enemyFormation: generateFormation(enemyBudget, wallBudget, index, random), status: index === 0 ? MISSION_STATUS.AVAILABLE : MISSION_STATUS.LOCKED };
   });
 }
