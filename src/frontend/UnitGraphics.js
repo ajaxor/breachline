@@ -16,6 +16,7 @@ const ABSTRACT_UNIT_DRAWERS = Object.freeze({
   fusilier: drawFusilierSymbol,
   flak: drawFlakSymbol,
   artillery: drawArtillerySymbol,
+  bertha: drawBerthaSymbol,
   medic: drawMedicSymbol,
   aegis: drawAegisSymbol,
   amplifier: drawAmplifierSymbol,
@@ -195,14 +196,38 @@ function drawFlakSymbol(ctx, radius) {
 
 function drawArtillerySymbol(ctx, radius) {
   ctx.lineWidth = Math.max(1.5, radius * 0.11);
+  fillRectScaled(ctx, radius, -0.52, 0.38, 1.04, 0.16);
+  fillShape(ctx, radius, [[-0.42, 0.36], [-0.22, 0.16], [0.18, 0.16], [0.42, 0.36]]);
   ctx.beginPath();
-  ctx.arc(-radius * 0.08, radius * 0.2, radius * 0.34, Math.PI, Math.PI * 2);
-  ctx.moveTo(-radius * 0.42, radius * 0.2);
-  ctx.lineTo(radius * 0.3, radius * 0.2);
-  ctx.moveTo(radius * 0.08, -radius * 0.02);
-  ctx.lineTo(radius * 0.62, -radius * 0.48);
+  ctx.arc(-radius * 0.38, radius * 0.5, radius * 0.14, 0, Math.PI * 2);
+  ctx.arc(radius * 0.38, radius * 0.5, radius * 0.14, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-radius * 0.08, radius * 0.1);
+  ctx.lineTo(radius * 0.42, -radius * 0.42);
+  ctx.moveTo(radius * 0.08, radius * 0.18);
+  ctx.lineTo(radius * 0.58, -radius * 0.34);
   ctx.stroke();
-  fillShape(ctx, radius, [[0.54, -0.6], [0.76, -0.66], [0.7, -0.44]]);
+  fillShape(ctx, radius, [[0.5, -0.48], [0.72, -0.58], [0.66, -0.28]]);
+}
+
+function drawBerthaSymbol(ctx, radius) {
+  ctx.lineWidth = Math.max(1.7, radius * 0.12);
+  fillRectScaled(ctx, radius, -0.62, 0.32, 1.24, 0.22);
+  fillRectScaled(ctx, radius, -0.42, 0.14, 0.84, 0.22);
+  fillShape(ctx, radius, [[-0.3, 0.12], [0.16, -0.18], [0.34, 0.02], [-0.08, 0.26]]);
+  ctx.beginPath();
+  ctx.moveTo(0.02 * radius, -0.14 * radius);
+  ctx.lineTo(0.62 * radius, -0.68 * radius);
+  ctx.moveTo(0.18 * radius, -0.02 * radius);
+  ctx.lineTo(0.78 * radius, -0.56 * radius);
+  ctx.stroke();
+  fillShape(ctx, radius, [[0.62, -0.78], [0.88, -0.68], [0.72, -0.42]]);
+  ctx.beginPath();
+  ctx.arc(-radius * 0.42, radius * 0.58, radius * 0.16, 0, Math.PI * 2);
+  ctx.arc(radius * 0.42, radius * 0.58, radius * 0.16, 0, Math.PI * 2);
+  ctx.fill();
+  fillRectScaled(ctx, radius, -0.12, -0.4, 0.18, 0.18);
 }
 
 function drawMedicSymbol(ctx, radius) {
