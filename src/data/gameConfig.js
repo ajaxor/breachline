@@ -19,8 +19,8 @@ export const GAME_CONFIG = Object.freeze({
   enemyBudgetStep: 10,
   startingDraftBudget: 100,
   draftBudgetStep: 40,
-  playerZone: Object.freeze([0, 1, 2, 3, 4]),
-  enemyZone: Object.freeze([9, 10, 11, 12, 13]),
+  playerZone: Object.freeze([0, 1, 2, 3, 4, 5, 6]),
+  enemyZone: Object.freeze([7, 8, 9, 10, 11, 12, 13]),
 });
 
 export const UNIT_TAG = Object.freeze({
