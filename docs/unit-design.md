@@ -11,6 +11,16 @@ Use this guide when adding or revising units. The goal is not to make every unit
 - Balance against mixed armies and mission objectives, not only mirrored duels. Support and specialist units may be weak alone while still creating strong contribution or objective-pressure scores.
 - Keep campaign availability in mind. Early units should be broadly useful and easy to read; later units may ask for more deliberate positioning or roster construction.
 
+## Tech level
+
+Each unit must define a tech level from 1 to 5. Tech level controls when campaign drafts and hostile deployments start using the unit; sandbox mode can still expose the full roster.
+
+- Use lower tech levels for units that are easy to read, have few special cases, and reinforce the basic lane-fighting rules.
+- Use higher tech levels for units with more mechanical complexity, especially units with persistent auras, reload/salvo timing, stealth, flying pressure, factories, or multi-lane area effects.
+- A little power creep by tech level is acceptable because later campaign missions can support more complicated and slightly stronger threats. Keep that creep modest: higher tech should usually mean more specialized or more complex, not simply better stats in every matchup.
+- One-tech-ahead units may appear rarely through the campaign's fuzzy availability curve. They should feel like a preview or spice, not a balance-breaking jump that invalidates current-tech choices.
+- Tech level and cost solve different problems. Tech level gates learning and campaign pacing; cost still carries the main responsibility for battlefield balance.
+
 ## Role identity
 
 ### Melee
@@ -67,11 +77,12 @@ Structures should have substantially more health than mobile units. Their lack o
 
 1. Write the intended battlefield job and counterplay before changing numbers.
 2. Choose the role that describes the primary tactical identity, then add tags for mechanics.
-3. Compare health, attack, range, and cost with the closest existing units in that role.
-4. Run `npm test` and `npm run balance`.
-5. Review mirrored win rate, surviving/base margin, marginal mixed-army contribution, objective pressure, and timeout rate separately.
-6. Inspect matchup outliers rather than relying only on the aggregate rating. Confirm that strong and weak matchups make thematic sense.
-7. Play or inspect representative mixed formations, especially for support, flying, and specialist units.
-8. After an intentional and understood balance change, update the regression envelope with `npm run balance:accept` and commit it with the unit changes.
+3. Assign a tech level that matches the unit's complexity and campaign pacing.
+4. Compare health, attack, range, and cost with the closest existing units in that role and tech band.
+5. Run `npm test` and `npm run balance`.
+6. Review mirrored win rate, surviving/base margin, marginal mixed-army contribution, objective pressure, and timeout rate separately.
+7. Inspect matchup outliers rather than relying only on the aggregate rating. Confirm that strong and weak matchups make thematic sense.
+8. Play or inspect representative mixed formations, especially for support, flying, and specialist units.
+9. After an intentional and understood balance change, update the regression envelope with `npm run balance:accept` and commit it with the unit changes.
 
 The automated ratings are guardrails, not a substitute for judgment. A healthy unit may have a mediocre duel score when its contribution and objective-pressure scores demonstrate that it fulfills a useful niche.
