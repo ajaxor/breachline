@@ -173,6 +173,15 @@ export class StrategyGameModel extends GameModel {
     return true;
   }
 
+  finishBattle(result) {
+    const finished = super.finishBattle(result);
+    if (!this.isSandbox) {
+      for (const type of PLAYER_UNIT_TYPES) if ((this.supply[type.key] ?? 0) <= 0) this.roster[type.key] = false;
+      if (this.selectedUnitType && !this.roster[this.selectedUnitType]) this.selectedUnitType = this.rosterTypes[0]?.key ?? null;
+    }
+    return finished;
+  }
+
   replayLastBattle() {
     if (!this.lastBattle) return false;
     this.random = createSeededRandom(this.lastBattle.seed);
