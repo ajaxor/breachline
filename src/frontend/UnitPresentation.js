@@ -33,6 +33,8 @@ const TAG_DESCRIPTION = Object.freeze({
   [UNIT_TAG.JAMMER]: 'Cloaks allied units within the aura. Cloaked units remain targetable by adjacent enemies.',
 });
 
+const HIDDEN_TAGS = new Set([UNIT_TAG.FLYING, UNIT_TAG.AI_ONLY]);
+
 export class UnitPresentation {
   constructor(documentRef) {
     this.document = documentRef;
@@ -148,7 +150,7 @@ export class UnitPresentation {
     tooltip.setAttribute('role', 'tooltip');
     tooltip.hidden = true;
 
-    type.tags.filter((tag) => tag !== UNIT_TAG.FLYING).forEach((tag) => {
+    type.tags.filter((tag) => !HIDDEN_TAGS.has(tag)).forEach((tag) => {
       details.appendChild(this.createTagChip(tag, tooltip, description));
     });
 
