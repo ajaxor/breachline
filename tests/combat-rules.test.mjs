@@ -134,6 +134,30 @@ test('agile units consume their dodge when both adjacent lanes are blocked', () 
   assert.deepEqual({ row: agile.row, column: agile.column }, { row: 2, column: 2 });
 });
 
+test('barricade thorns reflect melee damage back to attackers', () => {
+  const attacker = createBattleUnit({ id: 1, row: 2, column: 6 });
+  const barricade = createBattleUnit({ id: 2, team: TEAM.ENEMY, type: 'tollbooth', row: 2, column: 7 });
+  const model = withUnits(attacker, barricade);
+  model.attackUnit(attacker, barricade, [barricade], 100, 100);
+  assert.equal(hasUnitTag(UNIT_TYPES.tollbooth, UNIT_TAG.THORNS), true);
+  assert.equal(barricade.hp, UNIT_TYPES.tollbooth.hp - UNIT_TYPES.grunt.attack);
+  assert.equal(attacker.hp, UNIT_TYPES.grunt.hp - Math.ceil(UNIT_TYPES.grunt.attack * UNIT_TYPES.tollbooth.thorns.reflectRatio));
+});
+
+test('factories produce cheap melee units into the lane ahead', () => {
+  const factory = createBattleUnit({ id: 1, team: TEAM.ENEMY, type: 'factory', row: 2, column: 10 });
+  const model = withUnits(factory);
+  model.nextUnitId = 2;
+  assert.equal(hasUnitTag(UNIT_TYPES.factory, UNIT_TAG.FACTORY), true);
+  assert.equal(model.processUnit(factory, 100, 100), true);
+  const produced = model.units.find((unit) => unit.id === 2);
+  assert.ok(produced, 'factory did not create a unit');
+  assert.equal(produced.type, UNIT_TYPES.factory.production.type);
+  assert.equal(UNIT_TYPES[produced.type].role, 'melee');
+  assert.deepEqual({ row: produced.row, column: produced.column, team: produced.team }, { row: 2, column: 9, team: TEAM.ENEMY });
+  assert.equal(model.occupantAt(2, 9), produced);
+});
+
 test('stationary units never move', () => {
   const structure = createBattleUnit({ id: 1, team: TEAM.ENEMY, type: 'tollbooth', row: 2, column: 10 });
   const model = withUnits(structure);
