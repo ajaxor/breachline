@@ -1,4 +1,4 @@
-import { TEAM, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
+import { TEAM, UNIT_ROLE, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
 
 export const gridDistance = (a, b) => Math.max(Math.abs(a.row - b.row), Math.abs(a.column - b.column));
 const laneDistance = (a, b) => Math.abs(a.column - b.column);
@@ -9,6 +9,11 @@ export class TargetingPolicy {
     return (target.column - attacker.column) * direction >= 0;
   }
 
+  isBlockingAdjacent(attacker, target) {
+    const direction = attacker.team === TEAM.PLAYER ? 1 : -1;
+    return target.row === attacker.row && target.column === attacker.column + direction;
+  }
+
   isInAttackPattern(attacker, target, type = UNIT_TYPES[attacker.type]) {
     if (hasUnitTag(type, UNIT_TAG.SWIVEL)) return gridDistance(attacker, target) <= type.range;
     return attacker.row === target.row && laneDistance(attacker, target) <= type.range;
@@ -17,6 +22,8 @@ export class TargetingPolicy {
   canTarget(attacker, target, type = UNIT_TYPES[attacker.type]) {
     if (!this.isAhead(attacker, target)) return false;
     if (!this.isInAttackPattern(attacker, target, type)) return false;
+    const targetType = UNIT_TYPES[target.type];
+    if (type.role === UNIT_ROLE.RANGED && targetType?.role === UNIT_ROLE.STRUCTURE && targetType.attack <= 0 && !this.isBlockingAdjacent(attacker, target)) return false;
     if (hasUnitTag(target.type, UNIT_TAG.FLYING)
       && !hasUnitTag(type, UNIT_TAG.FLYING)
       && !hasUnitTag(type, UNIT_TAG.ANTI_AIR)) return false;
@@ -24,7 +31,14 @@ export class TargetingPolicy {
     return !stealthActive || gridDistance(attacker, target) <= 1;
   }
 
+  targetPriority(attacker, target, type = UNIT_TYPES[attacker.type]) {
+    const targetType = UNIT_TYPES[target.type];
+    if (type.role === UNIT_ROLE.RANGED && targetType?.role === UNIT_ROLE.STRUCTURE) return 1;
+    return 0;
+  }
+
   nearest(candidates, origin) {
-    return candidates.slice().sort((a, b) => gridDistance(origin, a) - gridDistance(origin, b))[0] ?? null;
+    const type = UNIT_TYPES[origin.type];
+    return candidates.slice().sort((a, b) => (this.targetPriority(origin, a, type) - this.targetPriority(origin, b, type)) || gridDistance(origin, a) - gridDistance(origin, b))[0] ?? null;
   }
 }
