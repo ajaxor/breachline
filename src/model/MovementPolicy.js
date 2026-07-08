@@ -10,6 +10,21 @@ export class MovementPolicy {
     return hasUnitTag(type, UNIT_TAG.CHARGE) && !unit.chargeUsed ? 2 : 1;
   }
 
+  openSideRows(model, unit) {
+    return [unit.row - 1, unit.row + 1]
+      .filter((row) => row >= 0 && row < GAME_CONFIG.rows && !model.occupantAt(row, unit.column));
+  }
+
+  scatterSideways(model, unit) {
+    const openRows = this.openSideRows(model, unit);
+    if (!openRows.length) return false;
+    const previousRow = unit.row;
+    const previousColumn = unit.column;
+    unit.row = openRows[Math.floor(model.random() * openRows.length)];
+    model.spatialIndex.move(unit, previousRow, previousColumn);
+    return true;
+  }
+
   move(model, unit, now, duration, forcedSteps = null) {
     const type = UNIT_TYPES[unit.type];
     if (hasUnitTag(type, UNIT_TAG.STATIONARY)) return false;
@@ -25,7 +40,10 @@ export class MovementPolicy {
         model.breach(unit, direction, now, duration);
         return true;
       }
-      if (!hasUnitTag(type, UNIT_TAG.FLYING) && model.occupantAt(unit.row, nextColumn)) break;
+      if (!hasUnitTag(type, UNIT_TAG.FLYING) && model.occupantAt(unit.row, nextColumn)) {
+        if (!moved && hasUnitTag(type, UNIT_TAG.SCATTER)) return this.scatterSideways(model, unit);
+        break;
+      }
       unit.column = nextColumn;
       moved = true;
     }
