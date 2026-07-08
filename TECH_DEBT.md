@@ -31,7 +31,3 @@ No open items.
 ### Rendering and performance
 
 No open items.
-
-## Review record
-
-The current assessment and category ratings from the 2026-07-07 audit are documented in [`CODEBASE_REVIEW.md`](CODEBASE_REVIEW.md).
