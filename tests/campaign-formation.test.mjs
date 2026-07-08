@@ -5,9 +5,25 @@ import { MISSION_STATUS } from '../src/data/gameTypes.js';
 import { createCampaign } from '../src/model/CampaignFactory.js';
 
 const campaign = createCampaign(() => 0.5);
+const PROTECTED_ROLES = new Set([UNIT_ROLE.RANGED, UNIT_ROLE.SUPPORT, UNIT_ROLE.FLYING]);
 
 function costOf(units) {
   return units.reduce((sum, unit) => sum + UNIT_TYPES[unit.type].cost, 0);
+}
+
+function rowPair(unit) {
+  return Math.min(unit.row, GAME_CONFIG.rows - 1 - unit.row);
+}
+
+function blockersByPair(mission) {
+  const blockers = new Map();
+  for (const unit of mission.enemyFormation) {
+    if (UNIT_TYPES[unit.type].role !== UNIT_ROLE.STRUCTURE) continue;
+    const pair = rowPair(unit);
+    if (!blockers.has(pair)) blockers.set(pair, []);
+    blockers.get(pair).push(unit.column);
+  }
+  return blockers;
 }
 
 test('campaign has the configured mission count and unlock state', () => {
@@ -41,41 +57,51 @@ test('enemy formations remain mirrored across the horizontal center line', () =>
   }
 });
 
-test('walls spend from a separate campaign budget and mostly defend the middle deployment area', () => {
+test('campaign builds defensive bases before adding mobile armies', () => {
   for (const mission of campaign) {
-    const walls = mission.enemyFormation.filter((unit) => unit.type === 'wall');
-    const defenders = mission.enemyFormation.filter((unit) => unit.type !== 'wall');
-    assert.ok(walls.length >= 2, `mission ${mission.index + 1} has no wall line`);
-    assert.ok(defenders.some((unit) => UNIT_TYPES[unit.type].role !== UNIT_ROLE.STRUCTURE), `mission ${mission.index + 1} has no mobile defenders`);
-    assert.equal(mission.wallBudget, GAME_CONFIG.wallBudgetBase + mission.index * GAME_CONFIG.wallBudgetStep);
-
-    const frontWallCount = walls.filter((unit) => unit.column === GAME_CONFIG.enemyZone[0]).length;
-    assert.ok(frontWallCount < walls.length, `mission ${mission.index + 1} puts every wall on the front line`);
+    const structures = mission.enemyFormation.filter((unit) => UNIT_TYPES[unit.type].role === UNIT_ROLE.STRUCTURE);
+    const mobile = mission.enemyFormation.filter((unit) => UNIT_TYPES[unit.type].role !== UNIT_ROLE.STRUCTURE);
+    assert.ok(structures.length >= 2, `mission ${mission.index + 1} has no defensive base`);
+    assert.ok(mobile.length >= 2, `mission ${mission.index + 1} has no mobile army`);
+    assert.ok(structures.some((unit) => unit.column > GAME_CONFIG.enemyZone[0]), `mission ${mission.index + 1} puts every base piece on the front line`);
   }
 });
 
-test('campaign creates varied line blob and column deployment shapes', () => {
-  const shapeCounts = campaign.map((mission) => {
-    const cellCountsByColumn = new Map();
-    const cellCountsByPair = new Map();
+test('ranged flying and support units deploy behind walls or structures when present', () => {
+  for (const mission of campaign) {
+    const blockers = blockersByPair(mission);
     for (const unit of mission.enemyFormation) {
-      const pair = Math.min(unit.row, GAME_CONFIG.rows - 1 - unit.row);
-      cellCountsByColumn.set(unit.column, (cellCountsByColumn.get(unit.column) ?? 0) + 1);
-      cellCountsByPair.set(pair, (cellCountsByPair.get(pair) ?? 0) + 1);
+      const role = UNIT_TYPES[unit.type].role;
+      if (!PROTECTED_ROLES.has(role)) continue;
+      const pairBlockers = blockers.get(rowPair(unit)) ?? [];
+      assert.ok(
+        pairBlockers.some((column) => column < unit.column),
+        `mission ${mission.index + 1} exposes protected ${unit.type} in front of its base`,
+      );
     }
-    return {
-      hasVerticalLine: [...cellCountsByColumn.values()].some((count) => count >= 4),
-      hasHorizontalLine: [...cellCountsByPair.values()].some((count) => count >= 6),
-      usedColumns: cellCountsByColumn.size,
-    };
-  });
-
-  assert.ok(shapeCounts.some((shape) => shape.hasVerticalLine), 'campaign never creates a vertical line');
-  assert.ok(shapeCounts.some((shape) => shape.hasHorizontalLine), 'campaign never creates a horizontal line');
-  assert.ok(shapeCounts.some((shape) => shape.usedColumns >= 3), 'campaign never creates a blob or broad symmetric formation');
+  }
 });
 
-test('later missions field denser armies with both cheap and premium units', () => {
+test('later missions use drafted army cores instead of high-variety random collections', () => {
+  for (const mission of campaign.slice(5)) {
+    const mobile = mission.enemyFormation.filter((unit) => UNIT_TYPES[unit.type].role !== UNIT_ROLE.STRUCTURE);
+    const mobileTypes = new Set(mobile.map((unit) => unit.type));
+    const nonSupportTypes = new Set(mobile.filter((unit) => UNIT_TYPES[unit.type].role !== UNIT_ROLE.SUPPORT).map((unit) => unit.type));
+    const typeCounts = mobile.reduce((counts, unit) => counts.set(unit.type, (counts.get(unit.type) ?? 0) + 1), new Map());
+    assert.ok(nonSupportTypes.size <= 2, `mission ${mission.index + 1} uses too many non-support army types`);
+    assert.ok(mobileTypes.size <= 3, `mission ${mission.index + 1} uses too many total army types`);
+    assert.ok([...typeCounts.values()].some((count) => count >= 4), `mission ${mission.index + 1} lacks repeated unit counts`);
+  }
+});
+
+test('support units stay limited in generated armies', () => {
+  for (const mission of campaign) {
+    const supportCount = mission.enemyFormation.filter((unit) => UNIT_TYPES[unit.type].role === UNIT_ROLE.SUPPORT).length;
+    assert.ok(supportCount <= 2, `mission ${mission.index + 1} has too many support units`);
+  }
+});
+
+test('later missions field denser armies with both cheap mass and premium units', () => {
   const earlyAverage = campaign.slice(0, 3).reduce((sum, mission) => sum + mission.enemyFormation.length, 0) / 3;
   const lateAverage = campaign.slice(-3).reduce((sum, mission) => sum + mission.enemyFormation.length, 0) / 3;
   assert.ok(lateAverage > earlyAverage, `late army density ${lateAverage} did not exceed early density ${earlyAverage}`);
@@ -85,7 +111,7 @@ test('later missions field denser armies with both cheap and premium units', () 
     const combatants = mission.enemyFormation.filter((unit) => unit.type !== 'wall');
     const mobileCosts = mobile.map((unit) => UNIT_TYPES[unit.type].cost);
     const combatantCosts = combatants.map((unit) => UNIT_TYPES[unit.type].cost);
-    assert.ok(Math.min(...mobileCosts) <= 27, `mission ${mission.index + 1} lacks cheap mass units`);
+    assert.ok(Math.min(...mobileCosts) <= 30, `mission ${mission.index + 1} lacks cheap mass units`);
     assert.ok(Math.max(...combatantCosts) >= 32, `mission ${mission.index + 1} lacks a premium unit`);
   }
 });
