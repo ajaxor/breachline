@@ -30,4 +30,4 @@ No open items.
 
 ### Rendering and performance
 
-No open items.
+- [ ] **Move experimental raster unit portraits out of `UnitGraphics.js` if the portrait direction is retained.** The Grunt, Bulwark, and Lancer trial embeds compressed PNG data URIs directly in the renderer so the visual experiment can ship as one reversible change, but expanding that pattern would bloat the module and mix asset storage with drawing behavior. Establish a dedicated unit-art asset directory and preload/cache service before converting additional units.
