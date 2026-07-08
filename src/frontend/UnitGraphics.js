@@ -44,7 +44,7 @@ const ROLE_FRAME_SCALE = Object.freeze({
   support: 1,
   flying: 1,
   specialist: 1.05,
-  structure: 1.16,
+  structure: 1.1,
 });
 
 export const drawUnitGraphic = (context, graphic, x, y, radius, color, role = null) => {
@@ -89,7 +89,7 @@ const unitBodyPath = (ctx, role, radius) => {
     ctx.quadraticCurveTo(-radius * 0.35, radius, -radius, 0);
     ctx.closePath();
   } else if (role === 'specialist') polygon(ctx, radius, 4, -Math.PI / 2);
-  else if (role === 'structure') polygon(ctx, radius, 6, Math.PI / 6);
+  else if (role === 'structure') ctx.roundRect(-radius, -radius * 0.72, radius * 2, radius * 1.44, radius * 0.12);
   else ctx.rect(-radius, -radius, radius * 2, radius * 2);
 };
 
