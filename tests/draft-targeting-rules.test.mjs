@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { TEAM, UNIT_ROLE } from '../src/data/gameConfig.js';
+import { TEAM, UNIT_ROLE, UNIT_TYPES } from '../src/data/gameConfig.js';
 import { StrategyGameModel } from '../src/model/StrategyGameModel.js';
 import { TargetingPolicy } from '../src/model/TargetingPolicy.js';
 
@@ -23,7 +23,16 @@ test('reinforcement drafts never pair two support units', () => {
   }
 });
 
-test('ranged units ignore passive structures unless directly blocked by them', () => {
+test('non-attacking structures use the wall role and frame', () => {
+  assert.equal(UNIT_TYPES.wall.role, UNIT_ROLE.WALL);
+  assert.equal(UNIT_TYPES.tollbooth.role, UNIT_ROLE.WALL);
+  assert.equal(UNIT_TYPES.factory.role, UNIT_ROLE.WALL);
+  assert.equal(UNIT_TYPES.wall.shape, 'rectangle');
+  assert.equal(UNIT_TYPES.sentry.role, UNIT_ROLE.STRUCTURE);
+  assert.equal(UNIT_TYPES.sentry.shape, 'hex');
+});
+
+test('ranged units ignore walls unless directly blocked by them', () => {
   const targeting = new TargetingPolicy();
   const attacker = { id: 1, team: TEAM.PLAYER, type: 'sniper', row: 3, column: 3 };
   const distantWall = { id: 2, team: TEAM.ENEMY, type: 'wall', row: 3, column: 6 };
@@ -33,11 +42,12 @@ test('ranged units ignore passive structures unless directly blocked by them', (
   assert.equal(targeting.canTarget(attacker, adjacentWall), true);
 });
 
-test('ranged units prefer mobile targets over structures', () => {
+test('ranged units treat armed structures like other units', () => {
   const targeting = new TargetingPolicy();
   const attacker = { id: 1, team: TEAM.PLAYER, type: 'sniper', row: 3, column: 3 };
   const nearbyTurret = { id: 2, team: TEAM.ENEMY, type: 'sentry', row: 3, column: 4 };
   const farGrunt = { id: 3, team: TEAM.ENEMY, type: 'grunt', row: 3, column: 7 };
 
-  assert.equal(targeting.nearest([nearbyTurret, farGrunt], attacker), farGrunt);
+  assert.equal(targeting.canTarget(attacker, nearbyTurret), true);
+  assert.equal(targeting.nearest([nearbyTurret, farGrunt], attacker), nearbyTurret);
 });
