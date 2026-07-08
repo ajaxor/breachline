@@ -19,6 +19,7 @@ export class FlowGameController extends GameController {
     this.listen(elements.btnBack, 'click', () => this.activateTab('missions'));
     this.listen(elements.btnSurrender, 'click', () => this.surrenderCampaign());
     this.listen(elements.btnReinforce, 'click', () => this.openReinforcements());
+    this.listen(elements.btnSandboxGenerate, 'click', () => this.generateSandboxDeployment());
     this.listen(elements.btnDraftBack, 'click', () => this.view.closeDraft());
     this.listen(elements.btnGoDeploy, 'click', () => this.activateTab('battle'));
     this.listen(elements.missionStrip, 'click', (event) => this.handleMissionClick(event));
@@ -58,12 +59,21 @@ export class FlowGameController extends GameController {
   }
 
   startSandbox() {
-    this.model.configureSandbox();
+    this.model.configureSandbox({
+      difficulty: Number(this.selectedValue(this.view.elements.campaignDifficulty)),
+      length: Number(this.selectedValue(this.view.elements.campaignLength)),
+    });
     this.view.closeCampaignMenu();
     this.view.enterGame();
     this.activateTab('battle');
     this.refresh();
     this.scheduler.requestAnimationFrame(() => this.renderer.resize(this.model));
+  }
+
+  generateSandboxDeployment() {
+    if (!this.model.generateSandboxCampaignDeployment()) return;
+    this.clearUnitInspection();
+    this.refresh();
   }
 
   surrenderCampaign() {
