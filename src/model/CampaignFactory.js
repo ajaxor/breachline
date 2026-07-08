@@ -20,7 +20,7 @@ function weightsForMission(index) {
     const weight = index < unlockMission ? 0 : initialWeight + weightGrowth * (index - unlockMission);
     return [type.key, weight];
   }));
-  const specialistWeight = Object.entries(weights).filter(([key]) => key !== 'grunt' && key !== 'wall').reduce((sum, [, value]) => sum + value, 0);
+  const specialistWeight = Object.entries(weights).filter(([key]) => key !== 'grunt' && key !== 'wall' && key !== 'skitter').reduce((sum, [, value]) => sum + value, 0);
   weights.grunt = Math.max(0.25, 1 - specialistWeight * 0.42);
   return weights;
 }
@@ -178,8 +178,14 @@ function draftCampaignArmy(mobileBudget, missionIndex, weights, random) {
   const cheapMass = nonSupport.filter((key) => UNIT_TYPES[key].cost <= 30);
   const premium = nonSupport.filter((key) => UNIT_TYPES[key].cost > 30);
   const coreTypeCount = missionIndex >= 5 ? 2 : 3;
-  const core = pickDistinct(weights, cheapMass.length ? cheapMass : nonSupport, 1, random);
-  core.push(...pickDistinct(weights, premium.filter((key) => !core.includes(key)).length ? premium.filter((key) => !core.includes(key)) : nonSupport.filter((key) => !core.includes(key)), coreTypeCount - 1, random));
+  const core = [];
+
+  if (missionIndex <= 1) {
+    core.push(...pickDistinct(weights, nonSupport, Math.min(2, nonSupport.length), random));
+  } else {
+    core.push(...pickDistinct(weights, cheapMass.length ? cheapMass : nonSupport, 1, random));
+    core.push(...pickDistinct(weights, premium.filter((key) => !core.includes(key)).length ? premium.filter((key) => !core.includes(key)) : nonSupport.filter((key) => !core.includes(key)), coreTypeCount - 1, random));
+  }
   if (!core.length && nonSupport.length) core.push(nonSupport[0]);
 
   const supportKey = missionIndex >= 4 && supports.length ? weightedPick(weights, supports, random) : null;
@@ -187,7 +193,7 @@ function draftCampaignArmy(mobileBudget, missionIndex, weights, random) {
   let remaining = mobileBudget - supportBudget;
   const entries = [];
 
-  const coreShares = core.length === 1 ? [1] : (missionIndex >= 5 ? [0.68, 0.32] : [0.55, 0.3, 0.15]);
+  const coreShares = core.length === 1 ? [1] : (missionIndex >= 5 ? [0.68, 0.32] : [0.58, 0.42, 0.15]);
   core.forEach((key, index) => {
     const cost = UNIT_TYPES[key].cost * 2;
     const targetBudget = Math.max(cost, remaining * (coreShares[index] ?? 0.15));
