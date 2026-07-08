@@ -24,66 +24,22 @@ export const GAME_CONFIG = Object.freeze({
 });
 
 export const UNIT_TAG = Object.freeze({
-  AGILE: 'agile',
-  STATIONARY: 'stationary',
-  SWIVEL: 'swivel',
-  FAST_ATTACK: 'fast-attack',
-  STEALTH: 'stealth',
-  AI_ONLY: 'ai-only',
-  FLYING: 'flying',
-  ANTI_AIR: 'anti-air',
-  BOMB: 'bomb',
-  AOE: 'aoe',
-  HEAL: 'heal',
-  SHIELD: 'shield',
-  ENHANCE: 'enhance',
-  STUN_FIELD: 'stun-field',
-  JAMMER: 'jammer',
-  SALVO: 'salvo',
-  PUSH: 'push',
-  CHARGE: 'charge',
-  RELOAD: 'reload',
-  FORMATION: 'formation',
+  AGILE: 'agile', STATIONARY: 'stationary', SWIVEL: 'swivel', FAST_ATTACK: 'fast-attack', STEALTH: 'stealth', AI_ONLY: 'ai-only', FLYING: 'flying', ANTI_AIR: 'anti-air', BOMB: 'bomb', AOE: 'aoe', HEAL: 'heal', SHIELD: 'shield', ENHANCE: 'enhance', STUN_FIELD: 'stun-field', JAMMER: 'jammer', SALVO: 'salvo', PUSH: 'push', CHARGE: 'charge', RELOAD: 'reload', FORMATION: 'formation',
 });
 
-export const AURA_EFFECT = Object.freeze({
-  SHIELD: 'shield',
-  DAMAGE: 'damage',
-  STUN: 'stun',
-  STEALTH: 'stealth',
-});
-
-export const UNIT_ROLE = Object.freeze({
-  MELEE: 'melee',
-  RANGED: 'ranged',
-  SUPPORT: 'support',
-  FLYING: 'flying',
-  SPECIALIST: 'specialist',
-  STRUCTURE: 'structure',
-});
-
-export const ROLE_SHAPE = Object.freeze({
-  [UNIT_ROLE.MELEE]: 'square',
-  [UNIT_ROLE.RANGED]: 'triangle',
-  [UNIT_ROLE.SUPPORT]: 'circle',
-  [UNIT_ROLE.FLYING]: 'wing',
-  [UNIT_ROLE.SPECIALIST]: 'diamond',
-  [UNIT_ROLE.STRUCTURE]: 'hex',
-});
+export const AURA_EFFECT = Object.freeze({ SHIELD: 'shield', DAMAGE: 'damage', STUN: 'stun', STEALTH: 'stealth' });
+export const UNIT_ROLE = Object.freeze({ MELEE: 'melee', RANGED: 'ranged', SUPPORT: 'support', FLYING: 'flying', SPECIALIST: 'specialist', STRUCTURE: 'structure' });
+export const ROLE_SHAPE = Object.freeze({ [UNIT_ROLE.MELEE]: 'square', [UNIT_ROLE.RANGED]: 'triangle', [UNIT_ROLE.SUPPORT]: 'circle', [UNIT_ROLE.FLYING]: 'wing', [UNIT_ROLE.SPECIALIST]: 'diamond', [UNIT_ROLE.STRUCTURE]: 'hex' });
 
 const DEFAULT_ANIMATION = Object.freeze({ attack: ATTACK_ANIMATION.MELEE, movement: MOVEMENT_ANIMATION.MARCH, death: DEATH_ANIMATION.EXPLODE, idle: IDLE_ANIMATION.STILL });
 const FLYING_ANIMATION = Object.freeze({ attack: ATTACK_ANIMATION.LASER, movement: MOVEMENT_ANIMATION.HOVER, death: DEATH_ANIMATION.SPIN_OUT, idle: IDLE_ANIMATION.HOVER });
 const STATIONARY_ANIMATION = Object.freeze({ movement: MOVEMENT_ANIMATION.GLIDE, idle: IDLE_ANIMATION.STILL });
 
 const unit = (definition) => {
-  if (definition.role === UNIT_ROLE.MELEE && definition.range !== 1) {
-    throw new Error(`Melee unit "${definition.key}" must have range 1.`);
-  }
+  if (definition.role === UNIT_ROLE.MELEE && definition.range !== 1) throw new Error(`Melee unit "${definition.key}" must have range 1.`);
   const tags = new Set(definition.tags ?? []);
   if (definition.role === UNIT_ROLE.FLYING) tags.add(UNIT_TAG.FLYING);
-  if (tags.has(UNIT_TAG.FLYING) && definition.role !== UNIT_ROLE.FLYING) {
-    throw new Error(`Flying unit "${definition.key}" must use the Flying role.`);
-  }
+  if (tags.has(UNIT_TAG.FLYING) && definition.role !== UNIT_ROLE.FLYING) throw new Error(`Flying unit "${definition.key}" must use the Flying role.`);
   if (definition.role === UNIT_ROLE.STRUCTURE) { tags.add(UNIT_TAG.STATIONARY); tags.add(UNIT_TAG.AI_ONLY); }
   if (tags.has(UNIT_TAG.FLYING)) { tags.delete(UNIT_TAG.FAST_ATTACK); tags.delete(UNIT_TAG.AGILE); }
   const campaign = Object.freeze({ unlockMission: 0, initialWeight: 0, weightGrowth: 0, ...(definition.campaign ?? {}) });
@@ -104,7 +60,7 @@ export const UNIT_TYPES = Object.freeze({
   flak: unit({ key: 'flak', name: 'Flak', role: UNIT_ROLE.SPECIALIST, cost: 34, hp: 26, attack: 13, range: 3, tags: [UNIT_TAG.ANTI_AIR, UNIT_TAG.SWIVEL], campaign: { unlockMission: 4, initialWeight: 0.18, weightGrowth: 0.035 }, behavior: 'An anti-air specialist that can swivel toward flying targets in nearby lanes.', graphic: 'flak', animation: { attack: ATTACK_ANIMATION.MISSILE } }),
   bertha: unit({ key: 'bertha', name: 'Bertha', role: UNIT_ROLE.RANGED, cost: 54, hp: 26, attack: 32, range: 5, tags: [UNIT_TAG.AOE, UNIT_TAG.RELOAD, UNIT_TAG.SWIVEL], campaign: { unlockMission: 6, initialWeight: 0.1, weightGrowth: 0.025 }, behavior: 'Fires a powerful long-range blast that damages nearby enemies, then reloads for two turns.', graphic: 'artillery', animation: { attack: ATTACK_ANIMATION.LOB } }),
   bomber: unit({ key: 'bomber', name: 'Demolisher', role: UNIT_ROLE.SPECIALIST, cost: 30, hp: 24, attack: 46, range: 1, tags: [UNIT_TAG.BOMB, UNIT_TAG.AOE], campaign: { unlockMission: 3, initialWeight: 0.2, weightGrowth: 0.04 }, behavior: 'Detonates at its own position when an enemy comes within range or when it is destroyed.', graphic: 'demolisher' }),
-  healer: unit({ key: 'healer', name: 'Medic', role: UNIT_ROLE.SUPPORT, cost: 23, hp: 32, attack: 0, range: 2, healAmount: 11, action: UNIT_ACTION.HEAL, tags: [UNIT_TAG.HEAL, UNIT_TAG.SWIVEL], campaign: { unlockMission: 4, initialWeight: 0.14, weightGrowth: 0.03 }, behavior: 'Repairs the nearest damaged ally within range, regardless of lane.', graphic: 'medic' }),
+  healer: unit({ key: 'healer', name: 'Medic', role: UNIT_ROLE.SUPPORT, cost: 23, hp: 32, attack: 0, range: 2, healAmount: 12, action: UNIT_ACTION.HEAL, tags: [UNIT_TAG.HEAL, UNIT_TAG.SWIVEL], campaign: { unlockMission: 4, initialWeight: 0.14, weightGrowth: 0.03 }, behavior: 'Repairs the nearest damaged ally within range, regardless of lane.', graphic: 'medic' }),
   shieldGenerator: unit({ key: 'shieldGenerator', name: 'Aegis', role: UNIT_ROLE.SUPPORT, cost: 35, hp: 40, attack: 0, range: 2, aura: { effect: AURA_EFFECT.SHIELD, range: 2, value: 4 }, tags: [UNIT_TAG.SHIELD], campaign: { unlockMission: 5, initialWeight: 0.13, weightGrowth: 0.025 }, behavior: 'Reduces every hit against friendly units within two cells by 4 damage. Multiple shield fields do not stack.', graphic: 'aegis' }),
   amplifier: unit({ key: 'amplifier', name: 'Amplifier', role: UNIT_ROLE.SUPPORT, cost: 30, hp: 28, attack: 0, range: 2, aura: { effect: AURA_EFFECT.DAMAGE, range: 2, value: 3 }, tags: [UNIT_TAG.ENHANCE], campaign: { unlockMission: 6, initialWeight: 0.12, weightGrowth: 0.025 }, behavior: 'Adds 3 damage to attacks made by friendly units within two cells. Multiple amplifiers do not stack.', graphic: 'amplifier' }),
   disruptor: unit({ key: 'disruptor', name: 'Disruptor', role: UNIT_ROLE.SUPPORT, cost: 40, hp: 28, attack: 0, range: 2, aura: { effect: AURA_EFFECT.STUN, range: 2, value: 1 }, tags: [UNIT_TAG.STUN_FIELD], campaign: { unlockMission: 7, initialWeight: 0.1, weightGrowth: 0.02 }, behavior: 'Stuns enemy units across the same battlefield row for two turns. The stun lingers briefly after they leave the row.', graphic: 'disruptor' }),
@@ -116,7 +72,7 @@ export const UNIT_TYPES = Object.freeze({
   kite: unit({ key: 'kite', name: 'Kite', role: UNIT_ROLE.FLYING, cost: 46, hp: 14, attack: 8, range: 4, tags: [UNIT_TAG.SALVO], campaign: { unlockMission: 7, initialWeight: 0.11, weightGrowth: 0.02 }, behavior: 'A fragile long-range flyer that fires on every valid target in range while continuously advancing.', graphic: 'kite' }),
   firefly: unit({ key: 'firefly', name: 'Firefly', role: UNIT_ROLE.FLYING, cost: 29, hp: 12, attack: 40, range: 1, tags: [UNIT_TAG.BOMB, UNIT_TAG.AOE, UNIT_TAG.SWIVEL], campaign: { unlockMission: 7, initialWeight: 0.12, weightGrowth: 0.025 }, behavior: 'A disposable flying charge that explodes at its own position on contact or destruction.', graphic: 'firefly' }),
   mortar: unit({ key: 'mortar', name: 'Artillery', role: UNIT_ROLE.RANGED, cost: 39, hp: 24, attack: 17, range: 3, tags: [UNIT_TAG.SWIVEL], campaign: { unlockMission: 7, initialWeight: 0.14, weightGrowth: 0.03 }, behavior: 'Bombards ground targets within range by swiveling across lanes.', graphic: 'artillery', animation: { attack: ATTACK_ANIMATION.LOB } }),
-  tollbooth: unit({ key: 'tollbooth', name: 'Barricade', role: UNIT_ROLE.STRUCTURE, cost: 45, hp: 180, attack: 0, range: 1, campaign: { unlockMission: 4, initialWeight: 0.16, weightGrowth: 0.03 }, behavior: 'An enemy-only obstacle with exceptional durability that blocks its lane.', graphic: 'barricade' }),
+  tollbooth: unit({ key: 'tollbooth', name: 'Barricade', role: UNIT_ROLE.STRUCTURE, cost: 35, hp: 180, attack: 0, range: 1, campaign: { unlockMission: 4, initialWeight: 0.16, weightGrowth: 0.03 }, behavior: 'An enemy-only obstacle with exceptional durability that blocks its lane.', graphic: 'barricade' }),
   sentry: unit({ key: 'sentry', name: 'Turret', role: UNIT_ROLE.STRUCTURE, cost: 65, hp: 140, attack: 11, range: 3, tags: [UNIT_TAG.SWIVEL, UNIT_TAG.ANTI_AIR], campaign: { unlockMission: 8, initialWeight: 0.12, weightGrowth: 0.03 }, behavior: 'An enemy-only fortified weapon that swivels toward ground or flying units in other lanes.', graphic: 'turret', animation: { attack: ATTACK_ANIMATION.LASER } }),
 });
 
