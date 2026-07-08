@@ -35,7 +35,7 @@ Support effects should have explicit ranges and stacking rules. Their health and
 
 Every unit with flying movement must use the Flying role. Flying is a complete chassis identity, not a secondary role modifier, even when the unit also has a narrow job such as bombing, salvo fire, or back-line pressure.
 
-Flying units continuously advance through occupied cells and may attack while moving. That mobility and access are powerful, so flying units should have less health than comparable ground units and pay for reliable cross-formation access through cost, damage, range, or targeting constraints.
+Flying units continuously advance through occupied cells and may attack while moving. That mobility and access are powerful, so flying units should have less health than comparable ground units, cost more than their raw durability implies, and deliver enough damage to feel impactful when they survive to attack. Tune them with anti-air counterplay, low health, limited range, reload/salvo constraints, or narrow targeting instead of making them cheap disposable bodies by default.
 
 ### Specialist
 
