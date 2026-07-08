@@ -1,3 +1,5 @@
+import { GAME_CONFIG } from '../data/gameConfig.js';
+
 const outcome = (result) => result.winner === 'player' ? 1 : result.winner === 'enemy' ? 0 : 0.5;
 const margin = (result) => (
   result.playerLivingValue
@@ -5,6 +7,8 @@ const margin = (result) => (
   + result.playerBaseHp
   - result.enemyBaseHp
 ) / 300;
+const playerBaseDamage = (result) => (GAME_CONFIG.baseHp - result.enemyBaseHp) / GAME_CONFIG.baseHp;
+const enemyBaseDamage = (result) => (GAME_CONFIG.baseHp - result.playerBaseHp) / GAME_CONFIG.baseHp;
 
 export const defaultScorers = [
   {
@@ -29,6 +33,13 @@ export const defaultScorers = [
       : 0,
   },
   {
+    key: 'objectivePressure',
+    label: 'Base-damage lift over Riflemen',
+    scoreUnit: ({ contributions }) => contributions.length
+      ? contributions.reduce((sum, item) => sum + item.objectivePressure, 0) / contributions.length
+      : 0,
+  },
+  {
     key: 'timeoutRate',
     label: 'Timeout rate',
     scoreUnit: ({ allResults }) => allResults.length
@@ -50,4 +61,10 @@ export function contributionLift(test, mirrorTest, baseline, mirrorBaseline) {
   const baselineScore = ((outcome(baseline) + (1 - outcome(mirrorBaseline))) / 2)
     + (margin(baseline) - margin(mirrorBaseline)) / 4;
   return testScore - baselineScore;
+}
+
+export function objectivePressureLift(test, mirrorTest, baseline, mirrorBaseline) {
+  const testPressure = (playerBaseDamage(test) + enemyBaseDamage(mirrorTest)) / 2;
+  const baselinePressure = (playerBaseDamage(baseline) + enemyBaseDamage(mirrorBaseline)) / 2;
+  return testPressure - baselinePressure;
 }
