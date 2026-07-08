@@ -63,20 +63,36 @@ test('reinforcement growth outpaces enemy budget growth', () => {
 
 test('unit roles determine the common icon silhouette', () => {
   for (const type of Object.values(UNIT_TYPES)) assert.equal(type.shape, ROLE_SHAPE[type.role]);
-  assert.equal(UNIT_TYPES.grunt.shape, UNIT_TYPES.gunner.shape);
-  assert.equal(UNIT_TYPES.sniper.shape, UNIT_TYPES.flak.shape);
-  assert.equal(UNIT_TYPES.midge.shape, UNIT_TYPES.firefly.shape);
+  assert.equal(UNIT_TYPES.grunt.shape, UNIT_TYPES.tank.shape);
+  assert.equal(UNIT_TYPES.gunner.shape, UNIT_TYPES.sniper.shape);
+  assert.equal(UNIT_TYPES.flak.shape, UNIT_TYPES.bomber.shape);
   assert.equal(UNIT_TYPES.grunt.role, UNIT_ROLE.MELEE);
-  assert.equal(UNIT_TYPES.flak.role, UNIT_ROLE.RANGED);
+  assert.equal(UNIT_TYPES.gunner.role, UNIT_ROLE.RANGED);
+  assert.equal(UNIT_TYPES.flak.role, UNIT_ROLE.SPECIALIST);
+  assert.equal(UNIT_TYPES.firefly.role, UNIT_ROLE.SPECIALIST);
+});
+
+test('role definitions follow unit design constraints', () => {
+  const types = Object.values(UNIT_TYPES);
+  const meleeTypes = types.filter((type) => type.role === UNIT_ROLE.MELEE);
+  const structureTypes = types.filter((type) => type.role === UNIT_ROLE.STRUCTURE);
+  const bombTypes = types.filter((type) => hasUnitTag(type, UNIT_TAG.BOMB));
+  assert.ok(meleeTypes.every((type) => type.range === 1));
+  assert.ok(structureTypes.every((type) => hasUnitTag(type, UNIT_TAG.AI_ONLY)));
+  assert.ok(bombTypes.every((type) => type.role === UNIT_ROLE.SPECIALIST));
+  assert.ok(bombTypes.every((type) => type.attack >= 35));
 });
 
 test('flying unit definitions preserve their intended niches', () => {
   const flyingTypes = Object.values(UNIT_TYPES).filter((type) => hasUnitTag(type, UNIT_TAG.FLYING));
   assert.deepEqual(flyingTypes.map((type) => type.name), ['Midge', 'Wasp', 'Kite', 'Firefly']);
   assert.ok(flyingTypes.every((type) => type.hp < UNIT_TYPES.grunt.hp));
-  assert.ok(flyingTypes.every((type) => type.shape === 'wing'));
   assert.ok(flyingTypes.every((type) => !hasUnitTag(type, UNIT_TAG.FAST_ATTACK)));
-  assert.ok(flyingTypes.every((type) => !hasUnitTag(type, UNIT_TAG.CAN_MOVE_SIDEWAYS)));
+  assert.ok(flyingTypes.every((type) => !hasUnitTag(type, UNIT_TAG.AGILE)));
+  assert.equal(UNIT_TYPES.midge.shape, 'wing');
+  assert.equal(UNIT_TYPES.flyer.shape, 'wing');
+  assert.equal(UNIT_TYPES.kite.shape, 'wing');
+  assert.equal(UNIT_TYPES.firefly.shape, 'diamond');
   assert.ok(UNIT_TYPES.midge.cost < UNIT_TYPES.flyer.cost);
   assert.equal(UNIT_TYPES.kite.range, 4);
   assert.equal(hasUnitTag(UNIT_TYPES.firefly, UNIT_TAG.BOMB), true);
