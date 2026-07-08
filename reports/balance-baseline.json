@@ -16,6 +16,10 @@
       "min": -1.0,
       "max": 1.0
     },
+    "objectivePressure": {
+      "min": -1.0,
+      "max": 1.0
+    },
     "timeoutRate": {
       "min": 0,
       "max": 0.5
