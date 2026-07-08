@@ -72,6 +72,36 @@ function addWallLine(formation, rowPairs, wallBudget, random) {
   return placedPairs;
 }
 
+function requiredStructureKeys(missionIndex) {
+  const keys = [];
+  if (missionIndex >= UNIT_TYPES.tollbooth.campaign.unlockMission) keys.push('tollbooth');
+  if (missionIndex >= UNIT_TYPES.sentry.campaign.unlockMission + 1) keys.push('sentry');
+  const advanced = ['flakTurret', 'rocketTurret', 'mortarNest', 'railTurret', 'factory']
+    .filter((key) => missionIndex >= UNIT_TYPES[key].campaign.unlockMission);
+  if (advanced.length) keys.push(advanced[missionIndex % advanced.length]);
+  return keys;
+}
+
+function placeRequiredStructures(formation, rowPairs, columns, budget, missionIndex, random) {
+  let remaining = budget;
+  const occupied = new Set(formation.map((unit) => `${unit.row}:${unit.column}`));
+  const slots = shuffle(columns.flatMap((column) => rowPairs.map((pair) => ({ column, pair }))), random);
+
+  for (const key of requiredStructureKeys(missionIndex)) {
+    const cost = UNIT_TYPES[key].cost * 2;
+    if (remaining < cost) continue;
+    const slotIndex = slots.findIndex(({ column, pair }) => !occupied.has(`${pair[0]}:${column}`) && !occupied.has(`${pair[1]}:${column}`));
+    if (slotIndex === -1) break;
+    const [slot] = slots.splice(slotIndex, 1);
+    addMirroredPair(formation, slot.pair, slot.column, key);
+    occupied.add(`${slot.pair[0]}:${slot.column}`);
+    occupied.add(`${slot.pair[1]}:${slot.column}`);
+    remaining -= cost;
+  }
+
+  return remaining;
+}
+
 function generateFormation(budget, wallBudget, missionIndex, random) {
   const rowPairs = Array.from({ length: GAME_CONFIG.rows / 2 }, (_, row) => [row, GAME_CONFIG.rows - 1 - row]);
   const weights = weightsForMission(missionIndex);
@@ -83,15 +113,16 @@ function generateFormation(budget, wallBudget, missionIndex, random) {
   const meleeKeys = unlockedMobile.filter((type) => type.role === UNIT_ROLE.MELEE).map((type) => type.key);
   const protectedKeys = [...unlockedMobile.filter((type) => type.role !== UNIT_ROLE.MELEE).map((type) => type.key), ...unlockedStructures.map((type) => type.key)];
   const allNonWallKeys = [...unlockedMobile.map((type) => type.key), ...unlockedStructures.map((type) => type.key)];
-  let remaining = budget;
+
+  const rearStartOffset = Math.min(2, Math.max(1, wallPairs));
+  const rearColumns = GAME_CONFIG.enemyZone.slice(rearStartOffset);
+  let remaining = placeRequiredStructures(formation, rowPairs, rearColumns, budget, missionIndex, random);
 
   const occupied = new Set(formation.map((unit) => `${unit.row}:${unit.column}`));
   const frontColumn = GAME_CONFIG.enemyZone[0];
   const frontMeleeSlots = shuffle(rowPairs, random)
     .filter((pair) => !occupied.has(`${pair[0]}:${frontColumn}`) && !occupied.has(`${pair[1]}:${frontColumn}`))
     .map((pair) => ({ column: frontColumn, pair, keys: meleeKeys }));
-  const rearStartOffset = Math.min(2, Math.max(1, wallPairs));
-  const rearColumns = GAME_CONFIG.enemyZone.slice(rearStartOffset);
   const protectedSlots = shuffle(rearColumns.flatMap((column) => rowPairs.map((pair) => ({ column, pair, keys: protectedKeys }))), random)
     .filter(({ column, pair }) => !occupied.has(`${pair[0]}:${column}`) && !occupied.has(`${pair[1]}:${column}`));
 
