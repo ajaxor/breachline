@@ -6,6 +6,7 @@ import { createCampaign } from '../src/model/CampaignFactory.js';
 
 const campaign = createCampaign(() => 0.5);
 const PROTECTED_ROLES = new Set([UNIT_ROLE.RANGED, UNIT_ROLE.SUPPORT, UNIT_ROLE.FLYING]);
+const STATIONARY_ROLES = new Set([UNIT_ROLE.WALL, UNIT_ROLE.STRUCTURE]);
 
 function costOf(units) {
   return units.reduce((sum, unit) => sum + UNIT_TYPES[unit.type].cost, 0);
@@ -15,10 +16,14 @@ function rowPair(unit) {
   return Math.min(unit.row, GAME_CONFIG.rows - 1 - unit.row);
 }
 
+function isStationary(unit) {
+  return STATIONARY_ROLES.has(UNIT_TYPES[unit.type].role);
+}
+
 function blockersByPair(mission) {
   const blockers = new Map();
   for (const unit of mission.enemyFormation) {
-    if (UNIT_TYPES[unit.type].role !== UNIT_ROLE.STRUCTURE) continue;
+    if (!isStationary(unit)) continue;
     const pair = rowPair(unit);
     if (!blockers.has(pair)) blockers.set(pair, []);
     blockers.get(pair).push(unit.column);
@@ -38,9 +43,9 @@ test('enemy formations use unique enemy-zone cells and stay within their mobile 
     assert.equal(new Set(cells).size, cells.length, `mission ${mission.index + 1} has overlapping units`);
     assert.ok(mission.enemyFormation.every((unit) => GAME_CONFIG.enemyZone.includes(unit.column)));
     assert.ok(mission.enemyFormation.every((unit) => unit.row >= 0 && unit.row < GAME_CONFIG.rows));
-    const mobileCost = costOf(mission.enemyFormation.filter((unit) => UNIT_TYPES[unit.type].role !== UNIT_ROLE.STRUCTURE));
+    const mobileCost = costOf(mission.enemyFormation.filter((unit) => !isStationary(unit)));
     const wallCost = costOf(mission.enemyFormation.filter((unit) => unit.type === 'wall'));
-    const structureCost = costOf(mission.enemyFormation.filter((unit) => UNIT_TYPES[unit.type].role === UNIT_ROLE.STRUCTURE && unit.type !== 'wall'));
+    const structureCost = costOf(mission.enemyFormation.filter((unit) => isStationary(unit) && unit.type !== 'wall'));
     assert.ok(mobileCost <= mission.enemyBudget, `mission ${mission.index + 1} exceeds its enemy budget`);
     assert.ok(wallCost <= mission.wallBudget, `mission ${mission.index + 1} exceeds its wall budget`);
     assert.ok(structureCost <= mission.structureBudget, `mission ${mission.index + 1} exceeds its structure budget`);
@@ -59,8 +64,8 @@ test('enemy formations remain mirrored across the horizontal center line', () =>
 
 test('campaign builds defensive bases before adding mobile armies', () => {
   for (const mission of campaign) {
-    const structures = mission.enemyFormation.filter((unit) => UNIT_TYPES[unit.type].role === UNIT_ROLE.STRUCTURE);
-    const mobile = mission.enemyFormation.filter((unit) => UNIT_TYPES[unit.type].role !== UNIT_ROLE.STRUCTURE);
+    const structures = mission.enemyFormation.filter((unit) => isStationary(unit));
+    const mobile = mission.enemyFormation.filter((unit) => !isStationary(unit));
     assert.ok(structures.length >= 2, `mission ${mission.index + 1} has no defensive base`);
     assert.ok(mobile.length >= 2, `mission ${mission.index + 1} has no mobile army`);
     assert.ok(structures.some((unit) => unit.column > GAME_CONFIG.enemyZone[0]), `mission ${mission.index + 1} puts every base piece on the front line`);
@@ -84,7 +89,7 @@ test('ranged flying and support units deploy behind walls or structures when pre
 
 test('later missions use drafted army cores instead of high-variety random collections', () => {
   for (const mission of campaign.slice(5)) {
-    const mobile = mission.enemyFormation.filter((unit) => UNIT_TYPES[unit.type].role !== UNIT_ROLE.STRUCTURE);
+    const mobile = mission.enemyFormation.filter((unit) => !isStationary(unit));
     const mobileTypes = new Set(mobile.map((unit) => unit.type));
     const nonSupportTypes = new Set(mobile.filter((unit) => UNIT_TYPES[unit.type].role !== UNIT_ROLE.SUPPORT).map((unit) => unit.type));
     const typeCounts = mobile.reduce((counts, unit) => counts.set(unit.type, (counts.get(unit.type) ?? 0) + 1), new Map());
@@ -107,7 +112,7 @@ test('later missions field denser armies with both cheap mass and premium units'
   assert.ok(lateAverage > earlyAverage, `late army density ${lateAverage} did not exceed early density ${earlyAverage}`);
 
   for (const mission of campaign.slice(-3)) {
-    const mobile = mission.enemyFormation.filter((unit) => UNIT_TYPES[unit.type].role !== UNIT_ROLE.STRUCTURE);
+    const mobile = mission.enemyFormation.filter((unit) => !isStationary(unit));
     const combatants = mission.enemyFormation.filter((unit) => unit.type !== 'wall');
     const mobileCosts = mobile.map((unit) => UNIT_TYPES[unit.type].cost);
     const combatantCosts = combatants.map((unit) => UNIT_TYPES[unit.type].cost);
@@ -119,7 +124,7 @@ test('later missions field denser armies with both cheap mass and premium units'
 test('later missions include a mix of fortified structures from a parallel structure budget', () => {
   const structureTypes = new Set(campaign.slice(5).flatMap((mission) => mission.enemyFormation
     .map((unit) => unit.type)
-    .filter((type) => UNIT_TYPES[type].role === UNIT_ROLE.STRUCTURE && type !== 'wall')));
+    .filter((type) => STATIONARY_ROLES.has(UNIT_TYPES[type].role) && type !== 'wall')));
   assert.ok(structureTypes.has('tollbooth'), 'later missions never use barricades');
   assert.ok(structureTypes.has('sentry'), 'later missions never use basic turrets');
   assert.ok([...structureTypes].some((type) => ['flakTurret', 'rocketTurret', 'mortarNest', 'railTurret', 'factory'].includes(type)), 'later missions never use advanced structures');
