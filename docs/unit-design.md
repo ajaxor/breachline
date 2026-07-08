@@ -33,13 +33,13 @@ Support effects should have explicit ranges and stacking rules. Their health and
 
 ### Flying
 
-Flying units continuously advance through occupied cells and may attack while moving. That mobility and access are powerful, so flying units should have less health than comparable ground units.
+Every unit with flying movement must use the Flying role. Flying is a complete chassis identity, not a secondary role modifier, even when the unit also has a narrow job such as bombing, salvo fire, or back-line pressure.
 
-A flying chassis does not automatically determine the displayed role. When the unit's defining purpose is a narrow gimmick such as bombing or back-line racing, use the Specialist role and add the Flying tag for movement behavior.
+Flying units continuously advance through occupied cells and may attack while moving. That mobility and access are powerful, so flying units should have less health than comparable ground units and pay for reliable cross-formation access through cost, damage, range, or targeting constraints.
 
 ### Specialist
 
-Specialists are units whose primary value comes from a narrow tactical niche rather than ordinary lane fighting. Examples include bombs, dedicated anti-air platforms, displacement units, evasive flankers, stealth infiltrators, and units designed to bypass combat and pressure the back line.
+Specialists are ground units whose primary value comes from a narrow tactical niche rather than ordinary lane fighting. Examples include dedicated anti-air platforms, displacement units, evasive flankers, stealth infiltrators, and ground units designed to bypass conventional combat rules.
 
 A specialist should be meaningfully better than general-purpose units at its intended job and meaningfully worse outside that job. Avoid labeling a broadly useful unit as a specialist just because it has one secondary tag.
 
@@ -47,12 +47,14 @@ A specialist should be meaningfully better than general-purpose units at its int
 
 Structures are stationary enemy tools used to shape missions and formations. Every structure must be AI-only. The unit factory automatically adds both `stationary` and `ai-only` tags to Structure-role units; do not bypass that path.
 
+Structures should have substantially more health than mobile units. Their lack of movement and player availability should be reflected in a separate durability tier, normally well above even heavy front-line units, while their cost and offensive output account for their positional reliability.
+
 ## Ability-specific rules
 
-- Bomb units always use the Specialist role, even when they also have the Flying tag.
+- Flying bomb units use the Flying role and combine the Flying, Bomb, and area-damage tags as needed.
 - Bomb units should have very high attack values because they normally attack once and sacrifice themselves. Their cost, health, delivery reliability, area of effect, and ability to detonate on destruction are the balancing constraints.
-- Dedicated anti-air units should usually be Specialists. A general-purpose ranged unit may carry anti-air as a secondary capability only when it remains useful against ground targets and pays for that flexibility.
-- Units designed to dodge, infiltrate, push enemies, or race toward the base should usually be Specialists unless the effect is clearly secondary to a conventional melee or ranged identity.
+- Dedicated anti-air ground units should usually be Specialists. A general-purpose ranged unit may carry anti-air as a secondary capability only when it remains useful against ground targets and pays for that flexibility.
+- Units designed to dodge, infiltrate, or push enemies should usually be Specialists unless the effect is clearly secondary to a conventional melee or ranged identity.
 - Area damage, swivel targeting, salvo attacks, and persistent auras multiply the value of raw stats. Tune their cost and base attack conservatively.
 
 ## Balancing workflow
