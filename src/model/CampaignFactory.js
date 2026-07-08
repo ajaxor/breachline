@@ -3,6 +3,7 @@ import { MISSION_STATUS } from '../data/gameTypes.js';
 
 const STRUCTURE_TYPES = ['tollbooth', 'sentry', 'flakTurret', 'rocketTurret', 'mortarNest', 'railTurret', 'factory'];
 const PROTECTED_ROLES = new Set([UNIT_ROLE.RANGED, UNIT_ROLE.SUPPORT, UNIT_ROLE.FLYING]);
+const STATIONARY_ROLES = new Set([UNIT_ROLE.WALL, UNIT_ROLE.STRUCTURE]);
 
 function shuffle(items, random) {
   const result = items.slice();
@@ -82,7 +83,7 @@ function slotsForMobile(pairs, columns, random) {
 }
 
 function isBlocker(typeKey) {
-  return UNIT_TYPES[typeKey].role === UNIT_ROLE.STRUCTURE;
+  return STATIONARY_ROLES.has(UNIT_TYPES[typeKey].role);
 }
 
 function blockerColumnsByPair(formation) {
@@ -171,7 +172,7 @@ function pickDistinct(weights, keys, count, random) {
 }
 
 function draftCampaignArmy(mobileBudget, missionIndex, weights, random) {
-  const unlockedMobile = ENEMY_UNIT_TYPES.filter((type) => type.role !== UNIT_ROLE.STRUCTURE && (weights[type.key] ?? 0) > 0);
+  const unlockedMobile = ENEMY_UNIT_TYPES.filter((type) => !STATIONARY_ROLES.has(type.role) && (weights[type.key] ?? 0) > 0);
   const nonSupport = unlockedMobile.filter((type) => type.role !== UNIT_ROLE.SUPPORT).map((type) => type.key);
   const supports = unlockedMobile.filter((type) => type.role === UNIT_ROLE.SUPPORT).map((type) => type.key);
   const cheapMass = nonSupport.filter((key) => UNIT_TYPES[key].cost <= 30);
@@ -242,8 +243,8 @@ function generateFormation(mobileBudget, wallBudget, structureBudget, missionInd
   addStructureBase(formation, occupied, pairs, structureBudget, missionIndex, weights, random);
   placeDraftedArmy(formation, occupied, draftCampaignArmy(mobileBudget, missionIndex, weights, random), pairs, random);
 
-  if (!formation.some((unit) => UNIT_TYPES[unit.type].role !== UNIT_ROLE.STRUCTURE)) {
-    const fallback = affordableKeys(ENEMY_UNIT_TYPES.filter((type) => type.role !== UNIT_ROLE.STRUCTURE && (weights[type.key] ?? 0) > 0).map((type) => type.key), mobileBudget).sort((left, right) => UNIT_TYPES[left].cost - UNIT_TYPES[right].cost)[0];
+  if (!formation.some((unit) => !STATIONARY_ROLES.has(UNIT_TYPES[unit.type].role))) {
+    const fallback = affordableKeys(ENEMY_UNIT_TYPES.filter((type) => !STATIONARY_ROLES.has(type.role) && (weights[type.key] ?? 0) > 0).map((type) => type.key), mobileBudget).sort((left, right) => UNIT_TYPES[left].cost - UNIT_TYPES[right].cost)[0];
     const slot = slotsForMobile(pairs, columnsByMiddle({ includeFront: false }), random).find((candidate) => isSlotOpen(occupied, candidate));
     if (fallback && slot) addMirroredPair(formation, occupied, slot.pair, slot.column, fallback);
   }
