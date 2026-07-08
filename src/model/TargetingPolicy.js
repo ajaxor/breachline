@@ -23,7 +23,7 @@ export class TargetingPolicy {
     if (!this.isAhead(attacker, target)) return false;
     if (!this.isInAttackPattern(attacker, target, type)) return false;
     const targetType = UNIT_TYPES[target.type];
-    if (type.role === UNIT_ROLE.RANGED && targetType?.role === UNIT_ROLE.WALL && !this.isBlockingAdjacent(attacker, target)) return false;
+    if (targetType?.role === UNIT_ROLE.WALL && !this.isBlockingAdjacent(attacker, target)) return false;
     if (hasUnitTag(target.type, UNIT_TAG.FLYING)
       && !hasUnitTag(type, UNIT_TAG.FLYING)
       && !hasUnitTag(type, UNIT_TAG.ANTI_AIR)) return false;
