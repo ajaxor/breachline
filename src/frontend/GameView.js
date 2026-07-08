@@ -91,7 +91,7 @@ export class GameView {
       card.style.setProperty('--draft-index', String(index));
       if (choice.isPair) {
         const pair = this.createElement('div', { className: 'draft-pair' });
-        pair.append(this.unitPresentation.createDescription(choice.units[0], { label: 'Paired unit', includeCost: false, quantity: choice.units[0].draftCount }), this.createElement('div', { className: 'draft-pair-slash', text: '/' }), this.unitPresentation.createDescription(choice.units[1], { label: 'Paired unit', includeCost: false, quantity: choice.units[1].draftCount }));
+        pair.append(this.unitPresentation.createDescription(choice.units[0], { label: 'Paired unit', includeCost: false, quantity: choice.units[0].draftCount }), this.createElement('div', { className: 'draft-pair-plus', text: '+' }), this.unitPresentation.createDescription(choice.units[1], { label: 'Paired unit', includeCost: false, quantity: choice.units[1].draftCount }));
         card.appendChild(pair);
       } else card.appendChild(this.unitPresentation.createDescription(choice, { label: 'Draft option', includeCost: false, quantity: choice.draftCount }));
       return card;
