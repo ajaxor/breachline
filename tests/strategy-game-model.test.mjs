@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GAME_CONFIG, ROLE_SHAPE, TEAM, UNIT_ROLE, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../src/data/gameConfig.js';
-import { COMBAT_EVENT, MODE } from '../src/data/gameTypes.js';
+import { GAME_CONFIG, MODE, ROLE_SHAPE, TEAM, UNIT_ROLE, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../src/data/gameConfig.js';
+import { COMBAT_EVENT } from '../src/data/gameTypes.js';
 import { GameModel } from '../src/model/GameModel.js';
 import { SpatialIndex } from '../src/model/SpatialIndex.js';
 import { StrategyGameModel } from '../src/model/StrategyGameModel.js';
