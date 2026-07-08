@@ -44,6 +44,7 @@ export class FlowGameController extends GameController {
   selectedValue(group) { return group.querySelector('input:checked')?.value; }
 
   startCampaign() {
+    this.model.clearPlacement();
     this.model.configureCampaign({
       difficulty: Number(this.selectedValue(this.view.elements.campaignDifficulty)),
       length: Number(this.selectedValue(this.view.elements.campaignLength)),
