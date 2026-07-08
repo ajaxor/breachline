@@ -11,14 +11,15 @@ export class FlowGameController extends GameController {
   }
 
   bindEvents() {
-    const { document, elements } = this.view;
+    const { elements } = this.view;
     this.listen(elements.btnStartGame, 'click', () => this.view.openCampaignMenu());
     this.listen(elements.btnBeginCampaign, 'click', () => this.startCampaign());
     this.listen(elements.btnSandbox, 'click', () => this.startSandbox());
     this.listen(elements.btnCampaignBack, 'click', () => this.view.closeCampaignMenu());
+    this.listen(elements.btnBack, 'click', () => this.activateTab('missions'));
+    this.listen(elements.btnSurrender, 'click', () => this.surrenderCampaign());
     this.listen(elements.btnReinforce, 'click', () => this.openReinforcements());
     this.listen(elements.btnDraftBack, 'click', () => this.view.closeDraft());
-    document.querySelectorAll('.tab-btn').forEach((button) => this.listen(button, 'click', () => this.activateTab(button.dataset.tab)));
     this.listen(elements.btnGoDeploy, 'click', () => this.activateTab('battle'));
     this.listen(elements.missionStrip, 'click', (event) => this.handleMissionClick(event));
     this.listen(elements.rosterList, 'click', (event) => this.handleRosterClick(event));
@@ -29,7 +30,6 @@ export class FlowGameController extends GameController {
     this.listen(elements.field, 'click', (event) => this.handleFieldClick(event));
     this.listen(elements.clearLink, 'click', () => { this.model.clearPlacement(); this.clearUnitInspection(); this.refresh(); });
     this.listen(elements.btnLaunch, 'click', () => this.startBattle());
-    this.listen(elements.btnRedesign, 'click', () => this.returnToDeployment(this.model.selectedMission));
     this.listen(elements.btnOpenLog, 'click', () => this.view.openSheet(elements.logSheet));
     this.listen(elements.logClose, 'click', () => this.view.closeSheets());
     this.listen(elements.sheetBackdrop, 'click', () => this.view.closeSheets());
@@ -41,9 +41,7 @@ export class FlowGameController extends GameController {
     });
   }
 
-  selectedValue(group) {
-    return group.querySelector('input:checked')?.value;
-  }
+  selectedValue(group) { return group.querySelector('input:checked')?.value; }
 
   startCampaign() {
     this.model.configureCampaign({
@@ -65,6 +63,13 @@ export class FlowGameController extends GameController {
     this.activateTab('battle');
     this.refresh();
     this.scheduler.requestAnimationFrame(() => this.renderer.resize(this.model));
+  }
+
+  surrenderCampaign() {
+    this.stopTimer();
+    this.stopAnimationLoop();
+    this.view.clearBanner();
+    this.view.showTitle();
   }
 
   openReinforcements() {
@@ -110,26 +115,14 @@ export class FlowGameController extends GameController {
       if (this.model.replayLastBattle()) { this.refresh(); this.startAnimationLoop(); this.scheduleBattleTick(0); }
       return;
     }
-    if (action === 'surrender') {
-      this.stopTimer();
-      this.stopAnimationLoop();
-      this.view.clearBanner();
-      this.view.showTitle();
-      return;
-    }
+    if (action === 'surrender') { this.surrenderCampaign(); return; }
     if (action === 'retry') {
       if (this.model.canRetry) this.returnToDeployment(this.model.selectedMission);
       return;
     }
     if (action === 'continue') {
       const hasNextMission = this.model.selectedMission + 1 < this.model.campaign.length;
-      if (!hasNextMission) {
-        this.stopTimer();
-        this.stopAnimationLoop();
-        this.view.clearBanner();
-        this.view.showTitle();
-        return;
-      }
+      if (!hasNextMission) { this.surrenderCampaign(); return; }
       const next = this.model.selectedMission + 1;
       this.returnToDeployment(next);
       this.model.beginDrafts(2);
