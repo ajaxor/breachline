@@ -1,4 +1,4 @@
-import { GAME_CONFIG, PLAYER_UNIT_TYPES, UNIT_ROLE, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
+import { GAME_CONFIG, MODE, PLAYER_UNIT_TYPES, UNIT_ROLE, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
 import { MISSION_STATUS, RESULT_TYPE } from '../data/gameTypes.js';
 import { createCampaign } from './CampaignFactory.js';
 import { SupplyDeploymentPolicy } from './DeploymentPolicies.js';
@@ -19,12 +19,19 @@ export class StrategyGameModel extends GameModel {
     this.campaignSettings = { difficulty: 1, length: GAME_CONFIG.missionCount };
     this.isSandbox = false;
     this.lastBattle = null;
+    this.sandboxGeneratorMissionIndex = 0;
+    this.sandboxGeneratedMissionIndex = null;
   }
 
   get totalSupply() { return this.isSandbox ? Infinity : Object.values(this.supply).reduce((sum, count) => sum + count, 0); }
   get deployedSupply() { return this.placement.length; }
   get rosterTypes() { return (this.isSandbox ? Object.values(UNIT_TYPES) : super.rosterTypes).slice().sort(byRoleThenName); }
   get canRetry() { return this.isSandbox || this.totalSupply > 0; }
+  get sandboxGeneratorLabel() {
+    if (!this.isSandbox) return '';
+    const next = this.sandboxGeneratorMissionIndex + 1;
+    return this.sandboxGeneratedMissionIndex === null ? `Generate M${next}` : `Generate M${next}`;
+  }
 
   configureCampaign({ difficulty = 1, length = GAME_CONFIG.missionCount } = {}) {
     this.isSandbox = false;
@@ -38,14 +45,17 @@ export class StrategyGameModel extends GameModel {
     this.pendingDrafts = 0;
     this.draftChoices = [];
     this.lastBattle = null;
+    this.sandboxGeneratorMissionIndex = 0;
+    this.sandboxGeneratedMissionIndex = null;
     this.resetBattle();
     this.currentDraftBudget = this.mission.draftBudget;
   }
 
-  configureSandbox() {
+  configureSandbox({ difficulty = 1, length = GAME_CONFIG.missionCount } = {}) {
     this.isSandbox = true;
     this.random = this.sessionRandom;
-    this.campaign = [{ index: 0, playerBudget: 0, enemyBudget: 0, draftBudget: 0, enemyFormation: [], status: MISSION_STATUS.AVAILABLE }];
+    this.campaignSettings = { difficulty, length };
+    this.campaign = [{ index: 0, playerBudget: 0, enemyBudget: 0, wallBudget: 0, structureBudget: 0, draftBudget: 0, enemyFormation: [], status: MISSION_STATUS.AVAILABLE }];
     this.selectedMission = 0;
     this.roster = Object.fromEntries(Object.keys(UNIT_TYPES).map((key) => [key, true]));
     this.supply = Object.fromEntries(Object.keys(UNIT_TYPES).map((key) => [key, 999]));
@@ -53,7 +63,25 @@ export class StrategyGameModel extends GameModel {
     this.pendingDrafts = 0;
     this.draftChoices = [];
     this.lastBattle = null;
+    this.sandboxGeneratorMissionIndex = 0;
+    this.sandboxGeneratedMissionIndex = null;
     this.resetBattle();
+  }
+
+  generateSandboxCampaignDeployment() {
+    if (!this.isSandbox || this.mode !== MODE.DEPLOY) return false;
+    const length = Math.max(1, this.campaignSettings.length || GAME_CONFIG.missionCount);
+    const missionIndex = this.sandboxGeneratorMissionIndex % length;
+    const generatedCampaign = createCampaign(this.sessionRandom, { difficulty: this.campaignSettings.difficulty, missionCount: length });
+    const generatedMission = generatedCampaign[missionIndex];
+    this.mission.enemyBudget = generatedMission.enemyBudget;
+    this.mission.wallBudget = generatedMission.wallBudget;
+    this.mission.structureBudget = generatedMission.structureBudget;
+    this.mission.enemyFormation = cloneFormation(generatedMission.enemyFormation);
+    this.sandboxGeneratedMissionIndex = missionIndex;
+    this.sandboxGeneratorMissionIndex = (missionIndex + 1) % length;
+    this.lastBattle = null;
+    return true;
   }
 
   beginDrafts(count = 1, draftBudget = null) {
