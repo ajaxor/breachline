@@ -6,8 +6,14 @@ import { StrategyGameModel } from '../src/model/StrategyGameModel.js';
 
 function constantRandom() { return 0.5; }
 
+const STATIONARY_ROLES = new Set([UNIT_ROLE.WALL, UNIT_ROLE.STRUCTURE]);
+
 function costOf(units) {
   return units.reduce((sum, unit) => sum + UNIT_TYPES[unit.type].cost, 0);
+}
+
+function isStationary(unit) {
+  return STATIONARY_ROLES.has(UNIT_TYPES[unit.type].role);
 }
 
 test('sandbox can load campaign-generator hostile deployments without replacing player placements', () => {
@@ -25,9 +31,9 @@ test('sandbox can load campaign-generator hostile deployments without replacing 
   assert.ok(model.mission.enemyFormation.length > 0, 'campaign generator did not create hostile units');
   assert.ok(model.mission.enemyFormation.every((unit) => GAME_CONFIG.enemyZone.includes(unit.column)), 'generated hostile deployment escaped the enemy zone');
 
-  const mobileCost = costOf(model.mission.enemyFormation.filter((unit) => UNIT_TYPES[unit.type].role !== UNIT_ROLE.STRUCTURE));
+  const mobileCost = costOf(model.mission.enemyFormation.filter((unit) => !isStationary(unit)));
   const wallCost = costOf(model.mission.enemyFormation.filter((unit) => unit.type === 'wall'));
-  const structureCost = costOf(model.mission.enemyFormation.filter((unit) => UNIT_TYPES[unit.type].role === UNIT_ROLE.STRUCTURE && unit.type !== 'wall'));
+  const structureCost = costOf(model.mission.enemyFormation.filter((unit) => isStationary(unit) && unit.type !== 'wall'));
   assert.ok(mobileCost <= model.mission.enemyBudget, 'generated sandbox mobiles exceeded campaign mobile budget');
   assert.ok(wallCost <= model.mission.wallBudget, 'generated sandbox walls exceeded campaign wall budget');
   assert.ok(structureCost <= model.mission.structureBudget, 'generated sandbox structures exceeded campaign structure budget');
