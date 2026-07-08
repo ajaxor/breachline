@@ -6,7 +6,8 @@ import { GameModel } from './GameModel.js';
 import { createSeededRandom } from './SeededRandom.js';
 
 const cloneFormation = (formation) => formation.map((unit) => ({ ...unit }));
-const byName = (left, right) => left.name.localeCompare(right.name);
+const ROLE_ORDER = new Map(Object.values(UNIT_ROLE).map((role, index) => [role, index]));
+const byRoleThenName = (left, right) => (ROLE_ORDER.get(left.role) - ROLE_ORDER.get(right.role)) || left.name.localeCompare(right.name);
 
 export class StrategyGameModel extends GameModel {
   constructor(options = {}) {
@@ -22,7 +23,7 @@ export class StrategyGameModel extends GameModel {
 
   get totalSupply() { return this.isSandbox ? Infinity : Object.values(this.supply).reduce((sum, count) => sum + count, 0); }
   get deployedSupply() { return this.placement.length; }
-  get rosterTypes() { return (this.isSandbox ? Object.values(UNIT_TYPES) : super.rosterTypes).slice().sort(byName); }
+  get rosterTypes() { return (this.isSandbox ? Object.values(UNIT_TYPES) : super.rosterTypes).slice().sort(byRoleThenName); }
   get canRetry() { return this.isSandbox || this.totalSupply > 0; }
 
   configureCampaign({ difficulty = 1, length = GAME_CONFIG.missionCount } = {}) {
@@ -176,32 +177,5 @@ export class StrategyGameModel extends GameModel {
     if (!this.lastBattle) return false;
     this.random = createSeededRandom(this.lastBattle.seed);
     return this.setupBattle({ playerFormation: cloneFormation(this.lastBattle.playerFormation), enemyFormation: cloneFormation(this.lastBattle.enemyFormation), missionLabel: `${this.lastBattle.missionLabel} Replay` });
-  }
-
-  selectMission(index) {
-    const previousMission = this.selectedMission;
-    if (!super.selectMission(index)) return false;
-    if (previousMission !== index) this.clearPlacement();
-    return true;
-  }
-
-  pruneDepletedRoster() {
-    if (this.isSandbox) return;
-    for (const type of PLAYER_UNIT_TYPES) if ((this.supply[type.key] ?? 0) <= 0) this.roster[type.key] = false;
-    if (this.selectedUnitType && !this.roster[this.selectedUnitType]) this.selectedUnitType = this.rosterTypes[0]?.key ?? null;
-  }
-
-  determineResult() {
-    const result = super.determineResult();
-    if (result?.cssClass === RESULT_TYPE.DRAW) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: result.text.replace('DRAW', 'DEFEAT'), playerWon: false };
-    return result;
-  }
-
-  finishBattle(result) { super.finishBattle(result); this.pruneDepletedRoster(); }
-
-  returnToDeployment(missionIndex = this.selectedMission) {
-    this.random = this.sessionRandom;
-    this.clearPlacement();
-    super.returnToDeployment(missionIndex);
   }
 }
