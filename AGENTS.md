@@ -8,6 +8,7 @@ These instructions apply to every task in this repository.
 2. Spend deliberate time evaluating the best architecture before implementation. Identify the responsibilities involved, the correct layer for each responsibility, dependency direction, extension points, and likely long-term maintenance costs.
 3. Prefer a coherent design that supports future features over the fastest local patch. Avoid premature abstraction, but do not introduce coupling merely to minimize the immediate diff.
 4. Review existing technical debt for constraints or related cleanup opportunities.
+5. When working on unit icons or role silhouettes, also read `docs/unit-icon-style.md` before changing `src/frontend/UnitGraphics.js`.
 
 ## Architecture expectations
 
@@ -18,6 +19,7 @@ These instructions apply to every task in this repository.
 - Before adding an abstraction, identify the responsibility or variation it isolates. Before bypassing an existing abstraction, confirm that the boundary is genuinely wrong rather than merely inconvenient.
 - Consider how each design would accommodate likely future work such as persistence, multiplayer transport, alternate renderers, additional content, replay/debug tooling, and automated tests.
 - When a task exposes an architectural weakness, either correct it within scope or record it in `TECH_DEBT.md` with enough context for a future agent to act on it.
+- For unit icons, treat the role frame as shared rendering infrastructure and the inner mark as unit-specific symbolism. Do not implement one-off frame geometry per unit.
 
 ## Technical-debt tracking
 
@@ -25,7 +27,7 @@ Maintain `TECH_DEBT.md` as the repository's active technical-debt to-do list.
 
 - Add newly discovered debt even when it is outside the current task's scope.
 - Write each item as an actionable unchecked Markdown task.
-- Include the affected area, the impact of leaving it unresolved, and a practical direction for resolution.
+- Include the affected area, the impact of leaving the issue unresolved, and a practical direction for resolution.
 - Do not add vague wishes, speculative rewrites, or ordinary feature requests.
 - Remove an item only when the underlying debt is actually resolved.
 - Update related entries when circumstances change.
