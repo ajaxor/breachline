@@ -276,7 +276,8 @@ export function createCampaign(random = Math.random, { missionCount = GAME_CONFI
     const enemyBudget = Math.round(baseEnemyBudget * difficulty);
     const wallBudget = Math.round((GAME_CONFIG.wallBudgetBase + index * GAME_CONFIG.wallBudgetStep) * difficulty);
     const structureBudget = Math.round((GAME_CONFIG.structureBudgetBase + index * GAME_CONFIG.structureBudgetStep) * difficulty);
-    const draftBudget = GAME_CONFIG.startingDraftBudget + index * GAME_CONFIG.draftBudgetStep;
+    const draftBudgetTaper = index * Math.max(0, index - 1) * GAME_CONFIG.draftBudgetTaper;
+    const draftBudget = Math.max(GAME_CONFIG.startingDraftBudget, GAME_CONFIG.startingDraftBudget + index * GAME_CONFIG.draftBudgetStep - draftBudgetTaper);
     return {
       index,
       playerBudget,
