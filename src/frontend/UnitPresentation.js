@@ -7,11 +7,13 @@ const ROLE_LABEL = Object.freeze({
   [UNIT_ROLE.SUPPORT]: 'Support',
   [UNIT_ROLE.FLYING]: 'Flying',
   [UNIT_ROLE.SPECIALIST]: 'Specialist',
+  [UNIT_ROLE.WALL]: 'Wall',
   [UNIT_ROLE.STRUCTURE]: 'Structure',
 });
 
 const TAG_DESCRIPTION = Object.freeze({
   [UNIT_TAG.AGILE]: 'Dodges the first attack in each battle by moving into an open lane to the left or right, when possible.',
+  [UNIT_TAG.SCATTER]: 'When blocked from moving forward, moves sideways into an open adjacent lane when possible.',
   [UNIT_TAG.STATIONARY]: 'Cannot move from its deployed position.',
   [UNIT_TAG.SWIVEL]: 'Can target units in other lanes instead of being limited to its own lane.',
   [UNIT_TAG.FAST_ATTACK]: 'Can attack during the same turn that it moves.',
@@ -31,6 +33,8 @@ const TAG_DESCRIPTION = Object.freeze({
   [UNIT_TAG.ENHANCE]: 'Adds the listed damage bonus to attacks made by allied units within the aura. Multiple enhancement auras do not stack.',
   [UNIT_TAG.STUN_FIELD]: 'Stuns enemies aligned across the same battlefield row. The stun persists briefly after they leave the field.',
   [UNIT_TAG.JAMMER]: 'Cloaks allied units within the aura. Cloaked units remain targetable by adjacent enemies.',
+  [UNIT_TAG.THORNS]: 'Reflects a portion of melee damage back at the attacker.',
+  [UNIT_TAG.FACTORY]: 'Produces a weak unit into the lane ahead whenever production is ready and the space is clear.',
 });
 
 const HIDDEN_TAGS = new Set([UNIT_TAG.FLYING, UNIT_TAG.AI_ONLY]);
