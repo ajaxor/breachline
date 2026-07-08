@@ -31,6 +31,11 @@ const ABSTRACT_UNIT_DRAWERS = Object.freeze({
   infiltrator: drawInfiltratorSymbol,
   barricade: drawBarricadeSymbol,
   turret: drawTurretSymbol,
+  'flak-turret': drawFlakTurretSymbol,
+  'rocket-turret': drawRocketTurretSymbol,
+  'mortar-nest': drawMortarNestSymbol,
+  'rail-turret': drawRailTurretSymbol,
+  factory: drawFactorySymbol,
 });
 
 const ROLE_FRAME_SCALE = Object.freeze({
@@ -39,7 +44,7 @@ const ROLE_FRAME_SCALE = Object.freeze({
   support: 1,
   flying: 1,
   specialist: 1.05,
-  structure: 1,
+  structure: 1.16,
 });
 
 export const drawUnitGraphic = (context, graphic, x, y, radius, color, role = null) => {
@@ -84,7 +89,7 @@ const unitBodyPath = (ctx, role, radius) => {
     ctx.quadraticCurveTo(-radius * 0.35, radius, -radius, 0);
     ctx.closePath();
   } else if (role === 'specialist') polygon(ctx, radius, 4, -Math.PI / 2);
-  else if (role === 'structure') ctx.roundRect(-radius, -radius * 0.72, radius * 2, radius * 1.44, radius * 0.12);
+  else if (role === 'structure') polygon(ctx, radius, 6, Math.PI / 6);
   else ctx.rect(-radius, -radius, radius * 2, radius * 2);
 };
 
@@ -353,6 +358,8 @@ function drawBarricadeSymbol(ctx, radius) {
   fillShape(ctx, radius, [[-0.64, -0.42], [-0.46, -0.58], [0.64, 0.42], [0.46, 0.58]]);
   fillShape(ctx, radius, [[0.64, -0.42], [0.46, -0.58], [-0.64, 0.42], [-0.46, 0.58]]);
   fillRectScaled(ctx, radius, -0.64, -0.08, 1.28, 0.16);
+  fillShape(ctx, radius, [[-0.5, -0.16], [-0.38, -0.36], [-0.26, -0.16]]);
+  fillShape(ctx, radius, [[0.26, 0.16], [0.38, 0.36], [0.5, 0.16]]);
 }
 
 function drawTurretSymbol(ctx, radius) {
@@ -362,6 +369,53 @@ function drawTurretSymbol(ctx, radius) {
   ctx.stroke();
   fillShape(ctx, radius, [[0.08, -0.12], [0.7, -0.48], [0.78, -0.28], [0.2, 0.04]]);
   fillRectScaled(ctx, radius, -0.42, 0.38, 0.84, 0.16);
+}
+
+function drawFlakTurretSymbol(ctx, radius) {
+  fillRectScaled(ctx, radius, -0.46, 0.38, 0.92, 0.16);
+  fillShape(ctx, radius, [[-0.44, 0.3], [-0.14, -0.46], [0, -0.34], [-0.2, 0.32]]);
+  fillShape(ctx, radius, [[0.44, 0.3], [0.14, -0.46], [0, -0.34], [0.2, 0.32]]);
+  fillRectScaled(ctx, radius, -0.18, -0.02, 0.36, 0.18);
+}
+
+function drawRocketTurretSymbol(ctx, radius) {
+  fillRectScaled(ctx, radius, -0.54, 0.36, 1.08, 0.18);
+  fillShape(ctx, radius, [[-0.44, -0.08], [0.28, -0.48], [0.44, -0.2], [-0.28, 0.2]]);
+  fillShape(ctx, radius, [[0.38, -0.62], [0.68, -0.54], [0.48, -0.32]]);
+  fillRectScaled(ctx, radius, -0.16, 0.02, 0.32, 0.32);
+}
+
+function drawMortarNestSymbol(ctx, radius) {
+  ctx.lineWidth = Math.max(1.5, radius * 0.11);
+  fillRectScaled(ctx, radius, -0.6, 0.34, 1.2, 0.18);
+  fillShape(ctx, radius, [[-0.42, 0.3], [-0.2, 0.04], [0.22, 0.04], [0.42, 0.3]]);
+  ctx.beginPath();
+  ctx.moveTo(-radius * 0.08, -radius * 0.02);
+  ctx.lineTo(radius * 0.28, -radius * 0.54);
+  ctx.moveTo(radius * 0.08, 0);
+  ctx.lineTo(radius * 0.44, -radius * 0.5);
+  ctx.stroke();
+}
+
+function drawRailTurretSymbol(ctx, radius) {
+  ctx.lineWidth = Math.max(1.6, radius * 0.12);
+  fillRectScaled(ctx, radius, -0.56, 0.36, 1.12, 0.16);
+  fillRectScaled(ctx, radius, -0.2, 0.06, 0.4, 0.3);
+  ctx.beginPath();
+  ctx.moveTo(-radius * 0.5, -radius * 0.12);
+  ctx.lineTo(radius * 0.54, -radius * 0.12);
+  ctx.moveTo(-radius * 0.5, radius * 0.04);
+  ctx.lineTo(radius * 0.54, radius * 0.04);
+  ctx.stroke();
+  fillShape(ctx, radius, [[0.54, -0.24], [0.78, -0.04], [0.54, 0.16]]);
+}
+
+function drawFactorySymbol(ctx, radius) {
+  fillRectScaled(ctx, radius, -0.58, -0.04, 1.16, 0.58);
+  fillRectScaled(ctx, radius, -0.48, -0.36, 0.22, 0.32);
+  fillRectScaled(ctx, radius, -0.08, -0.5, 0.22, 0.46);
+  fillShape(ctx, radius, [[-0.22, 0.18], [0.22, 0.18], [0, 0.48]]);
+  fillRectScaled(ctx, radius, 0.28, 0.1, 0.16, 0.22);
 }
 
 const fillRectScaled = (ctx, radius, x, y, width, height) => {
