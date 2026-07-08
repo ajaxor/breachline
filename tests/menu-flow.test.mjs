@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { UNIT_ROLE } from '../src/data/gameConfig.js';
 import { StrategyGameModel } from '../src/model/StrategyGameModel.js';
 
 const sequence = (...values) => { let i = 0; return () => values[i++ % values.length]; };
+const roleOrder = new Map(Object.values(UNIT_ROLE).map((role, index) => [role, index]));
+const byRoleThenName = (left, right) => (roleOrder.get(left.role) - roleOrder.get(right.role)) || left.name.localeCompare(right.name);
 
 test('campaign settings control mission count and difficulty budget', () => {
   const model = new StrategyGameModel({ random: sequence(0.25, 0.5, 0.75) });
@@ -11,11 +14,12 @@ test('campaign settings control mission count and difficulty budget', () => {
   assert.equal(model.campaign[0].enemyBudget, Math.round(220 * 1.25));
 });
 
-test('deployment rosters are alphabetical by displayed unit name', () => {
+test('deployment rosters are sorted by role then displayed unit name', () => {
   const model = new StrategyGameModel({ random: () => 0.5 });
   model.configureSandbox();
-  const names = model.rosterTypes.map((type) => type.name);
-  assert.deepEqual(names, names.slice().sort((left, right) => left.localeCompare(right)));
+  const rosterKeys = model.rosterTypes.map((type) => type.key);
+  const expectedKeys = model.rosterTypes.slice().sort(byRoleThenName).map((type) => type.key);
+  assert.deepEqual(rosterKeys, expectedKeys);
 });
 
 test('sandbox exposes AI-only units and places both sides by board zone', () => {
