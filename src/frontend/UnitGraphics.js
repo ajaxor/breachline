@@ -5,7 +5,9 @@ const TYPE_BY_GRAPHIC = Object.freeze(Object.fromEntries(
 ));
 
 const ABSTRACT_UNIT_DRAWERS = Object.freeze({
+  grunt: drawGruntSymbol,
   rifleman: drawRiflemanSymbol,
+  skitter: drawSkitterSymbol,
   gunner: drawGunnerSymbol,
   bulwark: drawBulwarkSymbol,
   ram: drawRamSymbol,
@@ -107,10 +109,20 @@ const drawUnitDetails = (ctx, graphic, radius, color) => {
   ctx.restore();
 };
 
+function drawGruntSymbol(ctx, radius) {
+  fillRectScaled(ctx, radius, -0.42, -0.48, 0.84, 0.96);
+  fillRectScaled(ctx, radius, -0.56, -0.08, 1.12, 0.16);
+}
+
 function drawRiflemanSymbol(ctx, radius) {
   fillShape(ctx, radius, [[-0.66, 0.5], [-0.24, 0.22], [-0.24, -0.48], [-0.42, -0.36], [-0.42, 0.12], [-0.72, 0.3]]);
   fillRectScaled(ctx, radius, -0.1, -0.66, 0.2, 1.28);
   fillShape(ctx, radius, [[0.66, 0.5], [0.24, 0.22], [0.24, -0.48], [0.42, -0.36], [0.42, 0.12], [0.72, 0.3]]);
+}
+
+function drawSkitterSymbol(ctx, radius) {
+  fillShape(ctx, radius, [[-0.7, -0.1], [-0.3, -0.46], [-0.3, -0.24], [0.38, -0.24], [0.38, 0.02], [-0.3, 0.02], [-0.3, 0.24]]);
+  fillShape(ctx, radius, [[0.7, 0.1], [0.3, 0.46], [0.3, 0.24], [-0.38, 0.24], [-0.38, -0.02], [0.3, -0.02], [0.3, -0.24]]);
 }
 
 function drawGunnerSymbol(ctx, radius) {
