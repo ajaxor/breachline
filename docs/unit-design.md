@@ -43,11 +43,17 @@ Specialists are ground units whose primary value comes from a narrow tactical ni
 
 A specialist should be meaningfully better than general-purpose units at its intended job and meaningfully worse outside that job. Avoid labeling a broadly useful unit as a specialist just because it has one secondary tag.
 
+### Wall
+
+Walls are stationary enemy blockers used to shape mission lanes and protect more dangerous threats. They must have 0 attack and should rely on durability, thorns, production, or other non-attack utility rather than direct damage.
+
+Every wall must be AI-only. The unit factory automatically adds both `stationary` and `ai-only` tags to Wall-role units; do not bypass that path. Ranged units ignore walls unless the wall is directly blocking movement in the next cell, so walls should be positioned to create formation pressure rather than act as ordinary ranged targets.
+
 ### Structure
 
-Structures are stationary enemy tools used to shape missions and formations. Every structure must be AI-only. The unit factory automatically adds both `stationary` and `ai-only` tags to Structure-role units; do not bypass that path.
+Structures are stationary enemy weapons used to shape missions and formations. Every structure must be AI-only and must have a positive attack value. Use the Wall role for passive blockers, factories, barricades, and other non-attacking obstacles.
 
-Structures should have substantially more health than mobile units. Their lack of movement and player availability should be reflected in a separate durability tier, normally well above even heavy front-line units, while their cost and offensive output account for their positional reliability.
+Structures should have substantially more health than mobile units. Their lack of movement and player availability should be reflected in a separate durability tier, normally well above even heavy front-line units, while their cost and offensive output account for their positional reliability. Ranged units treat armed structures like other attack-capable units, so structure balance should account for being valid ranged targets.
 
 ## Ability-specific rules
 
