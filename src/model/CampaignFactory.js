@@ -40,6 +40,8 @@ function chooseFormationUnit(keys, weights, remaining, missionIndex, pairIndex, 
   if (!affordable.length) return null;
 
   const byCost = affordable.slice().sort((left, right) => UNIT_TYPES[left].cost - UNIT_TYPES[right].cost);
+  if (missionIndex >= 7 && pairIndex === 0) return byCost[0];
+
   const split = Math.max(1, Math.ceil(byCost.length / 2));
   const cheapPool = byCost.slice(0, split);
   const premiumPool = byCost.slice(Math.floor(byCost.length / 2));
