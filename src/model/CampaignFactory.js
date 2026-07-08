@@ -192,6 +192,13 @@ function draftCampaignArmy(mobileBudget, missionIndex, weights, random) {
   const supportBudget = supportKey ? Math.min(UNIT_TYPES[supportKey].cost * 2, mobileBudget * 0.14) : 0;
   let remaining = mobileBudget - supportBudget;
   const entries = [];
+  const createEntry = (key, pairs, extra = {}) => ({
+    type: key,
+    pairs,
+    protected: PROTECTED_ROLES.has(UNIT_TYPES[key].role),
+    avoidBlockers: UNIT_TYPES[key].role === UNIT_ROLE.MELEE,
+    ...extra,
+  });
 
   const coreShares = core.length === 1 ? [1] : (missionIndex >= 5 ? [0.68, 0.32] : [0.58, 0.42, 0.15]);
   core.forEach((key, index) => {
@@ -199,7 +206,7 @@ function draftCampaignArmy(mobileBudget, missionIndex, weights, random) {
     const targetBudget = Math.max(cost, remaining * (coreShares[index] ?? 0.15));
     const pairs = Math.max(1, Math.floor(targetBudget / cost));
     if (remaining >= cost) {
-      entries.push({ type: key, pairs, protected: PROTECTED_ROLES.has(UNIT_TYPES[key].role) });
+      entries.push(createEntry(key, pairs));
       remaining -= pairs * cost;
     }
   });
@@ -208,10 +215,10 @@ function draftCampaignArmy(mobileBudget, missionIndex, weights, random) {
   if (refillKey) {
     const cost = UNIT_TYPES[refillKey].cost * 2;
     const refill = Math.floor(Math.max(0, remaining) / cost);
-    if (refill > 0) entries.push({ type: refillKey, pairs: refill, protected: PROTECTED_ROLES.has(UNIT_TYPES[refillKey].role) });
+    if (refill > 0) entries.push(createEntry(refillKey, refill));
   }
 
-  if (supportKey && supportBudget >= UNIT_TYPES[supportKey].cost * 2) entries.push({ type: supportKey, pairs: 1, protected: true, support: true });
+  if (supportKey && supportBudget >= UNIT_TYPES[supportKey].cost * 2) entries.push(createEntry(supportKey, 1, { protected: true, support: true, avoidBlockers: false }));
   return entries;
 }
 
@@ -221,7 +228,9 @@ function placeDraftedArmy(formation, occupied, draftedArmy, pairs, random) {
   const frontColumns = columnsByMiddle({ includeFront: false });
   const protectedSlots = slotsForMobile(pairs, protectedColumns, random).filter((slot) => hasBlockerAhead(slot, blockers));
   const frontSlots = slotsForMobile(pairs, frontColumns, random);
+  const unblockedFrontSlots = frontSlots.filter((slot) => !hasBlockerAhead(slot, blockers));
   const fallbackSlots = slotsForMobile(pairs, GAME_CONFIG.enemyZone.slice().reverse(), random);
+  const unblockedFallbackSlots = fallbackSlots.filter((slot) => !hasBlockerAhead(slot, blockers));
 
   const takeSlot = (slots) => {
     const index = slots.findIndex((slot) => isSlotOpen(occupied, slot));
@@ -232,7 +241,9 @@ function placeDraftedArmy(formation, occupied, draftedArmy, pairs, random) {
 
   for (const entry of draftedArmy) {
     for (let count = 0; count < entry.pairs; count += 1) {
-      const slot = takeSlot(entry.protected ? protectedSlots : frontSlots) ?? takeSlot(fallbackSlots);
+      const preferredSlots = entry.protected ? protectedSlots : (entry.avoidBlockers ? unblockedFrontSlots : frontSlots);
+      const fallbackPreferredSlots = entry.avoidBlockers ? unblockedFallbackSlots : fallbackSlots;
+      const slot = takeSlot(preferredSlots) ?? takeSlot(fallbackPreferredSlots) ?? takeSlot(fallbackSlots);
       if (!slot) return;
       addMirroredPair(formation, occupied, slot.pair, slot.column, entry.type);
     }
