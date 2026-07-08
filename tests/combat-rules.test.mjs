@@ -165,16 +165,20 @@ test('stationary units never move', () => {
   assert.deepEqual({ row: structure.row, column: structure.column }, { row: 2, column: 10 });
 });
 
-test('simultaneous base destruction and mutual annihilation resolve as draws', () => {
+test('simultaneous base destruction and mutual annihilation resolve as defeats', () => {
   const model = new GameModel();
   model.playerBaseHp = 0;
   model.enemyBaseHp = 0;
-  assert.equal(model.determineResult().cssClass, RESULT_TYPE.DRAW);
+  let result = model.determineResult();
+  assert.equal(result.cssClass, RESULT_TYPE.ENEMY_WIN);
+  assert.equal(result.playerWon, false);
   model.playerBaseHp = GAME_CONFIG.baseHp;
   model.enemyBaseHp = GAME_CONFIG.baseHp;
   model.units = [
     createBattleUnit({ id: 1, overrides: { alive: false } }),
     createBattleUnit({ id: 2, team: TEAM.ENEMY, overrides: { alive: false } }),
   ];
-  assert.equal(model.determineResult().cssClass, RESULT_TYPE.DRAW);
+  result = model.determineResult();
+  assert.equal(result.cssClass, RESULT_TYPE.ENEMY_WIN);
+  assert.equal(result.playerWon, false);
 });
