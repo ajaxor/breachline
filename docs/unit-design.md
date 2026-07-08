@@ -23,7 +23,7 @@ Melee units normally establish the durability and direct-damage baseline for the
 
 Ranged units attack from beyond adjacent range. In general, they should have less health and less direct attack power than comparable melee units because range creates extra uptime and safety.
 
-High single-shot damage is acceptable when constrained by reload time, narrow targeting, setup requirements, low durability, or high cost. Ranged units should not also be the best front-line option.
+High single-shot damage is acceptable when constrained by reload time, narrow targeting, setup requirements, low durability, or high cost. Ranged units should not also be the best front-line option. Anti-air ranged units such as Flak may remain Ranged when they are still conventional ranged attackers with anti-air as their target specialty.
 
 ### Support
 
@@ -39,28 +39,28 @@ Flying units continuously advance through occupied cells and may attack while mo
 
 ### Specialist
 
-Specialists are ground units whose primary value comes from a narrow tactical niche rather than ordinary lane fighting. Examples include dedicated anti-air platforms, displacement units, evasive flankers, stealth infiltrators, and ground units designed to bypass conventional combat rules.
+Specialists are ground units whose primary value comes from a narrow tactical niche rather than ordinary lane fighting. Examples include displacement units, evasive flankers, stealth infiltrators, and ground units designed to bypass conventional combat rules.
 
 A specialist should be meaningfully better than general-purpose units at its intended job and meaningfully worse outside that job. Avoid labeling a broadly useful unit as a specialist just because it has one secondary tag.
 
 ### Wall
 
-Walls are stationary enemy blockers used to shape mission lanes and protect more dangerous threats. They must have 0 attack and should rely on durability, thorns, production, or other non-attack utility rather than direct damage.
+Walls are stationary enemy blockers used to shape mission lanes and protect more dangerous threats. They must have 0 attack and should rely on durability, thorns, or other non-attack utility rather than direct damage.
 
 Every wall must be AI-only. The unit factory automatically adds both `stationary` and `ai-only` tags to Wall-role units; do not bypass that path. Ranged units ignore walls unless the wall is directly blocking movement in the next cell, so walls should be positioned to create formation pressure rather than act as ordinary ranged targets.
 
 ### Structure
 
-Structures are stationary enemy weapons used to shape missions and formations. Every structure must be AI-only and must have a positive attack value. Use the Wall role for passive blockers, factories, barricades, and other non-attacking obstacles.
+Structures are stationary enemy weapons or production buildings used to shape missions and formations. Every structure must be AI-only. Most structures should have a positive attack value; a Factory may have 0 attack only when its production is the tactical threat.
 
-Structures should have substantially more health than mobile units. Their lack of movement and player availability should be reflected in a separate durability tier, normally well above even heavy front-line units, while their cost and offensive output account for their positional reliability. Ranged units treat armed structures like other attack-capable units, so structure balance should account for being valid ranged targets.
+Structures should have substantially more health than mobile units. Their lack of movement and player availability should be reflected in a separate durability tier, normally well above even heavy front-line units, while their cost and offensive output account for their positional reliability. Ranged units treat armed structures and factories like other attack-capable units, so structure balance should account for being valid ranged targets.
 
 ## Ability-specific rules
 
 - Flying bomb units use the Flying role and combine the Flying, Bomb, and area-damage tags as needed.
 - Bomb units should have very high attack values because they normally attack once and sacrifice themselves. Their cost, health, delivery reliability, area of effect, and ability to detonate on destruction are the balancing constraints.
-- Dedicated anti-air ground units should usually be Specialists. A general-purpose ranged unit may carry anti-air as a secondary capability only when it remains useful against ground targets and pays for that flexibility.
-- Units designed to dodge, infiltrate, or push enemies should usually be Specialists unless the effect is clearly secondary to a conventional melee or ranged identity.
+- Dedicated anti-air ground units can be Ranged when they are conventional ranged attackers, or Specialists when the anti-air job comes with unusual combat rules or very narrow matchup value.
+- Units designed to dodge, infiltrate, scatter around blockers, or push enemies should usually be Specialists unless the effect is clearly secondary to a conventional melee or ranged identity.
 - Area damage, swivel targeting, salvo attacks, and persistent auras multiply the value of raw stats. Tune their cost and base attack conservatively.
 
 ## Balancing workflow
