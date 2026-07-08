@@ -6,11 +6,11 @@ import { UnitPresentation } from './UnitPresentation.js';
 const REQUIRED_ELEMENT_IDS = [
   'screenTitle', 'gameShell', 'btnStartGame', 'buildInfo', 'field', 'fieldWrap',
   'missionStrip', 'missionInfo', 'btnGoDeploy', 'budgetSpent', 'btnLaunch',
-  'deployTopbar', 'resolveTopbar', 'deployHint', 'battleStatus', 'btnOpenLog',
-  'phaseLabel', 'log', 'bannerOverlay', 'logSheet', 'sheetBackdrop', 'rosterList',
-  'rosterExpand', 'rosterOverlay', 'rosterFullList', 'rosterClose', 'playerHpText',
-  'enemyHpText', 'playerHpFill', 'enemyHpFill', 'draftOverlay', 'draftChoices',
-  'draftProgress', 'unitInspector', 'clearLink', 'btnRedesign', 'logClose',
+  'deployTopbar', 'resolveTopbar', 'battleStatus', 'btnOpenLog', 'btnBack',
+  'btnSurrender', 'phaseLabel', 'log', 'bannerOverlay', 'logSheet', 'sheetBackdrop',
+  'rosterList', 'rosterExpand', 'rosterOverlay', 'rosterFullList', 'rosterClose',
+  'playerHpText', 'enemyHpText', 'playerHpFill', 'enemyHpFill', 'draftOverlay',
+  'draftChoices', 'draftProgress', 'unitInspector', 'clearLink', 'logClose',
   'screenMissions', 'screenBattle',
 ];
 
@@ -45,14 +45,8 @@ export class GameView {
     this.renderLog(model);
   }
 
-  renderBuildInfo(buildInfo) {
-    this.elements.buildInfo.textContent = `v${buildInfo?.version || 'dev'} · ${buildInfo?.commit || 'local'}`;
-  }
-
-  enterGame() {
-    this.elements.screenTitle.hidden = true;
-    this.elements.gameShell.hidden = false;
-  }
+  renderBuildInfo(buildInfo) { this.elements.buildInfo.textContent = `v${buildInfo?.version || 'dev'} · ${buildInfo?.commit || 'local'}`; }
+  enterGame() { this.elements.screenTitle.hidden = true; this.elements.gameShell.hidden = false; }
 
   renderCampaign(model) {
     this.elements.missionStrip.replaceChildren(...model.campaign.map((mission, index) => this.createMissionChip(mission, index, model.selectedMission)));
@@ -86,21 +80,8 @@ export class GameView {
     this.elements.rosterFullList.replaceChildren(...cards);
   }
 
-  openRoster(model) {
-    this.renderExpandedRoster(model);
-    this.overlays.open(this.elements.rosterOverlay, {
-      close: () => this.closeRoster(),
-      initialFocus: () => this.elements.rosterFullList.querySelector('button'),
-    });
-  }
-
-  closeRoster() {
-    if (this.overlays.active?.element === this.elements.rosterOverlay) this.overlays.close();
-    else {
-      this.elements.rosterOverlay.classList.remove('open');
-      this.elements.rosterOverlay.hidden = true;
-    }
-  }
+  openRoster(model) { this.renderExpandedRoster(model); this.overlays.open(this.elements.rosterOverlay, { close: () => this.closeRoster(), initialFocus: () => this.elements.rosterFullList.querySelector('button') }); }
+  closeRoster() { if (this.overlays.active?.element === this.elements.rosterOverlay) this.overlays.close(); else { this.elements.rosterOverlay.classList.remove('open'); this.elements.rosterOverlay.hidden = true; } }
 
   renderDraft(model) {
     this.elements.draftProgress.textContent = model.pendingDrafts > 1 ? `${model.pendingDrafts} selections remaining` : 'Final selection';
@@ -110,15 +91,9 @@ export class GameView {
       card.style.setProperty('--draft-index', String(index));
       if (choice.isPair) {
         const pair = this.createElement('div', { className: 'draft-pair' });
-        pair.append(
-          this.unitPresentation.createDescription(choice.units[0], { label: 'Paired unit', includeCost: false, quantity: choice.units[0].draftCount }),
-          this.createElement('div', { className: 'draft-pair-slash', text: '/' }),
-          this.unitPresentation.createDescription(choice.units[1], { label: 'Paired unit', includeCost: false, quantity: choice.units[1].draftCount }),
-        );
+        pair.append(this.unitPresentation.createDescription(choice.units[0], { label: 'Paired unit', includeCost: false, quantity: choice.units[0].draftCount }), this.createElement('div', { className: 'draft-pair-slash', text: '/' }), this.unitPresentation.createDescription(choice.units[1], { label: 'Paired unit', includeCost: false, quantity: choice.units[1].draftCount }));
         card.appendChild(pair);
-      } else {
-        card.appendChild(this.unitPresentation.createDescription(choice, { label: 'Draft option', includeCost: false, quantity: choice.draftCount }));
-      }
+      } else card.appendChild(this.unitPresentation.createDescription(choice, { label: 'Draft option', includeCost: false, quantity: choice.draftCount }));
       return card;
     });
     this.elements.draftChoices.replaceChildren(...cards);
@@ -127,42 +102,16 @@ export class GameView {
     this.elements.draftChoices.classList.add('refreshing');
   }
 
-  openDraft() {
-    this.overlays.open(this.elements.draftOverlay, {
-      initialFocus: () => this.elements.draftChoices.querySelector('button'),
-    });
-  }
-
-  closeDraft() {
-    if (this.overlays.active?.element === this.elements.draftOverlay) this.overlays.close();
-    else {
-      this.elements.draftOverlay.classList.remove('open');
-      this.elements.draftOverlay.hidden = true;
-    }
-  }
-
-  showUnitInspector(type, label, tone = 'enemy') {
-    this.elements.unitInspector.className = `unit-inspector ${tone}`;
-    this.elements.unitInspector.replaceChildren(this.unitPresentation.createDescription(type, { label, tone }));
-    this.elements.unitInspector.hidden = false;
-  }
-
-  clearUnitInspector() {
-    this.elements.unitInspector.hidden = true;
-    this.elements.unitInspector.replaceChildren();
-    this.elements.unitInspector.className = 'unit-inspector';
-  }
-
-  renderSupply(model) {
-    this.elements.budgetSpent.textContent = `${model.deployedSupply} deployed · ${model.totalSupply - model.deployedSupply} reserve`;
-    this.elements.btnLaunch.disabled = !model.canLaunch;
-  }
+  openDraft() { this.overlays.open(this.elements.draftOverlay, { initialFocus: () => this.elements.draftChoices.querySelector('button') }); }
+  closeDraft() { if (this.overlays.active?.element === this.elements.draftOverlay) this.overlays.close(); else { this.elements.draftOverlay.classList.remove('open'); this.elements.draftOverlay.hidden = true; } }
+  showUnitInspector(type, label, tone = 'enemy') { this.elements.unitInspector.className = `unit-inspector ${tone}`; this.elements.unitInspector.replaceChildren(this.unitPresentation.createDescription(type, { label, tone })); this.elements.unitInspector.hidden = false; }
+  clearUnitInspector() { this.elements.unitInspector.hidden = true; this.elements.unitInspector.replaceChildren(); this.elements.unitInspector.className = 'unit-inspector'; }
+  renderSupply(model) { this.elements.budgetSpent.textContent = `${model.deployedSupply} deployed · ${model.totalSupply - model.deployedSupply} reserve`; this.elements.btnLaunch.disabled = !model.canLaunch; }
 
   renderBattleChrome(model) {
     const battling = model.mode === MODE.BATTLE;
     this.elements.deployTopbar.hidden = battling;
     this.elements.resolveTopbar.hidden = !battling;
-    this.elements.deployHint.hidden = battling;
     this.elements.battleStatus.hidden = !battling;
     this.elements.btnOpenLog.hidden = !battling;
     this.elements.rosterExpand.disabled = battling;
@@ -170,58 +119,12 @@ export class GameView {
     this.elements.battleStatus.textContent = `TICK ${model.tickCount} · YOU ${model.livingPlayerCount} · HOSTILE ${model.livingEnemyCount}`;
   }
 
-  renderBases(model) {
-    this.elements.playerHpText.textContent = `${model.playerBaseHp}/${GAME_CONFIG.baseHp}`;
-    this.elements.enemyHpText.textContent = `${model.enemyBaseHp}/${GAME_CONFIG.baseHp}`;
-    this.elements.playerHpFill.style.width = `${model.playerBaseHp / GAME_CONFIG.baseHp * 100}%`;
-    this.elements.enemyHpFill.style.width = `${model.enemyBaseHp / GAME_CONFIG.baseHp * 100}%`;
-  }
-
-  renderLog(model) {
-    const rows = model.logEntries.map((entry) => this.createElement('div', { className: entry.cssClass, text: entry.message }));
-    this.elements.log.replaceChildren(...rows);
-    this.elements.log.scrollTop = this.elements.log.scrollHeight;
-  }
-
-  setActiveTab(tab) {
-    this.document.querySelectorAll('.screen').forEach((screen) => screen.classList.remove('active'));
-    const screen = tab === 'missions' ? this.elements.screenMissions : this.elements.screenBattle;
-    screen.classList.add('active');
-    this.document.querySelectorAll('.tab-btn').forEach((button) => button.classList.toggle('active', button.dataset.tab === tab));
-  }
-
-  openSheet(element) {
-    this.document.querySelectorAll('.sheet').forEach((sheet) => sheet.classList.remove('open'));
-    element.classList.add('open');
-    this.elements.sheetBackdrop.classList.add('open');
-    this.overlays.open(element, { close: () => this.closeSheets(), initialFocus: () => element.querySelector('button') });
-  }
-
-  closeSheets() {
-    this.document.querySelectorAll('.sheet').forEach((sheet) => sheet.classList.remove('open'));
-    this.elements.sheetBackdrop.classList.remove('open');
-    if (this.overlays.active?.element?.classList.contains('sheet')) this.overlays.close();
-  }
-
-  clearBanner() {
-    if (this.overlays.active?.element === this.elements.bannerOverlay) this.overlays.close({ restoreFocus: false });
-    this.elements.bannerOverlay.className = 'banner-overlay';
-    this.elements.bannerOverlay.replaceChildren();
-  }
-
-  showResult(result, hasNextMission) {
-    this.clearBanner();
-    const banner = this.elements.bannerOverlay;
-    banner.className = `banner-overlay show ${result.cssClass}`;
-    const text = this.createElement('div', { className: 'banner-text', text: result.text });
-    const action = this.createElement('button', { className: 'primary', text: result.playerWon ? 'Draft Reinforcement' : 'Retry Mission' });
-    action.dataset.resultAction = '';
-    banner.append(text, action);
-    if (result.playerWon && !hasNextMission) banner.appendChild(this.createElement('div', { className: 'helptext', text: 'Campaign complete — claim your final reinforcement.' }));
-    this.overlays.open(banner, { initialFocus: () => action });
-  }
-
-  dispose() {
-    this.overlays.dispose();
-  }
+  renderBases(model) { this.elements.playerHpText.textContent = `${model.playerBaseHp}/${GAME_CONFIG.baseHp}`; this.elements.enemyHpText.textContent = `${model.enemyBaseHp}/${GAME_CONFIG.baseHp}`; this.elements.playerHpFill.style.width = `${model.playerBaseHp / GAME_CONFIG.baseHp * 100}%`; this.elements.enemyHpFill.style.width = `${model.enemyBaseHp / GAME_CONFIG.baseHp * 100}%`; }
+  renderLog(model) { const rows = model.logEntries.map((entry) => this.createElement('div', { className: entry.cssClass, text: entry.message })); this.elements.log.replaceChildren(...rows); this.elements.log.scrollTop = this.elements.log.scrollHeight; }
+  setActiveTab(tab) { this.document.querySelectorAll('.screen').forEach((screen) => screen.classList.remove('active')); const screen = tab === 'missions' ? this.elements.screenMissions : this.elements.screenBattle; screen.classList.add('active'); }
+  openSheet(element) { this.document.querySelectorAll('.sheet').forEach((sheet) => sheet.classList.remove('open')); element.classList.add('open'); this.elements.sheetBackdrop.classList.add('open'); this.overlays.open(element, { close: () => this.closeSheets(), initialFocus: () => element.querySelector('button') }); }
+  closeSheets() { this.document.querySelectorAll('.sheet').forEach((sheet) => sheet.classList.remove('open')); this.elements.sheetBackdrop.classList.remove('open'); if (this.overlays.active?.element?.classList.contains('sheet')) this.overlays.close(); }
+  clearBanner() { if (this.overlays.active?.element === this.elements.bannerOverlay) this.overlays.close({ restoreFocus: false }); this.elements.bannerOverlay.className = 'banner-overlay'; this.elements.bannerOverlay.replaceChildren(); }
+  showResult(result, hasNextMission) { this.clearBanner(); const banner = this.elements.bannerOverlay; banner.className = `banner-overlay show ${result.cssClass}`; const text = this.createElement('div', { className: 'banner-text', text: result.text }); const action = this.createElement('button', { className: 'primary', text: result.playerWon ? 'Draft Reinforcement' : 'Retry Mission' }); action.dataset.resultAction = ''; banner.append(text, action); if (result.playerWon && !hasNextMission) banner.appendChild(this.createElement('div', { className: 'helptext', text: 'Campaign complete — claim your final reinforcement.' })); this.overlays.open(banner, { initialFocus: () => action }); }
+  dispose() { this.overlays.dispose(); }
 }
