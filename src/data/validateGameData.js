@@ -38,6 +38,8 @@ function validateConfig() {
   assertPositiveNumber(GAME_CONFIG.budgetStep, 'budgetStep', { integer: true, allowZero: true });
   assertPositiveNumber(GAME_CONFIG.enemyBudgetBonus, 'enemyBudgetBonus', { integer: true, allowZero: true });
   assertPositiveNumber(GAME_CONFIG.enemyBudgetStep, 'enemyBudgetStep', { integer: true, allowZero: true });
+  assertPositiveNumber(GAME_CONFIG.wallBudgetBase, 'wallBudgetBase', { integer: true, allowZero: true });
+  assertPositiveNumber(GAME_CONFIG.wallBudgetStep, 'wallBudgetStep', { integer: true, allowZero: true });
   assertPositiveNumber(GAME_CONFIG.startingDraftBudget, 'startingDraftBudget', { integer: true });
   assertPositiveNumber(GAME_CONFIG.draftBudgetStep, 'draftBudgetStep', { integer: true, allowZero: true });
 
@@ -81,6 +83,17 @@ function validateUnit(mapKey, type) {
     assert(VALID_AURA_EFFECTS.has(type.aura.effect), `${label} has unknown aura effect ${type.aura.effect}`);
     assertPositiveNumber(type.aura.range, `${label} aura.range`, { integer: true });
     assertPositiveNumber(type.aura.value, `${label} aura.value`, { integer: true });
+  }
+  if (type.production !== undefined) {
+    assert(type.tags.includes(UNIT_TAG.FACTORY), `${label} production units must use the factory tag`);
+    assert(typeof type.production.type === 'string' && UNIT_TYPES[type.production.type], `${label} production.type must reference a unit`);
+    assert(UNIT_TYPES[type.production.type].role === UNIT_ROLE.MELEE, `${label} factories should produce melee units`);
+    assertPositiveNumber(type.production.interval, `${label} production.interval`, { integer: true });
+  }
+  if (type.thorns !== undefined) {
+    assert(type.tags.includes(UNIT_TAG.THORNS), `${label} thorns config must use the thorns tag`);
+    assertPositiveNumber(type.thorns.reflectRatio, `${label} thorns.reflectRatio`);
+    assert(type.thorns.reflectRatio <= 1, `${label} thorns.reflectRatio cannot exceed 1`);
   }
   if (type.onAttack !== undefined) assert(VALID_ON_ATTACK.has(type.onAttack), `${label} has unknown onAttack behavior ${type.onAttack}`);
 
