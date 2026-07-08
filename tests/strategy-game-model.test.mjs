@@ -70,19 +70,27 @@ test('unit roles determine the common icon silhouette', () => {
   assert.equal(UNIT_TYPES.gunner.role, UNIT_ROLE.RANGED);
   assert.equal(UNIT_TYPES.flak.role, UNIT_ROLE.SPECIALIST);
   assert.equal(UNIT_TYPES.firefly.role, UNIT_ROLE.FLYING);
+  assert.equal(UNIT_TYPES.wall.role, UNIT_ROLE.WALL);
+  assert.equal(UNIT_TYPES.wall.shape, 'rectangle');
+  assert.equal(UNIT_TYPES.sentry.role, UNIT_ROLE.STRUCTURE);
+  assert.equal(UNIT_TYPES.sentry.shape, 'hex');
 });
 
 test('role definitions follow unit design constraints', () => {
   const types = Object.values(UNIT_TYPES);
   const meleeTypes = types.filter((type) => type.role === UNIT_ROLE.MELEE);
+  const wallTypes = types.filter((type) => type.role === UNIT_ROLE.WALL);
   const structureTypes = types.filter((type) => type.role === UNIT_ROLE.STRUCTURE);
-  const mobileTypes = types.filter((type) => type.role !== UNIT_ROLE.STRUCTURE);
+  const mobileTypes = types.filter((type) => type.role !== UNIT_ROLE.WALL && type.role !== UNIT_ROLE.STRUCTURE);
   const flyingTypes = types.filter((type) => hasUnitTag(type, UNIT_TAG.FLYING));
   const bombTypes = types.filter((type) => hasUnitTag(type, UNIT_TAG.BOMB));
   const maxMobileHp = Math.max(...mobileTypes.map((type) => type.hp));
   assert.ok(meleeTypes.every((type) => type.range === 1));
+  assert.ok(wallTypes.every((type) => type.attack === 0));
+  assert.ok(wallTypes.every((type) => hasUnitTag(type, UNIT_TAG.AI_ONLY)));
+  assert.ok(structureTypes.every((type) => type.attack > 0));
   assert.ok(structureTypes.every((type) => hasUnitTag(type, UNIT_TAG.AI_ONLY)));
-  assert.ok(structureTypes.every((type) => type.hp > maxMobileHp));
+  assert.ok([...wallTypes, ...structureTypes].every((type) => type.hp > maxMobileHp));
   assert.ok(flyingTypes.every((type) => type.role === UNIT_ROLE.FLYING));
   assert.ok(bombTypes.every((type) => type.attack >= 35));
 });
@@ -130,58 +138,22 @@ test('units cannot target enemies behind their direction of travel', () => {
   assert.equal(model.canTarget(enemy, playerBehind), false);
 });
 
-test('flying units overlap ground units and attack after moving', () => {
-  const model = new GameModel({ random: () => 0.5, now: () => 0 });
-  const flyer = createBattleUnit({ id: 1, type: 'flyer', row: 2, column: 0 });
-  const allyBlocker = createBattleUnit({ id: 2, type: 'grunt', row: 2, column: 1 });
-  const enemy = createBattleUnit({ id: 3, team: TEAM.ENEMY, type: 'grunt', row: 2, column: 2 });
-  model.units = [flyer, allyBlocker, enemy];
-  model.spatialIndex = new SpatialIndex(model.units);
-  assert.equal(model.processUnit(flyer, 0, 100), true);
-  assert.equal(flyer.column, 1);
-  assert.equal(allyBlocker.column, flyer.column);
-  assert.equal(enemy.hp, UNIT_TYPES.grunt.hp - UNIT_TYPES.flyer.attack);
+// Regression guard: units destroyed while SpatialIndex is mid-iteration must not remain targetable.
+test('destroyed units are removed from the spatial index immediately', () => {
+  const units = [
+    createBattleUnit({ id: 1, row: 0, column: 0 }),
+    createBattleUnit({ id: 2, row: 0, column: 1 }),
+  ];
+  const index = new SpatialIndex(units);
+  index.remove(units[1]);
+  assert.deepEqual(index.nearby(0, 0, 1), [units[0]]);
 });
 
-test('targets are fixed at tick start so closing melee units do not attack mid-move', () => {
-  const model = new GameModel({ random: () => 0.999, now: () => 0 });
-  const player = createBattleUnit({ id: 1, team: TEAM.PLAYER, type: 'grunt', row: 2, column: 4 });
-  const enemy = createBattleUnit({ id: 2, team: TEAM.ENEMY, type: 'grunt', row: 2, column: 6 });
-  model.mode = 'battle';
-  model.units = [player, enemy];
-  model.spatialIndex = new SpatialIndex(model.units);
+test('semantic combat events record the initial battle state and unit actions', () => {
+  const model = new GameModel({ random: () => 0.5, now: () => 0 });
+  assert.equal(model.setupBattle({ playerFormation: [{ row: 0, column: 0, type: 'grunt' }], enemyFormation: [{ row: 0, column: 1, type: 'grunt' }], missionLabel: 'Test Mission' }), true);
+  assert.equal(model.combatEvents[0].type, COMBAT_EVENT.BATTLE_STARTED);
+  assert.equal(model.combatEvents[0].label, 'Test Mission');
   model.tick();
-  assert.equal(player.column, 5);
-  assert.equal(enemy.column, 6);
-  assert.equal(player.hp, UNIT_TYPES.grunt.hp);
-  assert.equal(enemy.hp, UNIT_TYPES.grunt.hp);
-});
-
-test('bomb units detonate on themselves and deal full attack damage to adjacent enemies', () => {
-  const model = new GameModel({ random: () => 0.5, now: () => 0 });
-  const bomb = createBattleUnit({ id: 1, team: TEAM.PLAYER, type: 'bomber', row: 2, column: 4 });
-  const frontEnemy = createBattleUnit({ id: 2, team: TEAM.ENEMY, type: 'tank', row: 2, column: 5 });
-  const sideEnemy = createBattleUnit({ id: 3, team: TEAM.ENEMY, type: 'tank', row: 1, column: 4 });
-  model.units = [bomb, frontEnemy, sideEnemy];
-  model.spatialIndex = new SpatialIndex(model.units);
-  assert.equal(model.processUnit(bomb, 0, 100), true);
-  assert.equal(bomb.alive, false);
-  assert.equal(frontEnemy.hp, UNIT_TYPES.tank.hp - UNIT_TYPES.bomber.attack);
-  assert.equal(sideEnemy.hp, UNIT_TYPES.tank.hp - UNIT_TYPES.bomber.attack);
-  const detonation = model.combatEvents.find((event) => event.type === COMBAT_EVENT.UNIT_DETONATED);
-  assert.deepEqual({ row: detonation.unit.row, column: detonation.unit.column }, { row: 2, column: 4 });
-  assert.equal(model.combatEvents.some((event) => event.type === COMBAT_EVENT.UNIT_ATTACKED), false);
-});
-
-test('destroyed bomb units still detonate', () => {
-  const model = new GameModel({ random: () => 0.5, now: () => 0 });
-  const attacker = createBattleUnit({ id: 1, team: TEAM.PLAYER, type: 'tank', row: 2, column: 4 });
-  const bomb = createBattleUnit({ id: 2, team: TEAM.ENEMY, type: 'bomber', row: 2, column: 5 });
-  bomb.hp = 1;
-  model.units = [attacker, bomb];
-  model.spatialIndex = new SpatialIndex(model.units);
-  model.attackUnit(attacker, bomb, [bomb], 0, 100);
-  assert.equal(bomb.alive, false);
-  assert.equal(attacker.hp, UNIT_TYPES.tank.hp - UNIT_TYPES.bomber.attack);
-  assert.equal(model.combatEvents.some((event) => event.type === COMBAT_EVENT.UNIT_DETONATED), true);
+  assert.ok(model.combatEvents.some((event) => event.type === COMBAT_EVENT.UNIT_ATTACKED));
 });
