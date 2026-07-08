@@ -51,7 +51,7 @@ export class GameView {
 
   renderCampaign(model) {
     this.elements.missionStrip.replaceChildren(...model.campaign.map((mission, index) => this.createMissionChip(mission, index, model.selectedMission)));
-    this.elements.missionInfo.textContent = `Mission ${model.selectedMission + 1} of ${GAME_CONFIG.missionCount} — ${model.totalSupply} units in supply · hostile force budget ${model.mission.enemyBudget} pts.`;
+    this.elements.missionInfo.textContent = `Mission ${model.selectedMission + 1} of ${model.campaign.length} — ${model.totalSupply} units in supply · hostile force budget ${model.mission.enemyBudget} pts.`;
     this.elements.btnGoDeploy.textContent = `Deploy Mission ${model.selectedMission + 1}`;
   }
 
@@ -75,7 +75,7 @@ export class GameView {
     const cards = model.rosterTypes.map((type) => {
       const card = this.createElement('button', { className: `roster-full-card${type.key === model.selectedUnitType ? ' selected' : ''}` });
       card.dataset.fullRosterUnit = type.key;
-      card.appendChild(this.unitPresentation.createDescription(type, { label: `${model.availableCount(type.key)} available · ${model.supply[type.key]} total`, includeCost: false }));
+      card.appendChild(this.unitPresentation.createDescription(type, { meta: `${model.availableCount(type.key)} available · ${model.supply[type.key]} total`, includeCost: false, includeTechLevel: model.isSandbox }));
       return card;
     });
     this.elements.rosterFullList.replaceChildren(...cards);
@@ -92,9 +92,9 @@ export class GameView {
       card.style.setProperty('--draft-index', String(index));
       if (choice.isPair) {
         const pair = this.createElement('div', { className: 'draft-pair' });
-        pair.append(this.unitPresentation.createDescription(choice.units[0], { label: 'Paired unit', includeCost: false, quantity: choice.units[0].draftCount }), this.createElement('div', { className: 'draft-pair-plus', text: '+' }), this.unitPresentation.createDescription(choice.units[1], { label: 'Paired unit', includeCost: false, quantity: choice.units[1].draftCount }));
+        pair.append(this.unitPresentation.createDescription(choice.units[0], { meta: 'Paired unit', includeCost: false, quantity: choice.units[0].draftCount }), this.createElement('div', { className: 'draft-pair-plus', text: '+' }), this.unitPresentation.createDescription(choice.units[1], { meta: 'Paired unit', includeCost: false, quantity: choice.units[1].draftCount }));
         card.appendChild(pair);
-      } else card.appendChild(this.unitPresentation.createDescription(choice, { label: 'Draft option', includeCost: false, quantity: choice.draftCount }));
+      } else card.appendChild(this.unitPresentation.createDescription(choice, { meta: 'Draft option', includeCost: false, quantity: choice.draftCount }));
       return card;
     });
     this.elements.draftChoices.replaceChildren(...cards);
@@ -107,7 +107,7 @@ export class GameView {
   closeDraft() { if (this.overlays.active?.element === this.elements.draftOverlay) this.overlays.close(); else { this.elements.draftOverlay.classList.remove('open'); this.elements.draftOverlay.hidden = true; } }
   openSurrenderConfirm() { this.overlays.open(this.elements.surrenderOverlay, { close: () => this.closeSurrenderConfirm(), initialFocus: () => this.elements.btnCancelSurrender }); }
   closeSurrenderConfirm() { if (this.overlays.active?.element === this.elements.surrenderOverlay) this.overlays.close(); else { this.elements.surrenderOverlay.classList.remove('open'); this.elements.surrenderOverlay.hidden = true; } }
-  showUnitInspector(type, label, tone = 'enemy') { this.elements.unitInspector.className = `unit-inspector ${tone}`; this.elements.unitInspector.replaceChildren(this.unitPresentation.createDescription(type, { label, tone })); this.elements.unitInspector.hidden = false; }
+  showUnitInspector(type, label, tone = 'enemy', { includeTechLevel = false } = {}) { this.elements.unitInspector.className = `unit-inspector ${tone}`; this.elements.unitInspector.replaceChildren(this.unitPresentation.createDescription(type, { meta: label, tone, includeTechLevel })); this.elements.unitInspector.hidden = false; }
   clearUnitInspector() { this.elements.unitInspector.hidden = true; this.elements.unitInspector.replaceChildren(); this.elements.unitInspector.className = 'unit-inspector'; }
   renderSupply(model) { this.elements.budgetSpent.textContent = `${model.deployedSupply} deployed · ${model.totalSupply - model.deployedSupply} reserve`; this.elements.btnLaunch.disabled = !model.canLaunch; }
 
@@ -118,7 +118,7 @@ export class GameView {
     this.elements.battleStatus.hidden = !battling;
     this.elements.btnOpenLog.hidden = !battling;
     this.elements.rosterExpand.disabled = battling;
-    this.elements.phaseLabel.textContent = `PHASE: ${battling ? 'BATTLE' : 'DEPLOYMENT'} — MISSION ${model.selectedMission + 1}/${GAME_CONFIG.missionCount}`;
+    this.elements.phaseLabel.textContent = `PHASE: ${battling ? 'BATTLE' : 'DEPLOYMENT'} — MISSION ${model.selectedMission + 1}/${model.campaign.length}`;
     this.elements.battleStatus.textContent = `TICK ${model.tickCount} · YOU ${model.livingPlayerCount} · HOSTILE ${model.livingEnemyCount}`;
   }
 
