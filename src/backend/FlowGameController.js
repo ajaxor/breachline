@@ -18,6 +18,8 @@ export class FlowGameController extends GameController {
     this.listen(elements.btnCampaignBack, 'click', () => this.view.closeCampaignMenu());
     this.listen(elements.btnBack, 'click', () => this.requestSurrender());
     this.listen(elements.btnSurrender, 'click', () => this.requestSurrender());
+    this.listen(elements.btnConfirmSurrender, 'click', () => this.confirmSurrender());
+    this.listen(elements.btnCancelSurrender, 'click', () => this.view.closeSurrenderConfirm());
     this.listen(elements.btnReinforce, 'click', () => this.openReinforcements());
     this.listen(elements.btnSandboxGenerate, 'click', () => this.generateSandboxDeployment());
     this.listen(elements.btnDraftBack, 'click', () => this.view.closeDraft());
@@ -77,15 +79,22 @@ export class FlowGameController extends GameController {
   }
 
   requestSurrender() {
-    const confirmed = typeof this.browser.confirm === 'function'
-      ? this.browser.confirm('Surrender this operation and return to the main menu? Current progress will be lost.')
-      : true;
-    if (confirmed) this.surrenderCampaign();
+    if (this.model.isSandbox) {
+      this.surrenderCampaign();
+      return;
+    }
+    this.view.openSurrenderConfirm();
+  }
+
+  confirmSurrender() {
+    this.view.closeSurrenderConfirm();
+    this.surrenderCampaign();
   }
 
   surrenderCampaign() {
     this.stopTimer();
     this.stopAnimationLoop();
+    this.view.closeSurrenderConfirm();
     this.view.closeSheets();
     this.view.closeRoster();
     this.view.clearBanner();
