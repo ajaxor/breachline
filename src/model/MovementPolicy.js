@@ -1,4 +1,4 @@
-import { GAME_CONFIG, TEAM, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
+import { GAME_CONFIG, TEAM, UNIT_ROLE, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
 
 export class MovementPolicy {
   directionFor(unit) {
@@ -25,6 +25,15 @@ export class MovementPolicy {
     return true;
   }
 
+  tryRamWall(model, unit, occupant, nextColumn, now) {
+    const type = UNIT_TYPES[unit.type];
+    const occupantType = UNIT_TYPES[occupant?.type];
+    if (!hasUnitTag(type, UNIT_TAG.RAM) || occupantType?.role !== UNIT_ROLE.WALL) return false;
+    model.killUnit(occupant, now);
+    unit.column = nextColumn;
+    return true;
+  }
+
   move(model, unit, now, duration, forcedSteps = null) {
     const type = UNIT_TYPES[unit.type];
     if (hasUnitTag(type, UNIT_TAG.STATIONARY)) return false;
@@ -40,7 +49,12 @@ export class MovementPolicy {
         model.breach(unit, direction, now, duration);
         return true;
       }
-      if (!hasUnitTag(type, UNIT_TAG.FLYING) && model.occupantAt(unit.row, nextColumn)) {
+      const occupant = model.occupantAt(unit.row, nextColumn);
+      if (!hasUnitTag(type, UNIT_TAG.FLYING) && occupant) {
+        if (this.tryRamWall(model, unit, occupant, nextColumn, now)) {
+          moved = true;
+          continue;
+        }
         if (!moved && hasUnitTag(type, UNIT_TAG.SCATTER)) return this.scatterSideways(model, unit);
         break;
       }
