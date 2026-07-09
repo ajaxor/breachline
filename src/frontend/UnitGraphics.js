@@ -47,7 +47,7 @@ const ABSTRACT_UNIT_DRAWERS = Object.freeze({
   factory: drawFactorySymbol,
 });
 
-const ROLE_FRAME_SCALE = Object.freeze({ melee: 0.86, ranged: 1.08, support: 1, flying: 1, specialist: 1.05, wall: 1.12, structure: 1.08 });
+const ROLE_FRAME_SCALE = Object.freeze({ melee: 0.86, ranged: 1.08, support: 1, flying: 1.1, specialist: 1.05, wall: 1.12, structure: 1.08 });
 
 export const drawUnitGraphic = (context, graphic, x, y, radius, color, role = null) => {
   const silhouetteRole = role ?? TYPE_BY_GRAPHIC[graphic]?.role ?? null;
@@ -137,7 +137,7 @@ function drawAmplifierSymbol(ctx, radius) { ctx.lineWidth = Math.max(1.4, radius
 function drawDisruptorSymbol(ctx, radius) { fillShape(ctx, radius, [[0.08, -0.7], [0.46, -0.18], [0.18, -0.18], [0.36, 0.28], [-0.08, 0.72], [0.02, 0.12], [-0.32, 0.12]]); ctx.lineWidth = Math.max(1.5, radius * 0.11); ctx.beginPath(); ctx.moveTo(-radius * 0.46, -radius * 0.34); ctx.lineTo(-radius * 0.24, -radius * 0.14); ctx.moveTo(radius * 0.5, radius * 0.26); ctx.lineTo(radius * 0.28, radius * 0.46); ctx.stroke(); }
 function drawJammerSymbol(ctx, radius) { ctx.lineWidth = Math.max(1.4, radius * 0.1); ctx.beginPath(); ctx.arc(0, -radius * 0.1, radius * 0.12, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, radius * 0.5); ctx.moveTo(0, radius * 0.22); ctx.lineTo(-radius * 0.34, radius * 0.56); ctx.moveTo(0, radius * 0.22); ctx.lineTo(radius * 0.34, radius * 0.56); ctx.arc(0, -radius * 0.1, radius * 0.34, -Math.PI * 0.72, -Math.PI * 0.28); ctx.arc(0, -radius * 0.1, radius * 0.56, -Math.PI * 0.68, -Math.PI * 0.32); ctx.stroke(); }
 function drawMidgeSymbol(ctx, radius) { fillShape(ctx, radius, [[0, -0.72], [0.12, -0.2], [0, 0.66], [-0.12, -0.2]]); fillShape(ctx, radius, [[-0.18, 0.2], [-0.42, 0.42], [-0.12, 0.36]]); fillShape(ctx, radius, [[0.18, 0.2], [0.42, 0.42], [0.12, 0.36]]); }
-function drawWaspSymbol(ctx, radius) { fillShape(ctx, radius, [[-0.1, -0.62], [0.34, -0.18], [0.08, -0.18], [0.18, 0.28], [-0.1, 0.78], [-0.02, 0.22], [-0.28, 0.22]]); fillShape(ctx, radius, [[-0.18, -0.22], [-0.66, -0.38], [-0.34, 0.02]]); fillShape(ctx, radius, [[0.2, -0.08], [0.66, 0.08], [0.36, 0.28]]); }
+function drawWaspSymbol(ctx, radius) { ctx.lineWidth = Math.max(1.5, radius * 0.11); ctx.beginPath(); ctx.arc(0, -radius * 0.42, radius * 0.14, 0, Math.PI * 2); ctx.fill(); fillRectScaled(ctx, radius, -0.12, -0.22, 0.24, 0.5); fillShape(ctx, radius, [[0, 0.72], [0.2, 0.26], [-0.2, 0.26]]); ctx.beginPath(); ctx.moveTo(-radius * 0.36, -radius * 0.08); ctx.lineTo(-radius * 0.12, radius * 0.12); ctx.moveTo(radius * 0.36, -radius * 0.08); ctx.lineTo(radius * 0.12, radius * 0.12); ctx.stroke(); }
 function drawKiteSymbol(ctx, radius) { fillShape(ctx, radius, [[0, -0.68], [0.5, -0.06], [0, 0.34], [-0.5, -0.06]]); fillRectScaled(ctx, radius, -0.06, 0.28, 0.12, 0.34); fillShape(ctx, radius, [[0, 0.46], [0.38, 0.62], [0.12, 0.66]]); }
 function drawFireflySymbol(ctx, radius) { drawBombCore(ctx, radius); }
 function drawStormwingSymbol(ctx, radius) { fillShape(ctx, radius, [[0.06, -0.72], [0.42, -0.2], [0.16, -0.2], [0.34, 0.2], [-0.08, 0.72], [0, 0.12], [-0.34, 0.12]]); fillShape(ctx, radius, [[-0.18, -0.18], [-0.68, -0.36], [-0.36, 0.04]]); fillShape(ctx, radius, [[0.26, 0.02], [0.72, 0.18], [0.38, 0.34]]); }
