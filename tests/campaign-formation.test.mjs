@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GAME_CONFIG, UNIT_ROLE, UNIT_TYPES } from '../src/data/gameConfig.js';
+import { GAME_CONFIG, UNIT_ROLE, UNIT_TYPES, techLevelForMission } from '../src/data/gameConfig.js';
 import { MISSION_STATUS } from '../src/data/gameTypes.js';
 import { createCampaign } from '../src/model/CampaignFactory.js';
 
@@ -57,6 +57,41 @@ test('campaign has the configured mission count and unlock state', () => {
   assert.equal(campaign.length, GAME_CONFIG.missionCount);
   assert.equal(campaign[0].status, MISSION_STATUS.AVAILABLE);
   assert.ok(campaign.slice(1).every((mission) => mission.status === MISSION_STATUS.LOCKED));
+});
+
+test('each unit defines a valid tech level', () => {
+  for (const type of Object.values(UNIT_TYPES)) {
+    assert.ok(Number.isInteger(type.techLevel), `${type.key} does not have an integer tech level`);
+    assert.ok(type.techLevel >= GAME_CONFIG.minTechLevel, `${type.key} is below the minimum tech level`);
+    assert.ok(type.techLevel <= GAME_CONFIG.maxTechLevel, `${type.key} is above the maximum tech level`);
+  }
+});
+
+test('campaign tech level rises from early to late missions', () => {
+  assert.equal(techLevelForMission(0, campaign.length), GAME_CONFIG.minTechLevel);
+  assert.equal(techLevelForMission(campaign.length - 1, campaign.length), GAME_CONFIG.maxTechLevel);
+  for (let index = 1; index < campaign.length; index += 1) {
+    assert.ok(techLevelForMission(index, campaign.length) >= techLevelForMission(index - 1, campaign.length));
+  }
+});
+
+test('campaign formations stay within current tech unless the ahead roll succeeds', () => {
+  const strictCampaign = createCampaign(() => 0.5);
+  for (const mission of strictCampaign) {
+    const maxTech = techLevelForMission(mission.index, strictCampaign.length);
+    for (const unit of mission.enemyFormation) {
+      assert.ok(
+        UNIT_TYPES[unit.type].techLevel <= maxTech,
+        `${unit.type} appears above tech ${maxTech} in mission ${mission.index + 1}`,
+      );
+    }
+  }
+
+  const aheadCampaign = createCampaign(() => 0);
+  assert.ok(
+    aheadCampaign.some((mission) => mission.enemyFormation.some((unit) => UNIT_TYPES[unit.type].techLevel === techLevelForMission(mission.index, aheadCampaign.length) + 1)),
+    'campaign never used a one-tech-ahead unit when the ahead roll always succeeded',
+  );
 });
 
 test('early campaign missions vary mobile army cores across seeds', () => {
