@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GAME_CONFIG, UNIT_ROLE, UNIT_TAG, UNIT_TYPES, hasUnitTag, techLevelForMission, techLevelWeight } from '../src/data/gameConfig.js';
-import { MISSION_STATUS } from '../src/data/gameTypes.js';
+import { ATTACK_ANIMATION, MISSION_STATUS } from '../src/data/gameTypes.js';
 import { createCampaign } from '../src/model/CampaignFactory.js';
 
 const campaign = createCampaign(() => 0.5);
@@ -53,13 +53,16 @@ function earlyMobileSignature(seed) {
     .join('|');
 }
 
-test('campaign has the configured mission count and unlock state', () => {
+test('campaign has seven missions and correct unlock state', () => {
+  assert.equal(GAME_CONFIG.missionCount, 7);
   assert.equal(campaign.length, GAME_CONFIG.missionCount);
   assert.equal(campaign[0].status, MISSION_STATUS.AVAILABLE);
   assert.ok(campaign.slice(1).every((mission) => mission.status === MISSION_STATUS.LOCKED));
 });
 
-test('each unit defines a valid tech level', () => {
+test('each unit defines a valid tech level on the 1-3 scale', () => {
+  assert.equal(GAME_CONFIG.minTechLevel, 1);
+  assert.equal(GAME_CONFIG.maxTechLevel, 3);
   for (const type of Object.values(UNIT_TYPES)) {
     assert.ok(Number.isInteger(type.techLevel), `${type.key} does not have an integer tech level`);
     assert.ok(type.techLevel >= GAME_CONFIG.minTechLevel, `${type.key} is below the minimum tech level`);
@@ -78,10 +81,22 @@ test('campaign tech level rises from early to late missions', () => {
 test('tech probability curve leaves small cross-tech chances at both ends', () => {
   const firstMission = 0;
   const finalMission = campaign.length - 1;
-  assert.ok(techLevelWeight(5, firstMission, campaign.length) > 0, 'tech 5 has no first-draft chance');
-  assert.ok(techLevelWeight(5, firstMission, campaign.length) < techLevelWeight(1, firstMission, campaign.length), 'early curve does not favor tech 1');
+  assert.ok(techLevelWeight(3, firstMission, campaign.length) > 0, 'tech 3 has no first-draft chance');
+  assert.ok(techLevelWeight(3, firstMission, campaign.length) < techLevelWeight(1, firstMission, campaign.length), 'early curve does not favor tech 1');
   assert.ok(techLevelWeight(1, finalMission, campaign.length) > 0, 'tech 1 has no final-draft chance');
-  assert.ok(techLevelWeight(1, finalMission, campaign.length) < techLevelWeight(5, finalMission, campaign.length), 'late curve does not favor tech 5');
+  assert.ok(techLevelWeight(1, finalMission, campaign.length) < techLevelWeight(3, finalMission, campaign.length), 'late curve does not favor tech 3');
+});
+
+test('attack animations are derived from range and tags', () => {
+  assert.equal(UNIT_TYPES.grunt.animation.attack, ATTACK_ANIMATION.MELEE);
+  assert.equal(UNIT_TYPES.gunner.animation.attack, ATTACK_ANIMATION.LASER);
+  assert.equal(UNIT_TYPES.sniper.animation.attack, ATTACK_ANIMATION.LASER);
+  assert.equal(UNIT_TYPES.flak.animation.attack, ATTACK_ANIMATION.LOB);
+  assert.equal(UNIT_TYPES.mortar.animation.attack, ATTACK_ANIMATION.LOB);
+  assert.equal(UNIT_TYPES.bertha.animation.attack, ATTACK_ANIMATION.MISSILE);
+  assert.equal(UNIT_TYPES.kite.animation.attack, ATTACK_ANIMATION.MISSILE);
+  assert.equal(UNIT_TYPES.rocketTurret.animation.attack, ATTACK_ANIMATION.MISSILE);
+  assert.equal(UNIT_TYPES.railTurret.animation.attack, ATTACK_ANIMATION.MISSILE);
 });
 
 test('enemy formations do not include player-only units', () => {
