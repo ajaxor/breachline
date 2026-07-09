@@ -1,4 +1,4 @@
-import { UNIT_TYPES } from '../data/gameConfig.js';
+import { GAME_CONFIG, UNIT_TYPES } from '../data/gameConfig.js';
 import { GameController } from './GameController.js';
 
 export class FlowGameController extends GameController {
@@ -46,12 +46,16 @@ export class FlowGameController extends GameController {
 
   selectedValue(group) { return group.querySelector('input:checked')?.value; }
 
+  campaignSettings() {
+    return {
+      difficulty: Number(this.selectedValue(this.view.elements.campaignDifficulty)),
+      length: GAME_CONFIG.missionCount,
+    };
+  }
+
   startCampaign() {
     this.model.clearPlacement();
-    this.model.configureCampaign({
-      difficulty: Number(this.selectedValue(this.view.elements.campaignDifficulty)),
-      length: Number(this.selectedValue(this.view.elements.campaignLength)),
-    });
+    this.model.configureCampaign(this.campaignSettings());
     this.model.beginDrafts(3);
     this.view.closeCampaignMenu();
     this.view.enterGame();
@@ -61,10 +65,7 @@ export class FlowGameController extends GameController {
   }
 
   startSandbox() {
-    this.model.configureSandbox({
-      difficulty: Number(this.selectedValue(this.view.elements.campaignDifficulty)),
-      length: Number(this.selectedValue(this.view.elements.campaignLength)),
-    });
+    this.model.configureSandbox(this.campaignSettings());
     this.view.closeCampaignMenu();
     this.view.enterGame();
     this.activateTab('battle');
