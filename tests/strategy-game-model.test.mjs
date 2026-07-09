@@ -106,7 +106,7 @@ test('role definitions follow unit design constraints', () => {
 
 test('flying unit definitions preserve their intended niches', () => {
   const flyingTypes = Object.values(UNIT_TYPES).filter((type) => hasUnitTag(type, UNIT_TAG.FLYING));
-  assert.deepEqual(flyingTypes.map((type) => type.name), ['Midge', 'Wasp', 'Kite', 'Firefly']);
+  assert.deepEqual(flyingTypes.map((type) => type.name), ['Midge', 'Wasp', 'Kite', 'Firefly', 'Stormwing']);
   assert.ok(flyingTypes.every((type) => type.hp < UNIT_TYPES.grunt.hp));
   assert.ok(flyingTypes.every((type) => type.role === UNIT_ROLE.FLYING));
   assert.ok(flyingTypes.every((type) => type.shape === 'wing'));
@@ -116,6 +116,8 @@ test('flying unit definitions preserve their intended niches', () => {
   assert.equal(UNIT_TYPES.kite.range, 4);
   assert.equal(hasUnitTag(UNIT_TYPES.firefly, UNIT_TAG.BOMB), true);
   assert.equal(hasUnitTag(UNIT_TYPES.firefly, UNIT_TAG.AOE), true);
+  assert.equal(hasUnitTag(UNIT_TYPES.stormwing, UNIT_TAG.STUN_FIELD), true);
+  assert.equal(hasUnitTag(UNIT_TYPES.stormwing, UNIT_TAG.ANTI_AIR), true);
 });
 
 test('factory produces weaker scatter infantry', () => {
