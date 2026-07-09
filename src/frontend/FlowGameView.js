@@ -1,7 +1,7 @@
 import { MODE } from '../data/gameConfig.js';
 import { GameView } from './GameView.js';
 
-const FLOW_IDS = ['campaignOverlay', 'campaignDifficulty', 'campaignLength', 'btnBeginCampaign', 'btnSandbox', 'btnCampaignBack', 'btnReinforce', 'btnDraftBack', 'btnSandboxGenerate'];
+const FLOW_IDS = ['campaignOverlay', 'campaignDifficulty', 'btnBeginCampaign', 'btnSandbox', 'btnCampaignBack', 'btnReinforce', 'btnDraftBack', 'btnSandboxGenerate'];
 const DIFFICULTY_LABELS = new Map([[0.8, 'RECRUIT'], [1, 'STANDARD'], [1.25, 'VETERAN'], [1.5, 'BRUTAL']]);
 
 export class FlowGameView extends GameView {
