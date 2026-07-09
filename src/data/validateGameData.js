@@ -79,8 +79,11 @@ function validateUnit(mapKey, type) {
     assertPositiveNumber(type.healAmount, `${label} healAmount`, { integer: true });
   }
   if (type.aura !== undefined) {
-    assert(type.role === UNIT_ROLE.SUPPORT || type.tags.includes(UNIT_TAG.ENHANCE), `${label} aura units must use the support role unless they are explicit melee commanders with Enhance`);
-    assert(type.attack === 0 || type.tags.includes(UNIT_TAG.ENHANCE), `${label} aura units must have zero attack unless they are explicit melee commanders with Enhance`);
+    const isSupportAura = type.role === UNIT_ROLE.SUPPORT;
+    const isEnhanceCommander = type.tags.includes(UNIT_TAG.ENHANCE);
+    const isStunFieldCarrier = type.tags.includes(UNIT_TAG.STUN_FIELD) && type.aura.effect === AURA_EFFECT.STUN;
+    assert(isSupportAura || isEnhanceCommander || isStunFieldCarrier, `${label} aura units must use the support role unless they are explicit aura carriers`);
+    assert(type.attack === 0 || isEnhanceCommander, `${label} aura units must have zero attack unless they are explicit melee commanders with Enhance`);
     assert(VALID_AURA_EFFECTS.has(type.aura.effect), `${label} has unknown aura effect ${type.aura.effect}`);
     assertPositiveNumber(type.aura.range, `${label} aura.range`, { integer: true });
     assertPositiveNumber(type.aura.value, `${label} aura.value`, { integer: true });
