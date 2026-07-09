@@ -108,6 +108,16 @@ test('units breach the edge and then damage the opposing base', () => {
   assert.equal(model.combatEvents.at(-1).type, COMBAT_EVENT.BASE_ATTACKED);
 });
 
+test('bomb units detonate after damaging the base from breach', () => {
+  const bomber = createBattleUnit({ id: 1, type: 'bomber', row: 2, column: GAME_CONFIG.columns - 1, overrides: { breached: true } });
+  const model = withUnits(bomber);
+  model.processUnit(bomber, 100, 100);
+  assert.equal(model.enemyBaseHp, GAME_CONFIG.baseHp - UNIT_TYPES.bomber.attack);
+  assert.equal(bomber.alive, false);
+  assert.equal(model.combatEvents.some((event) => event.type === COMBAT_EVENT.BASE_ATTACKED), true);
+  assert.equal(model.combatEvents.some((event) => event.type === COMBAT_EVENT.UNIT_DETONATED), true);
+});
+
 test('agile units dodge the first attack into an open adjacent lane', () => {
   const attacker = createBattleUnit({ id: 1, row: 2, column: 1 });
   const agile = createBattleUnit({ id: 2, team: TEAM.ENEMY, type: 'sidestepper', row: 2, column: 2 });
