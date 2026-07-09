@@ -46,8 +46,9 @@ test('attack effects carry each attacker configured style', () => {
   const presenter = new CombatEventPresenter();
   const styles = [
     ['sniper', ATTACK_ANIMATION.LASER],
-    ['flak', ATTACK_ANIMATION.MISSILE],
+    ['flak', ATTACK_ANIMATION.LOB],
     ['mortar', ATTACK_ANIMATION.LOB],
+    ['bertha', ATTACK_ANIMATION.MISSILE],
   ];
 
   for (const [type, expectedStyle] of styles) {
@@ -92,7 +93,7 @@ test('edge detonations do not create effects outside the battlefield', () => {
 
   const explosions = model.effects.filter((effect) => effect.type === EFFECT_TYPE.EXPLOSION);
   assert.equal(explosions.length, 4);
-  assert.ok(explosions.every((effect) => effect.row >= 0 && effect.row < GAME_CONFIG.rows));
+  assert.ok(explions.every((effect) => effect.row >= 0 && effect.row < GAME_CONFIG.rows));
   assert.ok(explosions.every((effect) => effect.column >= 0 && effect.column < GAME_CONFIG.columns));
   assert.equal(model.effects.find((effect) => effect.type === EFFECT_TYPE.DEATH).deathStyle, DEATH_ANIMATION.SPIN_OUT);
 });
