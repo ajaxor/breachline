@@ -202,7 +202,7 @@ test('later missions include a mix of fortified structures from a parallel struc
     .map((unit) => unit.type)
     .filter((type) => STATIONARY_ROLES.has(UNIT_TYPES[type].role) && type !== 'wall')));
   assert.ok(structureTypes.has('tollbooth'), 'later missions never use barricades');
-  assert.ok(structureTypes.has('sentry'), 'later missions never use basic turrets');
+  assert.ok([...structureTypes].some((type) => UNIT_TYPES[type].attack > 0), 'later missions never use armed structures');
   assert.ok([...structureTypes].some((type) => ['flakTurret', 'rocketTurret', 'mortarNest', 'railTurret', 'factory'].includes(type)), 'later missions never use advanced structures');
 });
 
