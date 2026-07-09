@@ -19,9 +19,10 @@ const TAG_DESCRIPTION = Object.freeze({
   [UNIT_TAG.FAST_ATTACK]: 'Can attack during the same turn that it moves.',
   [UNIT_TAG.STEALTH]: 'Cannot be targeted until an enemy unit is adjacent to it.',
   [UNIT_TAG.AI_ONLY]: 'Only hostile forces can deploy this unit.',
+  [UNIT_TAG.PLAYER_ONLY]: 'Only the player can draft and deploy this unit.',
   [UNIT_TAG.FLYING]: 'Continuously advances over other units and can move and attack together. Only flying or anti-air units can target it.',
   [UNIT_TAG.ANTI_AIR]: 'Can target flying units as well as ground units.',
-  [UNIT_TAG.BOMB]: 'Detonates at its own position when it attacks or is destroyed, damaging every adjacent enemy and destroying itself.',
+  [UNIT_TAG.BOMB]: 'Detonates at its own position when it attacks, breaches, or is destroyed, damaging every adjacent enemy and destroying itself.',
   [UNIT_TAG.AOE]: 'Deals full attack damage to enemies adjacent to the primary target or explosion.',
   [UNIT_TAG.HEAL]: 'Restores health to the nearest damaged allied unit in range instead of attacking enemies.',
   [UNIT_TAG.SALVO]: 'Attacks every valid enemy in range during the same combat action.',
@@ -37,7 +38,7 @@ const TAG_DESCRIPTION = Object.freeze({
   [UNIT_TAG.FACTORY]: 'Produces a weak unit into the lane ahead whenever production is ready and the space is clear.',
 });
 
-const HIDDEN_TAGS = new Set([UNIT_TAG.FLYING, UNIT_TAG.AI_ONLY]);
+const HIDDEN_TAGS = new Set([UNIT_TAG.FLYING, UNIT_TAG.AI_ONLY, UNIT_TAG.PLAYER_ONLY]);
 
 export class UnitPresentation {
   constructor(documentRef) {
@@ -107,7 +108,7 @@ export class UnitPresentation {
     return chip;
   }
 
-  createDescription(type, { tone = 'player', includeCost = true, includeTechLevel = false, quantity = null, meta = '', label = '' } = {}) {
+  createDescription(type, { tone = 'player', includeCost = true, includeTechLevel = false, quantity = null } = {}) {
     const description = this.document.createElement('div');
     description.className = `unit-description ${tone}`;
 
@@ -121,13 +122,6 @@ export class UnitPresentation {
     name.className = 'unit-description-name';
     name.textContent = type.name;
     identity.append(name, this.createRole(type));
-    const detailText = meta || label;
-    if (detailText) {
-      const detail = this.document.createElement('div');
-      detail.className = 'unit-description-meta';
-      detail.textContent = detailText;
-      identity.appendChild(detail);
-    }
     header.appendChild(identity);
 
     if (quantity !== null) {
@@ -148,7 +142,7 @@ export class UnitPresentation {
     const heals = hasUnitTag(type, UNIT_TAG.HEAL);
     const actionLabel = heals ? 'HEAL' : 'ATK';
     const actionValue = heals ? type.healAmount : type.attack;
-    details.innerHTML = `<span class="unit-description-stat">HP <strong>${type.hp}</strong></span><span class="unit-description-stat">${actionLabel} <strong>${actionValue}</strong></span>${type.range > 1 ? `<span class="unit-description-stat">RNG <strong>${type.range}</strong></span>` : ''}${includeTechLevel ? `<span class="unit-description-stat">TL <strong>${type.techLevel}</strong></span>` : ''}`;
+    details.innerHTML = `<span class="unit-description-stat">HP <strong>${type.hp}</strong></span><span class="unit-description-stat">${actionLabel} <strong>${actionValue}</strong></span>${type.range > 1 ? `<span class="unit-description-stat">RNG <strong>${type.range}</strong></span>` : ''}${includeTechLevel ? `<span class="unit-description-stat">TECH <strong>${type.techLevel}</strong></span>` : ''}`;
 
     const tooltip = this.document.createElement('div');
     tooltip.className = 'unit-ability-tooltip';
