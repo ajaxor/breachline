@@ -26,13 +26,14 @@ export const GAME_CONFIG = Object.freeze({
   draftBudgetTaper: 2,
   minTechLevel: 1,
   maxTechLevel: 5,
-  techAheadChance: 0.12,
+  techWeightFloor: 0.015,
+  techWeightSigma: 0.85,
   playerZone: Object.freeze([0, 1, 2, 3, 4, 5, 6]),
   enemyZone: Object.freeze([7, 8, 9, 10, 11, 12, 13]),
 });
 
 export const UNIT_TAG = Object.freeze({
-  AGILE: 'agile', STATIONARY: 'stationary', SWIVEL: 'swivel', FAST_ATTACK: 'fast-attack', STEALTH: 'stealth', AI_ONLY: 'ai-only', FLYING: 'flying', ANTI_AIR: 'anti-air', BOMB: 'bomb', AOE: 'aoe', HEAL: 'heal', SHIELD: 'shield', ENHANCE: 'enhance', STUN_FIELD: 'stun-field', JAMMER: 'jammer', SALVO: 'salvo', PUSH: 'push', CHARGE: 'charge', RELOAD: 'reload', FORMATION: 'formation', THORNS: 'thorns', FACTORY: 'factory', SCATTER: 'scatter',
+  AGILE: 'agile', STATIONARY: 'stationary', SWIVEL: 'swivel', FAST_ATTACK: 'fast-attack', STEALTH: 'stealth', AI_ONLY: 'ai-only', PLAYER_ONLY: 'player-only', FLYING: 'flying', ANTI_AIR: 'anti-air', BOMB: 'bomb', AOE: 'aoe', HEAL: 'heal', SHIELD: 'shield', ENHANCE: 'enhance', STUN_FIELD: 'stun-field', JAMMER: 'jammer', SALVO: 'salvo', PUSH: 'push', CHARGE: 'charge', RELOAD: 'reload', FORMATION: 'formation', THORNS: 'thorns', FACTORY: 'factory', SCATTER: 'scatter',
 });
 
 export const AURA_EFFECT = Object.freeze({ SHIELD: 'shield', DAMAGE: 'damage', STUN: 'stun', STEALTH: 'stealth' });
@@ -65,17 +66,17 @@ const unit = (definition) => {
 export const UNIT_TYPES = Object.freeze({
   grunt: unit({ key: 'grunt', name: 'Grunt', role: UNIT_ROLE.MELEE, techLevel: 1, cost: 20, hp: 42, attack: 9, range: 1, campaign: { unlockMission: 0, initialWeight: 0.5, weightGrowth: 0.005 }, behavior: 'A dependable melee fighter who stops behind anything in the way.', graphic: 'grunt' }),
   skitter: unit({ key: 'skitter', name: 'Skitter', role: UNIT_ROLE.MELEE, techLevel: 1, cost: 12, hp: 24, attack: 5, range: 1, tags: [UNIT_TAG.SCATTER, UNIT_TAG.AI_ONLY], campaign: { unlockMission: 99, initialWeight: 0 }, behavior: 'A weak factory-spawned fighter that scatters into an open side lane when blocked.', graphic: 'skitter' }),
-  samurai: unit({ key: 'samurai', name: 'Samurai', role: UNIT_ROLE.MELEE, techLevel: 2, cost: 27, hp: 38, attack: 13, range: 1, tags: [UNIT_TAG.SWIVEL], campaign: { unlockMission: 2, initialWeight: 0.16, weightGrowth: 0.03 }, behavior: 'A disciplined melee fighter that hits hard and can pivot toward targets in nearby lanes.', graphic: 'rifleman' }),
+  samurai: unit({ key: 'samurai', name: 'Samurai', role: UNIT_ROLE.MELEE, techLevel: 2, cost: 27, hp: 38, attack: 15, range: 1, tags: [UNIT_TAG.SWIVEL], campaign: { unlockMission: 2, initialWeight: 0.16, weightGrowth: 0.03 }, behavior: 'A disciplined melee fighter that hits very hard and can pivot toward targets in nearby lanes.', graphic: 'rifleman' }),
   gunner: unit({ key: 'gunner', name: 'Gunner', role: UNIT_ROLE.RANGED, techLevel: 1, cost: 26, hp: 30, attack: 9, range: 2, tags: [UNIT_TAG.ANTI_AIR], campaign: { unlockMission: 0, initialWeight: 0.24, weightGrowth: 0.035 }, behavior: 'A short-range automatic gunner able to engage both ground and flying targets.', graphic: 'gunner', animation: { attack: ATTACK_ANIMATION.LASER } }),
   tank: unit({ key: 'tank', name: 'Bulwark', role: UNIT_ROLE.MELEE, techLevel: 2, cost: 42, hp: 110, attack: 14, range: 1, campaign: { unlockMission: 1, initialWeight: 0.16, weightGrowth: 0.04 }, behavior: 'A heavily armored front-line unit built to hold a lane.', graphic: 'bulwark' }),
-  ram: unit({ key: 'ram', name: 'Ram', role: UNIT_ROLE.SPECIALIST, techLevel: 1, cost: 30, hp: 64, attack: 0, range: 1, tags: [UNIT_TAG.PUSH], campaign: { unlockMission: 0, initialWeight: 0.13, weightGrowth: 0.035 }, behavior: 'Pushes an adjacent enemy backward and advances into the space it leaves.', graphic: 'ram' }),
+  ram: unit({ key: 'ram', name: 'Ram', role: UNIT_ROLE.SPECIALIST, techLevel: 2, cost: 30, hp: 64, attack: 0, range: 1, tags: [UNIT_TAG.PUSH, UNIT_TAG.PLAYER_ONLY], campaign: { unlockMission: 0, initialWeight: 0.13, weightGrowth: 0.035 }, behavior: 'Pushes an adjacent enemy backward and advances into the space it leaves.', graphic: 'ram' }),
   lancer: unit({ key: 'lancer', name: 'Lancer', role: UNIT_ROLE.MELEE, techLevel: 2, cost: 32, hp: 42, attack: 13, range: 1, tags: [UNIT_TAG.CHARGE], campaign: { unlockMission: 3, initialWeight: 0.22, weightGrowth: 0.04 }, behavior: 'Moves at double speed until its first attack, which deals double attack damage.', graphic: 'lancer' }),
   phalanx: unit({ key: 'phalanx', name: 'Phalanx', role: UNIT_ROLE.MELEE, techLevel: 3, cost: 35, hp: 64, attack: 10, range: 1, tags: [UNIT_TAG.FORMATION], campaign: { unlockMission: 4, initialWeight: 0.16, weightGrowth: 0.03 }, behavior: 'Advances only when every allied Formation unit can move with it.', graphic: 'phalanx' }),
   sniper: unit({ key: 'sniper', name: 'Sniper', role: UNIT_ROLE.RANGED, techLevel: 1, cost: 31, hp: 20, attack: 12, range: 4, campaign: { unlockMission: 0, initialWeight: 0.2, weightGrowth: 0.035 }, behavior: 'Engages distant ground targets that remain in the same lane.', graphic: 'marksman', animation: { attack: ATTACK_ANIMATION.LASER } }),
   fusilier: unit({ key: 'fusilier', name: 'Fusilier', role: UNIT_ROLE.RANGED, techLevel: 4, cost: 34, hp: 30, attack: 10, range: 3, tags: [UNIT_TAG.FORMATION], campaign: { unlockMission: 5, initialWeight: 0.14, weightGrowth: 0.03 }, behavior: 'A formation rifle unit that stays in lock step with allied Formation units.', graphic: 'fusilier', animation: { attack: ATTACK_ANIMATION.LASER } }),
   flak: unit({ key: 'flak', name: 'Flak', role: UNIT_ROLE.RANGED, techLevel: 3, cost: 34, hp: 26, attack: 13, range: 3, tags: [UNIT_TAG.ANTI_AIR, UNIT_TAG.SWIVEL], campaign: { unlockMission: 4, initialWeight: 0.18, weightGrowth: 0.035 }, behavior: 'An anti-air ranged unit that can swivel toward flying targets in nearby lanes.', graphic: 'flak', animation: { attack: ATTACK_ANIMATION.MISSILE } }),
   bertha: unit({ key: 'bertha', name: 'Bertha', role: UNIT_ROLE.RANGED, techLevel: 5, cost: 54, hp: 26, attack: 32, range: 5, tags: [UNIT_TAG.AOE, UNIT_TAG.RELOAD, UNIT_TAG.SWIVEL], campaign: { unlockMission: 6, initialWeight: 0.1, weightGrowth: 0.025 }, behavior: 'Fires a powerful long-range blast that damages nearby enemies, then reloads for two turns.', graphic: 'bertha', animation: { attack: ATTACK_ANIMATION.LOB } }),
-  bomber: unit({ key: 'bomber', name: 'Demolisher', role: UNIT_ROLE.SPECIALIST, techLevel: 3, cost: 30, hp: 24, attack: 46, range: 1, tags: [UNIT_TAG.BOMB, UNIT_TAG.AOE], campaign: { unlockMission: 3, initialWeight: 0.2, weightGrowth: 0.04 }, behavior: 'Detonates at its own position when an enemy comes within range or when it is destroyed.', graphic: 'demolisher' }),
+  bomber: unit({ key: 'bomber', name: 'Demolisher', role: UNIT_ROLE.SPECIALIST, techLevel: 3, cost: 30, hp: 24, attack: 46, range: 1, tags: [UNIT_TAG.BOMB, UNIT_TAG.AOE], campaign: { unlockMission: 3, initialWeight: 0.2, weightGrowth: 0.04 }, behavior: 'Detonates at its own position when it attacks, breaches, or is destroyed.', graphic: 'demolisher' }),
   healer: unit({ key: 'healer', name: 'Medic', role: UNIT_ROLE.SUPPORT, techLevel: 3, cost: 23, hp: 32, attack: 0, range: 2, healAmount: 12, action: UNIT_ACTION.HEAL, tags: [UNIT_TAG.HEAL, UNIT_TAG.SWIVEL], campaign: { unlockMission: 4, initialWeight: 0.14, weightGrowth: 0.03 }, behavior: 'Repairs the nearest damaged ally within range, regardless of lane.', graphic: 'medic' }),
   shieldGenerator: unit({ key: 'shieldGenerator', name: 'Aegis', role: UNIT_ROLE.SUPPORT, techLevel: 4, cost: 35, hp: 40, attack: 0, range: 2, aura: { effect: AURA_EFFECT.SHIELD, range: 2, value: 4 }, tags: [UNIT_TAG.SHIELD], campaign: { unlockMission: 5, initialWeight: 0.13, weightGrowth: 0.025 }, behavior: 'Reduces every hit against friendly units within two cells by 4 damage. Multiple shield fields do not stack.', graphic: 'aegis' }),
   amplifier: unit({ key: 'amplifier', name: 'Amplifier', role: UNIT_ROLE.SUPPORT, techLevel: 4, cost: 30, hp: 28, attack: 0, range: 2, aura: { effect: AURA_EFFECT.DAMAGE, range: 2, value: 3 }, tags: [UNIT_TAG.ENHANCE], campaign: { unlockMission: 6, initialWeight: 0.12, weightGrowth: 0.025 }, behavior: 'Adds 3 damage to attacks made by friendly units within two cells. Multiple amplifiers do not stack.', graphic: 'amplifier' }),
@@ -86,7 +87,7 @@ export const UNIT_TYPES = Object.freeze({
   midge: unit({ key: 'midge', name: 'Midge', role: UNIT_ROLE.FLYING, techLevel: 3, cost: 24, hp: 12, attack: 7, range: 1, campaign: { unlockMission: 5, initialWeight: 0.13, weightGrowth: 0.025 }, behavior: 'A nimble swarm flyer that slips through formations and pecks hard at targets in its lane.', graphic: 'midge' }),
   flyer: unit({ key: 'flyer', name: 'Wasp', role: UNIT_ROLE.FLYING, techLevel: 4, cost: 42, hp: 20, attack: 13, range: 2, tags: [UNIT_TAG.SWIVEL], campaign: { unlockMission: 6, initialWeight: 0.16, weightGrowth: 0.03 }, behavior: 'A flexible aerial skirmisher that advances through units and swivels toward nearby lanes.', graphic: 'wasp', animation: { attack: ATTACK_ANIMATION.MISSILE } }),
   kite: unit({ key: 'kite', name: 'Kite', role: UNIT_ROLE.FLYING, techLevel: 5, cost: 58, hp: 14, attack: 12, range: 4, tags: [UNIT_TAG.SALVO], campaign: { unlockMission: 7, initialWeight: 0.11, weightGrowth: 0.02 }, behavior: 'A fragile long-range flyer that fires on every valid enemy in range while continuously advancing.', graphic: 'kite' }),
-  firefly: unit({ key: 'firefly', name: 'Firefly', role: UNIT_ROLE.FLYING, techLevel: 5, cost: 38, hp: 12, attack: 48, range: 1, tags: [UNIT_TAG.BOMB, UNIT_TAG.AOE, UNIT_TAG.SWIVEL], campaign: { unlockMission: 7, initialWeight: 0.12, weightGrowth: 0.025 }, behavior: 'A disposable flying charge that explodes at its own position on contact or destruction.', graphic: 'firefly' }),
+  firefly: unit({ key: 'firefly', name: 'Firefly', role: UNIT_ROLE.FLYING, techLevel: 5, cost: 38, hp: 12, attack: 48, range: 1, tags: [UNIT_TAG.BOMB, UNIT_TAG.AOE, UNIT_TAG.SWIVEL], campaign: { unlockMission: 7, initialWeight: 0.12, weightGrowth: 0.025 }, behavior: 'A disposable flying charge that explodes at its own position on contact, breach, or destruction.', graphic: 'firefly' }),
   mortar: unit({ key: 'mortar', name: 'Arty', role: UNIT_ROLE.RANGED, techLevel: 5, cost: 39, hp: 24, attack: 17, range: 3, tags: [UNIT_TAG.SWIVEL], campaign: { unlockMission: 7, initialWeight: 0.14, weightGrowth: 0.03 }, behavior: 'Bombards ground targets within range by swiveling across lanes.', graphic: 'artillery', animation: { attack: ATTACK_ANIMATION.LOB } }),
   wall: unit({ key: 'wall', name: 'Wall', role: UNIT_ROLE.WALL, techLevel: 1, cost: 15, hp: 135, attack: 0, range: 1, campaign: { unlockMission: 0, initialWeight: 0 }, behavior: 'A blank enemy-only barrier that spends from the wall budget and simply blocks a lane.', graphic: 'blank' }),
   tollbooth: unit({ key: 'tollbooth', name: 'Barricade', role: UNIT_ROLE.WALL, techLevel: 2, cost: 35, hp: 180, attack: 0, range: 1, tags: [UNIT_TAG.THORNS], thorns: { reflectRatio: 0.5 }, campaign: { unlockMission: 3, initialWeight: 0.12, weightGrowth: 0.02 }, behavior: 'An enemy-only wall with exceptional durability that reflects half of melee damage back at attackers.', graphic: 'barricade' }),
@@ -98,21 +99,29 @@ export const UNIT_TYPES = Object.freeze({
   factory: unit({ key: 'factory', name: 'Factory', role: UNIT_ROLE.STRUCTURE, techLevel: 4, cost: 74, hp: 165, attack: 0, range: 1, tags: [UNIT_TAG.FACTORY], production: { type: 'skitter', interval: 2 }, campaign: { unlockMission: 6, initialWeight: 0.08, weightGrowth: 0.018 }, behavior: 'A fortified enemy-only structure that produces a steady stream of weak Scatter infantry when the lane ahead is clear.', graphic: 'factory' }),
 });
 
-export function techLevelForMission(missionIndex, missionCount = GAME_CONFIG.missionCount) {
+function techProgress(missionIndex, missionCount = GAME_CONFIG.missionCount) {
   const safeMissionCount = Math.max(1, missionCount);
-  const progress = safeMissionCount === 1 ? 1 : Math.max(0, Math.min(1, missionIndex / (safeMissionCount - 1)));
-  return Math.min(GAME_CONFIG.maxTechLevel, GAME_CONFIG.minTechLevel + Math.floor(progress * (GAME_CONFIG.maxTechLevel - GAME_CONFIG.minTechLevel)));
+  return safeMissionCount === 1 ? 1 : Math.max(0, Math.min(1, missionIndex / (safeMissionCount - 1)));
 }
 
-export function isUnitTechAvailable(type, missionIndex, random = Math.random, missionCount = GAME_CONFIG.missionCount) {
-  const allowedTechLevel = techLevelForMission(missionIndex, missionCount);
-  if (type.techLevel <= allowedTechLevel) return true;
-  if (type.techLevel === allowedTechLevel + 1) return random() < GAME_CONFIG.techAheadChance;
-  return false;
+export function techLevelForMission(missionIndex, missionCount = GAME_CONFIG.missionCount) {
+  const center = GAME_CONFIG.minTechLevel + techProgress(missionIndex, missionCount) * (GAME_CONFIG.maxTechLevel - GAME_CONFIG.minTechLevel);
+  return Math.max(GAME_CONFIG.minTechLevel, Math.min(GAME_CONFIG.maxTechLevel, Math.round(center)));
+}
+
+export function techLevelWeight(techLevel, missionIndex, missionCount = GAME_CONFIG.missionCount) {
+  const center = GAME_CONFIG.minTechLevel + techProgress(missionIndex, missionCount) * (GAME_CONFIG.maxTechLevel - GAME_CONFIG.minTechLevel);
+  const distance = techLevel - center;
+  const curve = Math.exp(-(distance * distance) / (2 * GAME_CONFIG.techWeightSigma * GAME_CONFIG.techWeightSigma));
+  return GAME_CONFIG.techWeightFloor + curve;
+}
+
+export function unitTechWeight(type, missionIndex, missionCount = GAME_CONFIG.missionCount) {
+  return techLevelWeight(type.techLevel, missionIndex, missionCount);
 }
 
 export const hasUnitTag = (typeOrKey, tag) => { const type = typeof typeOrKey === 'string' ? UNIT_TYPES[typeOrKey] : typeOrKey; return Boolean(type?.tags.includes(tag)); };
 export const PLAYER_UNIT_TYPES = Object.freeze(Object.values(UNIT_TYPES).filter((type) => !hasUnitTag(type, UNIT_TAG.AI_ONLY)));
-export const ENEMY_UNIT_TYPES = Object.freeze(Object.values(UNIT_TYPES));
+export const ENEMY_UNIT_TYPES = Object.freeze(Object.values(UNIT_TYPES).filter((type) => !hasUnitTag(type, UNIT_TAG.PLAYER_ONLY)));
 export const TEAM = Object.freeze({ PLAYER: 'player', ENEMY: 'enemy' });
 export const MODE = Object.freeze({ DEPLOY: 'deploy', BATTLE: 'battle' });
