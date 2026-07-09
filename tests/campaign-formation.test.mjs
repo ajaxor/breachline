@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GAME_CONFIG, UNIT_ROLE, UNIT_TYPES, techLevelForMission } from '../src/data/gameConfig.js';
+import { GAME_CONFIG, UNIT_ROLE, UNIT_TAG, UNIT_TYPES, hasUnitTag, techLevelForMission, techLevelWeight } from '../src/data/gameConfig.js';
 import { MISSION_STATUS } from '../src/data/gameTypes.js';
 import { createCampaign } from '../src/model/CampaignFactory.js';
 
@@ -75,23 +75,22 @@ test('campaign tech level rises from early to late missions', () => {
   }
 });
 
-test('campaign formations stay within current tech unless the ahead roll succeeds', () => {
-  const strictCampaign = createCampaign(() => 0.5);
-  for (const mission of strictCampaign) {
-    const maxTech = techLevelForMission(mission.index, strictCampaign.length);
-    for (const unit of mission.enemyFormation) {
-      assert.ok(
-        UNIT_TYPES[unit.type].techLevel <= maxTech,
-        `${unit.type} appears above tech ${maxTech} in mission ${mission.index + 1}`,
-      );
-    }
-  }
+test('tech probability curve leaves small cross-tech chances at both ends', () => {
+  const firstMission = 0;
+  const finalMission = campaign.length - 1;
+  assert.ok(techLevelWeight(5, firstMission, campaign.length) > 0, 'tech 5 has no first-draft chance');
+  assert.ok(techLevelWeight(5, firstMission, campaign.length) < techLevelWeight(1, firstMission, campaign.length), 'early curve does not favor tech 1');
+  assert.ok(techLevelWeight(1, finalMission, campaign.length) > 0, 'tech 1 has no final-draft chance');
+  assert.ok(techLevelWeight(1, finalMission, campaign.length) < techLevelWeight(5, finalMission, campaign.length), 'late curve does not favor tech 5');
+});
 
-  const aheadCampaign = createCampaign(() => 0);
-  assert.ok(
-    aheadCampaign.some((mission) => mission.enemyFormation.some((unit) => UNIT_TYPES[unit.type].techLevel === techLevelForMission(mission.index, aheadCampaign.length) + 1)),
-    'campaign never used a one-tech-ahead unit when the ahead roll always succeeded',
-  );
+test('enemy formations do not include player-only units', () => {
+  for (const mission of campaign) {
+    assert.ok(
+      mission.enemyFormation.every((unit) => !hasUnitTag(unit.type, UNIT_TAG.PLAYER_ONLY)),
+      `mission ${mission.index + 1} includes a player-only enemy`,
+    );
+  }
 });
 
 test('early campaign missions vary mobile army cores across seeds', () => {
