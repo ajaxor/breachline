@@ -33,6 +33,19 @@ Maintain `TECH_DEBT.md` as the repository's active technical-debt to-do list.
 - Update related entries when circumstances change.
 - Never silently create debt. When taking a deliberate shortcut, document it during the same task.
 
+## GitHub connector recovery
+
+The ChatGPT environment may not expose the `GitHub` connector namespace at the beginning of a turn, even when it is installed and usable for this project. Do not report that GitHub access is unavailable after a single failed or missing-tool attempt.
+
+When the GitHub tool appears to be missing:
+
+1. Try to rediscover it with `api_tool.list_resources({"paths":["GitHub"],"query":"fetch_file"})`.
+2. If discovery returns GitHub tool schemas, continue the task with the `GitHub` namespace normally.
+3. If discovery fails, retry once with `api_tool.list_resources({"paths":["GitHub"]})` before giving up.
+4. Only report that the connector is unavailable after both rediscovery attempts fail, and explain that no repository changes were made.
+
+Do not substitute unrelated tools such as `web.run`, `container.exec`, or calculator calls for GitHub repository work. The local container may not have outbound GitHub network access, so direct `git clone` is not a reliable fallback. Prefer the GitHub connector for reading, writing, comparing commits, and verifying repository state.
+
 ## Post-commit CI verification
 
 Every push to `main` runs the deployment workflow and publishes a machine-readable receipt plus full validation logs to the orphan `ci-status` branch. Use that branch as the source of truth for push-triggered workflow results; the GitHub connector's commit-workflow lookup may return no runs because it currently filters to pull-request-triggered workflows.
