@@ -1,4 +1,4 @@
-import { ENEMY_UNIT_TYPES, GAME_CONFIG, UNIT_ROLE, UNIT_TYPES, isUnitTechAvailable } from '../data/gameConfig.js';
+import { ENEMY_UNIT_TYPES, GAME_CONFIG, UNIT_ROLE, UNIT_TYPES, unitTechWeight } from '../data/gameConfig.js';
 import { MISSION_STATUS } from '../data/gameTypes.js';
 
 const STRUCTURE_TYPES = ['tollbooth', 'sentry', 'flakTurret', 'rocketTurret', 'mortarNest', 'railTurret', 'factory'];
@@ -14,12 +14,11 @@ function shuffle(items, random) {
   return result;
 }
 
-function weightsForMission(index, random, missionCount) {
+function weightsForMission(index, missionCount) {
   const weights = Object.fromEntries(ENEMY_UNIT_TYPES.map((type) => {
     const { unlockMission, initialWeight, weightGrowth } = type.campaign;
-    const techAvailable = isUnitTechAvailable(type, index, random, missionCount);
-    const weight = index < unlockMission || !techAvailable ? 0 : initialWeight + weightGrowth * (index - unlockMission);
-    return [type.key, weight];
+    const campaignWeight = index < unlockMission ? 0 : initialWeight + weightGrowth * (index - unlockMission);
+    return [type.key, campaignWeight * unitTechWeight(type, index, missionCount)];
   }));
   const specialistWeight = Object.entries(weights).filter(([key]) => key !== 'grunt' && key !== 'wall' && key !== 'skitter').reduce((sum, [, value]) => sum + value, 0);
   weights.grunt = Math.max(0.25, 1 - specialistWeight * 0.42);
@@ -253,7 +252,7 @@ function placeDraftedArmy(formation, occupied, draftedArmy, pairs, random) {
 
 function generateFormation(mobileBudget, wallBudget, structureBudget, missionIndex, missionCount, random) {
   const pairs = rowPairs();
-  const weights = weightsForMission(missionIndex, random, missionCount);
+  const weights = weightsForMission(missionIndex, missionCount);
   const formation = [];
   const occupied = new Set();
 
