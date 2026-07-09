@@ -13,12 +13,13 @@ Use this guide when adding or revising units. The goal is not to make every unit
 
 ## Tech level
 
-Each unit must define a tech level from 1 to 5. Tech level shapes campaign draft odds and hostile deployment odds; sandbox mode can still expose the full roster.
+Each unit must define a tech level from 1 to 3. Tech level shapes campaign draft odds and hostile deployment odds; sandbox mode can still expose the full roster.
 
-- Use lower tech levels for units that are easy to read, have few special cases, and reinforce the basic lane-fighting rules.
-- Use higher tech levels for units with more mechanical complexity, especially units with persistent auras, reload/salvo timing, stealth, flying pressure, factories, or multi-lane area effects.
+- Use tech level 1 for units that are easy to read, have few special cases, and reinforce the basic lane-fighting rules.
+- Use tech level 2 for units that introduce a meaningful tactical wrinkle without relying on the most complex tags or late-campaign density.
+- Use tech level 3 for units with higher mechanical complexity, especially units with persistent auras, reload/salvo timing, stealth, flying pressure, factories, or multi-lane area effects.
 - A little power creep by tech level is acceptable because later campaign missions can support more complicated and slightly stronger threats. Keep that creep modest: higher tech should usually mean more specialized or more complex, not simply better stats in every matchup.
-- Campaign drafts use a fuzzy probability curve across all tech levels rather than a hard unlock. Early drafts should overwhelmingly favor low-tech units but still have a very small chance to preview tech 5. Late drafts should heavily favor high-tech units but still occasionally offer tech 1 staples.
+- Campaign drafts use a fuzzy probability curve across all tech levels rather than a hard unlock. Early drafts should overwhelmingly favor low-tech units but still have a small chance to preview tech 3. Late drafts should heavily favor tech 3 units but still occasionally offer tech 1 staples.
 - Hostile deployment weights also use the tech curve, then apply each unit's campaign weight and enemy availability tags. This keeps mission pacing fuzzy without letting player-only units into enemy armies.
 - Tech level and cost solve different problems. Tech level gates learning and campaign pacing; cost still carries the main responsibility for battlefield balance.
 
