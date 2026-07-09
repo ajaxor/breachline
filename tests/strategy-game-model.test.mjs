@@ -102,6 +102,7 @@ test('role definitions follow unit design constraints', () => {
   assert.ok([...wallTypes, ...structureTypes].every((type) => type.hp > maxMobileHp));
   assert.ok(flyingTypes.every((type) => type.role === UNIT_ROLE.FLYING));
   assert.ok(bombTypes.every((type) => type.attack >= 35));
+  assert.equal(hasUnitTag(UNIT_TYPES.commander, UNIT_TAG.LEADER), true);
 });
 
 test('flying unit definitions preserve their intended niches', () => {
@@ -118,6 +119,25 @@ test('flying unit definitions preserve their intended niches', () => {
   assert.equal(hasUnitTag(UNIT_TYPES.firefly, UNIT_TAG.AOE), true);
   assert.equal(hasUnitTag(UNIT_TYPES.stormwing, UNIT_TAG.STUN_FIELD), true);
   assert.equal(hasUnitTag(UNIT_TYPES.stormwing, UNIT_TAG.ANTI_AIR), true);
+});
+
+test('commander leader grants formation behavior to allied ground units', () => {
+  const commander = createBattleUnit({ id: 1, team: TEAM.PLAYER, type: 'commander', row: 0, column: 0 });
+  const grunt = createBattleUnit({ id: 2, team: TEAM.PLAYER, type: 'grunt', row: 1, column: 0 });
+  const gunner = createBattleUnit({ id: 3, team: TEAM.PLAYER, type: 'gunner', row: 2, column: 0 });
+  const midge = createBattleUnit({ id: 4, team: TEAM.PLAYER, type: 'midge', row: 3, column: 0 });
+  const enemyGrunt = createBattleUnit({ id: 5, team: TEAM.ENEMY, type: 'grunt', row: 4, column: 5 });
+  const model = prepareBattleModel([commander, grunt, gunner, midge, enemyGrunt]);
+
+  assert.equal(hasUnitTag(UNIT_TYPES.grunt, UNIT_TAG.FORMATION), false);
+  assert.equal(model.actionResolver.hasFormationBehavior(model, commander), true);
+  assert.equal(model.actionResolver.hasFormationBehavior(model, grunt), true);
+  assert.equal(model.actionResolver.hasFormationBehavior(model, gunner), true);
+  assert.equal(model.actionResolver.hasFormationBehavior(model, midge), false);
+  assert.equal(model.actionResolver.hasFormationBehavior(model, enemyGrunt), false);
+
+  commander.alive = false;
+  assert.equal(model.actionResolver.hasFormationBehavior(model, grunt), false);
 });
 
 test('factory produces weaker scatter infantry', () => {
