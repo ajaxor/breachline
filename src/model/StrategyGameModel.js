@@ -1,4 +1,4 @@
-import { GAME_CONFIG, MODE, PLAYER_UNIT_TYPES, UNIT_ROLE, UNIT_TAG, UNIT_TYPES, hasUnitTag, isUnitTechAvailable } from '../data/gameConfig.js';
+import { GAME_CONFIG, MODE, PLAYER_UNIT_TYPES, UNIT_ROLE, UNIT_TAG, UNIT_TYPES, hasUnitTag, unitTechWeight } from '../data/gameConfig.js';
 import { MISSION_STATUS, RESULT_TYPE } from '../data/gameTypes.js';
 import { createCampaign } from './CampaignFactory.js';
 import { SupplyDeploymentPolicy } from './DeploymentPolicies.js';
@@ -121,18 +121,28 @@ export class StrategyGameModel extends GameModel {
     };
   }
 
-  campaignTechPool(types) {
-    if (this.isSandbox) return types;
+  draftTechWeight(type) {
     const missionCount = this.campaignSettings.length || this.campaign.length || GAME_CONFIG.missionCount;
-    return types.filter((type) => isUnitTechAvailable(type, this.currentDraftMissionIndex, this.random, missionCount));
+    return this.isSandbox ? 1 : unitTechWeight(type, this.currentDraftMissionIndex, missionCount);
+  }
+
+  weightedChoice(items, weightForItem) {
+    if (!items.length) return null;
+    const entries = items.map((item) => [item, Math.max(0.0001, weightForItem(item))]);
+    let roll = this.random() * entries.reduce((sum, [, weight]) => sum + weight, 0);
+    for (const [item, weight] of entries) {
+      roll -= weight;
+      if (roll <= 0) return item;
+    }
+    return entries.at(-1)[0];
   }
 
   rollDraftChoices() {
     if (this.pendingDrafts <= 0) { this.draftChoices = []; return this.draftChoices; }
-    const lockedTypes = this.campaignTechPool(PLAYER_UNIT_TYPES.filter((type) => !this.roster[type.key]));
-    const preferredPool = lockedTypes.length ? lockedTypes : this.campaignTechPool(PLAYER_UNIT_TYPES);
+    const lockedTypes = PLAYER_UNIT_TYPES.filter((type) => !this.roster[type.key]);
+    const preferredPool = lockedTypes.length ? lockedTypes : PLAYER_UNIT_TYPES;
     const singlePool = preferredPool.filter((type) => type.role !== UNIT_ROLE.SUPPORT);
-    const pairPool = preferredPool.length >= 2 ? preferredPool : this.campaignTechPool(PLAYER_UNIT_TYPES);
+    const pairPool = preferredPool.length >= 2 ? preferredPool : PLAYER_UNIT_TYPES;
     const choices = [];
     const usedRoles = new Set();
     const usedUnitKeys = new Set();
@@ -151,9 +161,14 @@ export class StrategyGameModel extends GameModel {
       return usedRoleCount * 8 + repeatedRoles * 3 + usedUnitCount;
     };
 
+    const weightedDraftScore = (types) => {
+      const techWeight = types.reduce((sum, type) => sum + this.draftTechWeight(type), 0) / types.length;
+      return techWeight / (1 + rolePenalty(types) * 2);
+    };
+
     const bestSingle = () => {
       const candidates = this.shuffle(singlePool.length ? singlePool : preferredPool);
-      return candidates.sort((left, right) => rolePenalty([left]) - rolePenalty([right]))[0] ?? null;
+      return this.weightedChoice(candidates, (type) => weightedDraftScore([type]));
     };
 
     const bestPair = () => {
@@ -166,7 +181,7 @@ export class StrategyGameModel extends GameModel {
           pairs.push([first, second]);
         }
       }
-      return this.shuffle(pairs).sort((left, right) => rolePenalty(left) - rolePenalty(right))[0] ?? null;
+      return this.weightedChoice(this.shuffle(pairs), weightedDraftScore);
     };
 
     for (let index = 0; index < 3; index += 1) {
@@ -215,6 +230,7 @@ export class StrategyGameModel extends GameModel {
     const isPlayerZone = GAME_CONFIG.playerZone.includes(column);
     const isEnemyZone = GAME_CONFIG.enemyZone.includes(column);
     if (!isPlayerZone && !isEnemyZone) return false;
+    if (isEnemyZone && hasUnitTag(this.selectedUnitType, UNIT_TAG.PLAYER_ONLY)) return false;
     const formation = isPlayerZone ? this.placement : this.mission.enemyFormation;
     const existing = formation.findIndex((unit) => unit.row === row && unit.column === column);
     if (existing >= 0) formation.splice(existing, 1);
