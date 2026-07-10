@@ -11,6 +11,22 @@ import { gridDistance } from './TargetingPolicy.js';
 const snapshot = (unit) => ({ id: unit.id, team: unit.team, type: unit.type, row: unit.row, column: unit.column });
 const isBaseWallUnit = (unit) => Boolean(unit?.baseWall);
 
+const cellKey = (row, column) => `${row}:${column}`;
+
+function reserveBattlefieldSpace(plan, team, occupied) {
+  const minColumn = 1;
+  const maxColumn = GAME_CONFIG.columns - 2;
+  const preferredColumn = Math.max(minColumn, Math.min(maxColumn, plan.column));
+  const candidates = [preferredColumn];
+  const forward = team === TEAM.PLAYER ? 1 : -1;
+  for (let offset = 1; offset <= GAME_CONFIG.columns; offset += 1) {
+    candidates.push(preferredColumn + forward * offset, preferredColumn - forward * offset);
+  }
+  const column = candidates.find((candidate) => candidate >= minColumn && candidate <= maxColumn && !occupied.has(cellKey(plan.row, candidate))) ?? preferredColumn;
+  occupied.add(cellKey(plan.row, column));
+  return { ...plan, column };
+}
+
 export class GameModel {
   constructor({ random = Math.random, now = () => performance.now(), unitFactory = new BattleUnitFactory(), actionResolver = new CombatActionResolver(), campaignProgression = new CampaignProgression(), eventPresenter = null, createDeploymentPolicy = (model) => new BudgetDeploymentPolicy(model) } = {}) {
     this.random = random;
@@ -103,7 +119,10 @@ export class GameModel {
     this.resetBattle();
     this.mode = MODE.BATTLE;
     const startedAt = this.now();
-    const combatUnits = [...playerFormation.map((plan) => this.unitFactory.create(plan, TEAM.PLAYER, this.nextUnitId++, startedAt)), ...enemyFormation.map((plan) => this.unitFactory.create(plan, TEAM.ENEMY, this.nextUnitId++, startedAt))];
+    const occupied = new Set();
+    const playerPlans = playerFormation.map((plan) => reserveBattlefieldSpace(plan, TEAM.PLAYER, occupied));
+    const enemyPlans = enemyFormation.map((plan) => reserveBattlefieldSpace(plan, TEAM.ENEMY, occupied));
+    const combatUnits = [...playerPlans.map((plan) => this.unitFactory.create(plan, TEAM.PLAYER, this.nextUnitId++, startedAt)), ...enemyPlans.map((plan) => this.unitFactory.create(plan, TEAM.ENEMY, this.nextUnitId++, startedAt))];
     this.units = [...this.createBaseWalls(startedAt), ...combatUnits];
     this.spatialIndex = new SpatialIndex(this.units);
     this.refreshStealth();
