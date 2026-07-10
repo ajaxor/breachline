@@ -17,7 +17,7 @@ const animatedPoint = (unit, at) => {
 };
 const teamColor = (team) => team === TEAM.PLAYER ? '#38bdf8' : '#ff5d5d';
 const targetName = (target) => target.lineObjective ? (target.team === TEAM.PLAYER ? 'your line' : 'hostile line') : `${UNIT_TYPES[target.type].name} #${target.id}`;
-const attackAnimationFor = (type) => hasUnitTag(type, UNIT_TAG.FLYING) && type.animation.attack === ATTACK_ANIMATION.MELEE ? ATTACK_ANIMATION.LASER : type.animation.attack;
+const attackAnimationFor = (type) => hasUnitTag(type, UNIT_TAG.FLYING) && type.animation.attack === ATTACK_ANIMATION.MELEE ? ATTACK_ANIMATION.MISSILE : type.animation.attack;
 
 function addDeathEffect(model, unit, at, duration, actionStart) {
   const definition = UNIT_TYPES[unit.type];
