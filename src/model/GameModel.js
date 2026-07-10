@@ -9,22 +9,14 @@ import { SpatialIndex } from './SpatialIndex.js';
 import { gridDistance } from './TargetingPolicy.js';
 
 const snapshot = (unit) => ({ id: unit.id, team: unit.team, type: unit.type, row: unit.row, column: unit.column });
-const isBaseWallUnit = (unit) => Boolean(unit?.baseWall);
+const lineTargetId = (team, row) => `line:${team}:${row}`;
 
-const cellKey = (row, column) => `${row}:${column}`;
-
-function reserveBattlefieldSpace(plan, team, occupied) {
-  const minColumn = 1;
-  const maxColumn = GAME_CONFIG.columns - 2;
-  const preferredColumn = Math.max(minColumn, Math.min(maxColumn, plan.column));
-  const candidates = [preferredColumn];
-  const forward = team === TEAM.PLAYER ? 1 : -1;
-  for (let offset = 1; offset <= GAME_CONFIG.columns; offset += 1) {
-    candidates.push(preferredColumn + forward * offset, preferredColumn - forward * offset);
-  }
-  const column = candidates.find((candidate) => candidate >= minColumn && candidate <= maxColumn && !occupied.has(cellKey(plan.row, candidate))) ?? preferredColumn;
-  occupied.add(cellKey(plan.row, column));
-  return { ...plan, column };
+function parseLineTargetId(id) {
+  const parts = String(id).split(':');
+  if (parts.length !== 3 || parts[0] !== 'line') return null;
+  const row = Number(parts[2]);
+  if (!Object.values(TEAM).includes(parts[1]) || !Number.isInteger(row)) return null;
+  return { team: parts[1], row };
 }
 
 export class GameModel {
@@ -50,9 +42,13 @@ export class GameModel {
   get budget() { return this.mission.playerBudget; }
   get spentBudget() { return this.placement.reduce((sum, unit) => sum + UNIT_TYPES[unit.type].cost, 0); }
   get canLaunch() { return this.deploymentPolicy.canLaunch; }
-  get livingPlayerCount() { return this.units.filter((unit) => unit.alive && unit.team === TEAM.PLAYER && !isBaseWallUnit(unit)).length; }
-  get livingEnemyCount() { return this.units.filter((unit) => unit.alive && unit.team === TEAM.ENEMY && !isBaseWallUnit(unit)).length; }
+  get livingPlayerCount() { return this.units.filter((unit) => unit.alive && unit.team === TEAM.PLAYER).length; }
+  get livingEnemyCount() { return this.units.filter((unit) => unit.alive && unit.team === TEAM.ENEMY).length; }
   get rosterTypes() { return PLAYER_UNIT_TYPES.filter((type) => this.roster[type.key]); }
+  get playerBaseHp() { return this.playerLineHp; }
+  set playerBaseHp(value) { this.playerLineHp = value; }
+  get enemyBaseHp() { return this.enemyLineHp; }
+  set enemyBaseHp(value) { this.enemyLineHp = value; }
 
   resetBattle() {
     this.mode = MODE.DEPLOY;
@@ -64,8 +60,8 @@ export class GameModel {
     this.activeTeam = TEAM.PLAYER;
     this.battleOver = false;
     this.nextUnitId = 1;
-    this.playerBaseHp = GAME_CONFIG.baseHp;
-    this.enemyBaseHp = GAME_CONFIG.baseHp;
+    this.playerLineHp = GAME_CONFIG.baseHp;
+    this.enemyLineHp = GAME_CONFIG.baseHp;
     this.result = null;
     this.spatialIndex = new SpatialIndex();
   }
@@ -119,33 +115,11 @@ export class GameModel {
     this.resetBattle();
     this.mode = MODE.BATTLE;
     const startedAt = this.now();
-    const occupied = new Set();
-    const playerPlans = playerFormation.map((plan) => reserveBattlefieldSpace(plan, TEAM.PLAYER, occupied));
-    const enemyPlans = enemyFormation.map((plan) => reserveBattlefieldSpace(plan, TEAM.ENEMY, occupied));
-    const combatUnits = [...playerPlans.map((plan) => this.unitFactory.create(plan, TEAM.PLAYER, this.nextUnitId++, startedAt)), ...enemyPlans.map((plan) => this.unitFactory.create(plan, TEAM.ENEMY, this.nextUnitId++, startedAt))];
-    this.units = [...this.createBaseWalls(startedAt), ...combatUnits];
+    this.units = [...playerFormation.map((plan) => this.unitFactory.create(plan, TEAM.PLAYER, this.nextUnitId++, startedAt)), ...enemyFormation.map((plan) => this.unitFactory.create(plan, TEAM.ENEMY, this.nextUnitId++, startedAt))];
     this.spatialIndex = new SpatialIndex(this.units);
     this.refreshStealth();
     this.emitCombatEvent({ type: COMBAT_EVENT.BATTLE_STARTED, label: missionLabel, playerCount: this.livingPlayerCount, enemyCount: this.livingEnemyCount, at: startedAt });
     return true;
-  }
-
-  createBaseWalls(startedAt) {
-    const walls = [];
-    for (let row = 0; row < GAME_CONFIG.rows; row += 1) {
-      walls.push(this.createBaseWall(row, 0, TEAM.PLAYER, startedAt));
-      walls.push(this.createBaseWall(row, GAME_CONFIG.columns - 1, TEAM.ENEMY, startedAt));
-    }
-    return walls;
-  }
-
-
-  createBaseWall(row, column, team, startedAt) {
-    const wall = this.unitFactory.create({ row, column, type: 'wall' }, team, this.nextUnitId++, startedAt);
-    wall.baseWall = true;
-    wall.hp = GAME_CONFIG.baseHp;
-    wall.maxHp = GAME_CONFIG.baseHp;
-    return wall;
   }
 
   tick() {
@@ -175,33 +149,29 @@ export class GameModel {
   attackUnit(attacker, target, enemies, now, duration) { return this.actionResolver.attackUnit(this, attacker, target, enemies, now, duration); }
   moveUnit(unit, now, duration) { return this.actionResolver.movement.move(this, unit, now, duration); }
 
-  baseHpForTeam(team) { return team === TEAM.PLAYER ? this.playerBaseHp : this.enemyBaseHp; }
+  lineHpForTeam(team) { return team === TEAM.PLAYER ? this.playerLineHp : this.enemyLineHp; }
 
-  damageBaseWall(target, damage, now) {
-    if (target.team === TEAM.PLAYER) this.playerBaseHp = Math.max(0, this.playerBaseHp - damage);
-    else this.enemyBaseHp = Math.max(0, this.enemyBaseHp - damage);
-    this.syncBaseWalls(target.team, now);
+  createLineTarget(team, row) {
+    const column = team === TEAM.PLAYER ? -1 : GAME_CONFIG.columns;
+    const hp = this.lineHpForTeam(team);
+    return { id: lineTargetId(team, row), team, type: 'line', row, column, previousRow: row, previousColumn: column, hp, maxHp: GAME_CONFIG.baseHp, alive: hp > 0, lineObjective: true };
   }
 
-  syncBaseWalls(team, now) {
-    const hp = this.baseHpForTeam(team);
-    for (const wall of this.units) {
-      if (wall.team !== team || !isBaseWallUnit(wall)) continue;
-      wall.hp = hp;
-      if (hp <= 0 && wall.alive) {
-        wall.alive = false;
-        this.spatialIndex.remove(wall);
-        this.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DESTROYED, unit: snapshot(wall), at: now, silent: true });
-      }
-    }
+  lineTargetById(id) {
+    const parsed = parseLineTargetId(id);
+    return parsed ? this.createLineTarget(parsed.team, parsed.row) : null;
   }
 
-  attackBase(unit, now) {
-    const type = UNIT_TYPES[unit.type];
-    const damage = Math.max(type.attack, 4);
-    if (unit.team === TEAM.PLAYER) this.enemyBaseHp = Math.max(0, this.enemyBaseHp - damage);
-    else this.playerBaseHp = Math.max(0, this.playerBaseHp - damage);
-    this.emitCombatEvent({ type: COMBAT_EVENT.BASE_ATTACKED, unit: snapshot(unit), targetBase: unit.team === TEAM.PLAYER ? 'hostile' : 'home', damage, at: now });
+  lineTargetFor(unit, type = UNIT_TYPES[unit.type]) {
+    if (!unit.alive || type.attack <= 0) return null;
+    const targetTeam = unit.team === TEAM.PLAYER ? TEAM.ENEMY : TEAM.PLAYER;
+    const target = this.createLineTarget(targetTeam, unit.row);
+    return this.canTarget(unit, target, type) ? target : null;
+  }
+
+  damageLine(team, damage) {
+    if (team === TEAM.PLAYER) this.playerLineHp = Math.max(0, this.playerLineHp - damage);
+    else this.enemyLineHp = Math.max(0, this.enemyLineHp - damage);
   }
 
   refreshStealth() {
@@ -222,9 +192,9 @@ export class GameModel {
   killUnit(unit, now) { unit.alive = false; this.spatialIndex.remove(unit); this.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DESTROYED, unit: snapshot(unit), at: now }); }
 
   determineResult() {
-    if (this.playerBaseHp <= 0 && this.enemyBaseHp <= 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — BOTH BASE WALLS FALL SIMULTANEOUSLY', playerWon: false };
-    if (this.enemyBaseHp <= 0) return { cssClass: RESULT_TYPE.PLAYER_WIN, text: 'VICTORY — HOSTILE BASE WALL DESTROYED', playerWon: true };
-    if (this.playerBaseHp <= 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — YOUR BASE WALL IS DESTROYED', playerWon: false };
+    if (this.playerLineHp <= 0 && this.enemyLineHp <= 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'BREACH — BOTH LINES BREAK', playerWon: false };
+    if (this.enemyLineHp <= 0) return { cssClass: RESULT_TYPE.PLAYER_WIN, text: 'VICTORY — BREACH ACHIEVED', playerWon: true };
+    if (this.playerLineHp <= 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — LINE BREACHED', playerWon: false };
     if (this.livingPlayerCount === 0 && this.livingEnemyCount === 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — MUTUAL ANNIHILATION', playerWon: false };
     if (this.livingPlayerCount === 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — YOUR FORCE ELIMINATED', playerWon: false };
     if (this.livingEnemyCount === 0) return { cssClass: RESULT_TYPE.PLAYER_WIN, text: 'VICTORY — HOSTILE FORCE ELIMINATED', playerWon: true };
