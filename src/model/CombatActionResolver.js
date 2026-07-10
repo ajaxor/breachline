@@ -7,7 +7,7 @@ const STUN_TURNS = 2;
 const RELOAD_TURNS = 2;
 const clamp01 = (value) => Math.max(0, Math.min(1, value));
 const lerp = (start, end, progress) => start + (end - start) * progress;
-const resolvedSnapshot = (unit) => ({ id: unit.id, team: unit.team, type: unit.type, row: unit.row, column: unit.column, previousRow: unit.previousRow, previousColumn: unit.previousColumn, animationStartedAt: unit.animationStartedAt, animationDuration: unit.animationDuration, hp: unit.hp, maxHp: unit.maxHp });
+const resolvedSnapshot = (unit) => ({ id: unit.id, team: unit.team, type: unit.type, row: unit.row, column: unit.column, previousRow: unit.previousRow, previousColumn: unit.previousColumn, animationStartedAt: unit.animationStartedAt, animationDuration: unit.animationDuration, hp: unit.hp, maxHp: unit.maxHp, baseWall: unit.baseWall });
 const animatedSnapshot = (unit, at) => { const duration = Math.max(1, unit.animationDuration ?? 1); const progress = unit.animationStartedAt === undefined ? 1 : clamp01((at - unit.animationStartedAt) / duration); return { id: unit.id, team: unit.team, type: unit.type, row: lerp(unit.previousRow ?? unit.row, unit.row, progress), column: lerp(unit.previousColumn ?? unit.column, unit.column, progress) }; };
 
 export class CombatActionResolver {
