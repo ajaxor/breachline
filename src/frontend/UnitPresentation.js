@@ -20,16 +20,18 @@ const TAG_DESCRIPTION = Object.freeze({
   [UNIT_TAG.STEALTH]: 'Cannot be targeted until an enemy unit is adjacent to it.',
   [UNIT_TAG.AI_ONLY]: 'Only hostile forces can deploy this unit.',
   [UNIT_TAG.PLAYER_ONLY]: 'Only the player can draft and deploy this unit.',
-  [UNIT_TAG.FLYING]: 'Continuously advances over other units and can move and attack together. Only flying or anti-air units can target it.',
-  [UNIT_TAG.ANTI_AIR]: 'Can target flying units as well as ground units.',
+  [UNIT_TAG.FLYING]: 'Continuously advances through units and can move and attack together. Melee units ignore it. Ground ranged attacks without Anti-Air have a 50% chance to miss.',
+  [UNIT_TAG.ANTI_AIR]: 'Can target flying units without triggering their normal 50% evasion chance.',
   [UNIT_TAG.BOMB]: 'Detonates at its own position when it attacks, breaches, or is destroyed, damaging every adjacent enemy and destroying itself.',
   [UNIT_TAG.AOE]: 'Deals full attack damage to enemies adjacent to the primary target or explosion.',
   [UNIT_TAG.HEAL]: 'Restores health to the nearest damaged allied unit in range instead of attacking enemies.',
   [UNIT_TAG.SALVO]: 'Attacks every valid enemy in range during the same combat action.',
   [UNIT_TAG.PUSH]: 'Pushes an adjacent enemy one cell backward and advances into the space it leaves. A blocked or edge push does nothing.',
+  [UNIT_TAG.RAM]: 'Crushes an enemy wall directly ahead by moving into its space, and deals double damage to the enemy battle line.',
   [UNIT_TAG.CHARGE]: 'Moves at double speed until its first attack. That first attack has double attack power, then Charge is spent.',
   [UNIT_TAG.RELOAD]: 'After attacking, must spend the next two turns reloading before it can attack again. It may still move while reloading.',
   [UNIT_TAG.FORMATION]: 'Advances only when every surviving allied Formation unit can move forward together.',
+  [UNIT_TAG.LEADER]: 'Makes surviving allied ground units advance together as a Formation while this unit remains alive.',
   [UNIT_TAG.SHIELD]: 'Reduces each hit against allied units within the aura by the listed shield value. Multiple shield auras do not stack.',
   [UNIT_TAG.ENHANCE]: 'Adds the listed damage bonus to attacks made by allied units within the aura. Multiple enhancement auras do not stack.',
   [UNIT_TAG.STUN_FIELD]: 'Stuns enemies aligned across the same battlefield row. The stun persists briefly after they leave the field.',
@@ -38,7 +40,7 @@ const TAG_DESCRIPTION = Object.freeze({
   [UNIT_TAG.FACTORY]: 'Produces a weak unit into the lane ahead whenever production is ready and the space is clear.',
 });
 
-const HIDDEN_TAGS = new Set([UNIT_TAG.FLYING, UNIT_TAG.AI_ONLY, UNIT_TAG.PLAYER_ONLY]);
+const HIDDEN_TAGS = new Set([UNIT_TAG.AI_ONLY, UNIT_TAG.PLAYER_ONLY]);
 
 export class UnitPresentation {
   constructor(documentRef) {
