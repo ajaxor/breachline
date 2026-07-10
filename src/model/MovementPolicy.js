@@ -34,7 +34,7 @@ export class MovementPolicy {
   tryRamWall(model, unit, occupant, nextColumn, now) {
     const type = UNIT_TYPES[unit.type];
     const occupantType = UNIT_TYPES[occupant?.type];
-    if (!hasUnitTag(type, UNIT_TAG.RAM) || occupantType?.role !== UNIT_ROLE.WALL || occupant?.baseWall) return false;
+    if (!hasUnitTag(type, UNIT_TAG.RAM) || occupantType?.role !== UNIT_ROLE.WALL) return false;
     model.killUnit(occupant, now);
     unit.column = nextColumn;
     return true;
