@@ -42,7 +42,7 @@ export class GameView {
     this.renderCampaign(model);
     this.renderSupply(model);
     this.renderBattleChrome(model);
-    this.renderBases(model);
+    this.renderLines(model);
     this.renderLog(model);
   }
 
@@ -122,7 +122,7 @@ export class GameView {
     this.elements.battleStatus.textContent = `TICK ${model.tickCount} · YOU ${model.livingPlayerCount} · HOSTILE ${model.livingEnemyCount}`;
   }
 
-  renderBases(model) { this.elements.playerHpText.textContent = `${model.playerBaseHp}/${GAME_CONFIG.baseHp}`; this.elements.enemyHpText.textContent = `${model.enemyBaseHp}/${GAME_CONFIG.baseHp}`; this.elements.playerHpFill.style.width = `${model.playerBaseHp / GAME_CONFIG.baseHp * 100}%`; this.elements.enemyHpFill.style.width = `${model.enemyBaseHp / GAME_CONFIG.baseHp * 100}%`; }
+  renderLines(model) { this.elements.playerHpText.textContent = `${model.playerLineHp}/${GAME_CONFIG.baseHp}`; this.elements.enemyHpText.textContent = `${model.enemyLineHp}/${GAME_CONFIG.baseHp}`; this.elements.playerHpFill.style.width = `${model.playerLineHp / GAME_CONFIG.baseHp * 100}%`; this.elements.enemyHpFill.style.width = `${model.enemyLineHp / GAME_CONFIG.baseHp * 100}%`; }
   renderLog(model) { const rows = model.logEntries.map((entry) => this.createElement('div', { className: entry.cssClass, text: entry.message })); this.elements.log.replaceChildren(...rows); this.elements.log.scrollTop = this.elements.log.scrollHeight; }
   setActiveTab(tab) { this.document.querySelectorAll('.screen').forEach((screen) => screen.classList.remove('active')); const screen = tab === 'missions' ? this.elements.screenMissions : this.elements.screenBattle; screen.classList.add('active'); }
   openSheet(element) { this.document.querySelectorAll('.sheet').forEach((sheet) => sheet.classList.remove('open')); element.classList.add('open'); this.elements.sheetBackdrop.classList.add('open'); this.overlays.open(element, { close: () => this.closeSheets(), initialFocus: () => element.querySelector('button') }); }
