@@ -69,7 +69,7 @@ test('bomb and aoe tags detonate around the attacker for full damage', () => {
   const besideAttacker = createBattleUnit({ id: 3, team: TEAM.ENEMY, row: 1, column: 2 });
   const diagonalEnemy = createBattleUnit({ id: 4, team: TEAM.ENEMY, row: 1, column: 3 });
   const model = withUnits(bomber, target, besideAttacker, diagonalEnemy);
-  model.processUnit(bomber, 100, 100);
+  model.processUnit(bomber, 150, 100);
   assert.equal(hasUnitTag(UNIT_TYPES.bomber, UNIT_TAG.BOMB), true);
   assert.equal(hasUnitTag(UNIT_TYPES.bomber, UNIT_TAG.AOE), true);
   assert.equal(target.hp, UNIT_TYPES.grunt.hp - UNIT_TYPES.bomber.attack);
@@ -97,25 +97,51 @@ test('detonation events use the unit animated position instead of its movement d
   assert.equal(event.unit.column, 2.5);
 });
 
-test('units breach the edge and then damage the opposing base', () => {
-  const unit = createBattleUnit({ id: 1, row: 2, column: GAME_CONFIG.columns - 1 });
-  const model = withUnits(unit);
-  assert.equal(model.moveUnit(unit, 100, 100), true);
-  assert.equal(unit.breached, true);
-  assert.equal(model.combatEvents.at(-1).type, COMBAT_EVENT.UNIT_BREACHED);
-  model.attackBase(unit, 100, 100);
+test('units stop at the battlefield wall and target it like a unit', () => {
+  const unit = createBattleUnit({ id: 1, row: 2, column: GAME_CONFIG.columns - 2 });
+  const wall = createBattleUnit({ id: 2, team: TEAM.ENEMY, type: 'wall', row: 2, column: GAME_CONFIG.columns - 1, overrides: { baseWall: true, hp: GAME_CONFIG.baseHp, maxHp: GAME_CONFIG.baseHp } });
+  const model = withUnits(unit, wall);
+  assert.equal(model.moveUnit(unit, 100, 100), false);
+  assert.equal(unit.breached, false);
+  assert.equal(model.tryCombatAction(unit, UNIT_TYPES.grunt, 100, 100), true);
   assert.equal(model.enemyBaseHp, GAME_CONFIG.baseHp - UNIT_TYPES.grunt.attack);
-  assert.equal(model.combatEvents.at(-1).type, COMBAT_EVENT.BASE_ATTACKED);
+  assert.equal(wall.hp, GAME_CONFIG.baseHp - UNIT_TYPES.grunt.attack);
+  assert.equal(model.combatEvents.at(-1).type, COMBAT_EVENT.UNIT_ATTACKED);
+  assert.equal(model.combatEvents.at(-1).target.baseWall, true);
 });
 
-test('bomb units detonate after damaging the base from breach', () => {
-  const bomber = createBattleUnit({ id: 1, type: 'bomber', row: 2, column: GAME_CONFIG.columns - 1, overrides: { breached: true } });
-  const model = withUnits(bomber);
+test('bomb units detonate against base wall targets', () => {
+  const bomber = createBattleUnit({ id: 1, type: 'bomber', row: 2, column: GAME_CONFIG.columns - 2 });
+  const wall = createBattleUnit({ id: 2, team: TEAM.ENEMY, type: 'wall', row: 2, column: GAME_CONFIG.columns - 1, overrides: { baseWall: true, hp: GAME_CONFIG.baseHp, maxHp: GAME_CONFIG.baseHp } });
+  const model = withUnits(bomber, wall);
   model.processUnit(bomber, 100, 100);
   assert.equal(model.enemyBaseHp, GAME_CONFIG.baseHp - UNIT_TYPES.bomber.attack);
+  assert.equal(wall.hp, GAME_CONFIG.baseHp - UNIT_TYPES.bomber.attack);
   assert.equal(bomber.alive, false);
-  assert.equal(model.combatEvents.some((event) => event.type === COMBAT_EVENT.BASE_ATTACKED), true);
+  assert.equal(model.combatEvents.some((event) => event.type === COMBAT_EVENT.SPLASH_HIT && event.target.baseWall), true);
   assert.equal(model.combatEvents.some((event) => event.type === COMBAT_EVENT.UNIT_DETONATED), true);
+});
+
+test('flying units do not move onto aircraft or friendly ground units', () => {
+  const flyer = createBattleUnit({ id: 1, type: 'flyer', row: 2, column: 4 });
+  const friendlyGround = createBattleUnit({ id: 2, team: TEAM.PLAYER, row: 2, column: 5 });
+  let model = withUnits(flyer, friendlyGround);
+  assert.equal(model.moveUnit(flyer, 100, 100), false);
+  assert.deepEqual({ row: flyer.row, column: flyer.column }, { row: 2, column: 4 });
+
+  const leadFlyer = createBattleUnit({ id: 3, type: 'midge', row: 3, column: 5 });
+  flyer.row = 3;
+  flyer.column = 4;
+  model = withUnits(flyer, leadFlyer);
+  assert.equal(model.moveUnit(flyer, 100, 100), false);
+  assert.deepEqual({ row: flyer.row, column: flyer.column }, { row: 3, column: 4 });
+
+  const enemyGround = createBattleUnit({ id: 4, team: TEAM.ENEMY, row: 4, column: 5 });
+  flyer.row = 4;
+  flyer.column = 4;
+  model = withUnits(flyer, enemyGround);
+  assert.equal(model.moveUnit(flyer, 100, 100), true);
+  assert.deepEqual({ row: flyer.row, column: flyer.column }, { row: 4, column: 5 });
 });
 
 test('agile units dodge the first attack into an open adjacent lane', () => {
