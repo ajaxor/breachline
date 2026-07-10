@@ -10,17 +10,59 @@ const RANGE_STYLE = Object.freeze({
   [AURA_EFFECT.STEALTH]: { fill: 'rgba(148, 163, 184, 0.1)', stroke: 'rgba(148, 163, 184, 0.5)' },
 });
 
-export class DeploymentBattlefieldRenderer extends BattlefieldRenderer {
-  render(model) {
-    super.render(model);
-    if (model.mode !== MODE.DEPLOY) return;
+const WALL_DEPTH_CELLS = 0.5;
+const WALL_GUTTER_CELLS = WALL_DEPTH_CELLS;
+const TOTAL_WALL_GUTTER_CELLS = WALL_GUTTER_CELLS * 2;
 
+export class DeploymentBattlefieldRenderer extends BattlefieldRenderer {
+  resize(model) {
+    const width = this.container.clientWidth;
+    const height = this.container.clientHeight;
+    if (width <= 0 || height <= 0) return;
+
+    this.isPortrait = height > width;
+    const visualColumns = this.isPortrait ? GAME_CONFIG.rows : GAME_CONFIG.columns + TOTAL_WALL_GUTTER_CELLS;
+    const visualRows = this.isPortrait ? GAME_CONFIG.columns + TOTAL_WALL_GUTTER_CELLS : GAME_CONFIG.rows;
+    this.cellSize = Math.max(16, Math.floor(Math.min(width / visualColumns, height / visualRows)));
+    this.canvas.width = visualColumns * this.cellSize;
+    this.canvas.height = visualRows * this.cellSize;
+    this.render(model);
+  }
+
+  render(model) {
+    const gutter = WALL_GUTTER_CELLS * this.cellSize;
+    this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.context.save();
-    if (this.isPortrait) this.context.transform(0, -1, 1, 0, 0, GAME_CONFIG.columns * this.cellSize);
-    this.drawFriendlyEffectZones(model.placement);
-    model.placement.forEach((unit) => this.drawUnit({ ...unit, team: TEAM.PLAYER, hp: 1, maxHp: 1 }, true));
-    model.mission.enemyFormation.forEach((unit) => this.drawUnit({ ...unit, team: TEAM.ENEMY, hp: 1, maxHp: 1 }, true));
+    this.context.translate(this.isPortrait ? 0 : gutter, this.isPortrait ? gutter : 0);
+    super.render(model);
+    if (model.mode === MODE.DEPLOY) {
+      this.context.save();
+      if (this.isPortrait) this.context.transform(0, -1, 1, 0, 0, GAME_CONFIG.columns * this.cellSize);
+      this.drawFriendlyEffectZones(model.placement);
+      model.placement.forEach((unit) => this.drawUnit({ ...unit, team: TEAM.PLAYER, hp: 1, maxHp: 1 }, true));
+      model.mission.enemyFormation.forEach((unit) => this.drawUnit({ ...unit, team: TEAM.ENEMY, hp: 1, maxHp: 1 }, true));
+      this.context.restore();
+    }
     this.context.restore();
+  }
+
+  cellFromPointer(event) {
+    const rect = this.canvas.getBoundingClientRect();
+    const visualX = (event.clientX - rect.left) * this.canvas.width / rect.width;
+    const visualY = (event.clientY - rect.top) * this.canvas.height / rect.height;
+    const gutter = WALL_GUTTER_CELLS * this.cellSize;
+    const row = this.isPortrait
+      ? Math.floor(visualX / this.cellSize)
+      : Math.floor(visualY / this.cellSize);
+    const column = this.isPortrait
+      ? GAME_CONFIG.columns - 1 - Math.floor((visualY - gutter) / this.cellSize)
+      : Math.floor((visualX - gutter) / this.cellSize);
+    return row >= 0 && row < GAME_CONFIG.rows && column >= 0 && column < GAME_CONFIG.columns ? { row, column } : null;
+  }
+
+  drawEndWalls(logicalWidth, logicalHeight) {
+    this.drawPerspectiveWall(0, logicalHeight, '#38bdf8', -1);
+    this.drawPerspectiveWall(logicalWidth, logicalHeight, '#ff5d5d', 1);
   }
 
   drawFriendlyEffectZones(formation) {
