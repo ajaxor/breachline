@@ -66,6 +66,24 @@ test('attack effects carry each attacker configured style', () => {
   }
 });
 
+test('melee flying attackers use projectile effects instead of lunging', () => {
+  const presenter = new CombatEventPresenter();
+  const model = presentationModel();
+  presenter.present(model, {
+    type: COMBAT_EVENT.UNIT_ATTACKED,
+    at: 100,
+    attacker: battleUnit('midge'),
+    target: battleUnit('grunt', { id: 2, team: TEAM.ENEMY, column: 5, hp: 31 }),
+    damage: 7,
+    range: UNIT_TYPES.midge.range,
+  });
+
+  const attack = model.effects.find((effect) => effect.type === EFFECT_TYPE.RANGED);
+  assert.ok(attack, 'flying melee attack should render as a projectile-style ranged effect');
+  assert.equal(attack.attackStyle, ATTACK_ANIMATION.LASER);
+  assert.equal(model.effects.some((effect) => effect.type === EFFECT_TYPE.MELEE), false);
+});
+
 test('detonations render an explosion across every in-bounds aoe tile', () => {
   const presenter = new CombatEventPresenter();
   const model = presentationModel();
