@@ -168,6 +168,41 @@ export class DeploymentBattlefieldRenderer extends BattlefieldRenderer {
     this.drawImpact(x, y, progress, effect.team === TEAM.PLAYER ? '#38bdf8' : '#ff5d5d');
   }
 
+  drawImpact(x, y, progress, color) {
+    const ctx = this.context;
+    const fade = 1 - progress;
+    const snap = Math.sin(Math.min(1, progress * 1.7) * Math.PI);
+    const radius = this.cellSize * (0.12 + snap * 0.16);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.globalAlpha = fade;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = this.cellSize * 0.16 * fade;
+    ctx.strokeStyle = '#f8fafc';
+    ctx.lineWidth = Math.max(1.2, this.cellSize * 0.04 * fade);
+    ctx.rotate(Math.PI / 4 + progress * 0.22);
+    ctx.strokeRect(-radius, -radius, radius * 2, radius * 2);
+    ctx.rotate(-Math.PI / 4 - progress * 0.22);
+    ctx.fillStyle = '#f8fafc';
+    ctx.globalAlpha = fade * (0.45 + snap * 0.45);
+    ctx.beginPath();
+    ctx.arc(0, 0, this.cellSize * (0.035 + snap * 0.035), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1, this.cellSize * 0.026);
+    for (let index = 0; index < 8; index += 1) {
+      const angle = index * Math.PI / 4 + progress * 0.35;
+      const stagger = 0.72 + (index % 3) * 0.14;
+      const inner = this.cellSize * (0.12 + progress * 0.08) * stagger;
+      const outer = inner + this.cellSize * (0.11 + snap * 0.07) * fade;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+      ctx.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   drawDeath(effect, progress) {
     const ctx = this.context;
     const x = this.x(effect.column);
@@ -217,16 +252,36 @@ export class DeploymentBattlefieldRenderer extends BattlefieldRenderer {
     this.drawPerspectiveWall(logicalWidth, logicalHeight, '#ff5d5d', 1);
   }
 
-  wallHealth(color) {
+  wallTeam(color) { return color === '#ff5d5d' ? TEAM.ENEMY : TEAM.PLAYER; }
+
+  wallHealth(color, now = this.now()) {
     if (!this.model || this.model.mode !== MODE.BATTLE) return 1;
-    return clamp01((color === '#ff5d5d' ? this.model.enemyLineHp : this.model.playerLineHp) / GAME_CONFIG.baseHp);
+    const team = this.wallTeam(color);
+    const effects = this.model.effects
+      .filter((effect) => effect.type === EFFECT_TYPE.HEALTH_LOSS && String(effect.targetId).startsWith(`line:${team}:`))
+      .sort((left, right) => left.start - right.start);
+    const active = effects.find((effect) => now >= effect.start && now - effect.start < effect.duration);
+    if (active) {
+      const progress = clamp01((now - active.start) / Math.max(1, active.duration));
+      return clamp01(lerp(active.hpBefore, active.hpAfter, progress) / GAME_CONFIG.baseHp);
+    }
+    const pending = effects.find((effect) => now < effect.start);
+    const hp = pending?.hpBefore ?? (team === TEAM.ENEMY ? this.model.enemyLineHp : this.model.playerLineHp);
+    return clamp01(hp / GAME_CONFIG.baseHp);
   }
 
-  activeWallHit(color) {
-    if (!this.model || this.model.mode !== MODE.BATTLE) return null;
-    const team = color === '#ff5d5d' ? TEAM.ENEMY : TEAM.PLAYER;
-    const now = this.now();
-    return [...this.model.effects].reverse().find((effect) => effect.type === EFFECT_TYPE.HEALTH_LOSS && String(effect.targetId).startsWith(`line:${team}:`) && now >= effect.start && now - effect.start < Math.min(effect.duration, 180));
+  activeWallHits(color, now = this.now()) {
+    if (!this.model || this.model.mode !== MODE.BATTLE) return [];
+    const team = this.wallTeam(color);
+    return this.model.effects.filter((effect) => effect.type === EFFECT_TYPE.HEALTH_LOSS
+      && String(effect.targetId).startsWith(`line:${team}:`)
+      && now >= effect.start
+      && now - effect.start < Math.min(effect.duration, 180));
+  }
+
+  wallFarY(nearY, height) {
+    const lean = this.cellSize * WALL_LEAN_CELLS;
+    return lerp(-lean, height + lean, nearY / height);
   }
 
   traceWall(edgeX, height, outward) {
@@ -241,9 +296,20 @@ export class DeploymentBattlefieldRenderer extends BattlefieldRenderer {
     this.context.closePath();
   }
 
+  traceWallBand(edgeX, height, outward, top, bottom) {
+    const farX = edgeX + outward * this.cellSize * WALL_DEPTH_CELLS;
+    this.context.beginPath();
+    this.context.moveTo(edgeX, top);
+    this.context.lineTo(farX, this.wallFarY(top, height));
+    this.context.lineTo(farX, this.wallFarY(bottom, height));
+    this.context.lineTo(edgeX, bottom);
+    this.context.closePath();
+  }
+
   drawPerspectiveWall(edgeX, height, color, outward) {
     const ctx = this.context;
-    const health = this.wallHealth(color);
+    const now = this.now();
+    const health = this.wallHealth(color, now);
     const dimFill = color === '#ff5d5d' ? 'rgba(92,36,36,0.28)' : 'rgba(23,58,72,0.32)';
     const brightFill = color === '#ff5d5d' ? 'rgba(255,93,93,0.18)' : 'rgba(56,189,248,0.18)';
     ctx.save();
@@ -257,28 +323,31 @@ export class DeploymentBattlefieldRenderer extends BattlefieldRenderer {
     const inset = (1 - health) * height * 0.5;
     if (health > 0) {
       ctx.save();
-      ctx.beginPath();
-      ctx.rect(Math.min(edgeX, edgeX + outward * this.cellSize * WALL_DEPTH_CELLS) - 2, inset, this.cellSize * WALL_DEPTH_CELLS + 4, Math.max(0, height - inset * 2));
-      ctx.clip();
       ctx.shadowColor = color;
       ctx.shadowBlur = this.cellSize * 0.16;
       ctx.fillStyle = brightFill;
       ctx.strokeStyle = color;
-      this.traceWall(edgeX, height, outward);
+      this.traceWallBand(edgeX, height, outward, inset, height - inset);
       ctx.fill();
       ctx.stroke();
       ctx.restore();
     }
 
-    const hit = this.activeWallHit(color);
-    if (hit) {
+    for (const hit of this.activeWallHits(color, now)) {
       const row = Number(String(hit.targetId).split(':').at(-1));
-      const progress = clamp01((this.now() - hit.start) / Math.min(hit.duration, 180));
-      ctx.globalAlpha = Math.sin(progress * Math.PI) * 0.75;
+      if (!Number.isInteger(row)) continue;
+      const progress = clamp01((now - hit.start) / Math.min(hit.duration, 180));
+      const pulse = Math.sin(progress * Math.PI);
+      const top = row * this.cellSize;
+      const bottom = top + this.cellSize;
+      ctx.save();
+      ctx.globalAlpha = pulse * 0.82;
       ctx.fillStyle = '#f8fafc';
       ctx.shadowColor = '#f8fafc';
-      ctx.shadowBlur = this.cellSize * 0.2;
-      ctx.fillRect(Math.min(edgeX, edgeX + outward * this.cellSize * WALL_DEPTH_CELLS), row * this.cellSize, this.cellSize * WALL_DEPTH_CELLS, this.cellSize);
+      ctx.shadowBlur = this.cellSize * 0.22;
+      this.traceWallBand(edgeX, height, outward, top, bottom);
+      ctx.fill();
+      ctx.restore();
     }
 
     ctx.shadowBlur = 0;
