@@ -1,4 +1,4 @@
-import { GAME_CONFIG, TEAM, UNIT_TYPES } from '../data/gameConfig.js';
+import { GAME_CONFIG, TEAM, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../data/gameConfig.js';
 import { ATTACK_ANIMATION, COMBAT_EVENT, DEATH_ANIMATION, EFFECT_TYPE, LOG_TYPE } from '../data/gameTypes.js';
 
 const ATTACK_STAGGER_MS = 180;
@@ -17,6 +17,7 @@ const animatedPoint = (unit, at) => {
 };
 const teamColor = (team) => team === TEAM.PLAYER ? '#38bdf8' : '#ff5d5d';
 const targetName = (target) => target.lineObjective ? (target.team === TEAM.PLAYER ? 'your line' : 'hostile line') : `${UNIT_TYPES[target.type].name} #${target.id}`;
+const attackAnimationFor = (type) => hasUnitTag(type, UNIT_TAG.FLYING) && type.animation.attack === ATTACK_ANIMATION.MELEE ? ATTACK_ANIMATION.LASER : type.animation.attack;
 
 function addDeathEffect(model, unit, at, duration, actionStart) {
   const definition = UNIT_TYPES[unit.type];
@@ -26,11 +27,11 @@ function addGroundDeathExplosion(model, unit, at, duration) { model.effects.push
 function addHealthLossEffect(model, target, damage, actionStart, impactStart, duration) { model.effects.push({ type: EFFECT_TYPE.HEALTH_LOSS, targetId: target.id, hpBefore: Math.min(target.maxHp, target.hp + damage), hpAfter: Math.max(0, target.hp), maxHp: target.maxHp, actionStart, start: impactStart, duration: Math.max(260, duration * 0.7) }); }
 function latestHealthLoss(model, unitId) { return [...model.effects].reverse().find((effect) => effect.type === EFFECT_TYPE.HEALTH_LOSS && effect.targetId === unitId); }
 function addDetonationEffects(model, unit, at, duration) { for (let rowOffset = -1; rowOffset <= 1; rowOffset += 1) for (let columnOffset = -1; columnOffset <= 1; columnOffset += 1) { const row = unit.row + rowOffset; const column = unit.column + columnOffset; if (row < 0 || row >= GAME_CONFIG.rows || column < 0 || column >= GAME_CONFIG.columns) continue; const distance = Math.hypot(rowOffset, columnOffset); model.effects.push({ type: EFFECT_TYPE.EXPLOSION, row, column, start: at + distance * 35, duration: Math.max(duration, 320), intensity: distance === 0 ? 1 : 0.72 }); } }
-function addAttackEffect(model, attacker, target, at, duration) { const animation = UNIT_TYPES[attacker.type].animation.attack; const ranged = animation !== ATTACK_ANIMATION.MELEE; model.effects.push({ type: ranged ? EFFECT_TYPE.RANGED : EFFECT_TYPE.MELEE, attackStyle: animation, attackerId: attacker.id, targetId: target.id, team: attacker.team, from: animatedPoint(attacker, at), to: animatedPoint(target, at), start: at, duration }); return { ranged, impactAt: at + duration * (ranged ? 0.52 : 0.12) }; }
+function addAttackEffect(model, attacker, target, at, duration) { const animation = attackAnimationFor(UNIT_TYPES[attacker.type]); const ranged = animation !== ATTACK_ANIMATION.MELEE; model.effects.push({ type: ranged ? EFFECT_TYPE.RANGED : EFFECT_TYPE.MELEE, attackStyle: animation, attackerId: attacker.id, targetId: target.id, team: attacker.team, from: animatedPoint(attacker, at), to: animatedPoint(target, at), start: at, duration }); return { ranged, impactAt: at + duration * (ranged ? 0.52 : 0.12) }; }
 
 export class CombatEventPresenter {
   constructor() { this.sequenceTickAt = null; this.sequenceIndex = -1; this.currentActionAt = 0; }
-  actionTime(event) { const at = event.at ?? 0; if (this.sequenceTickAt !== at) { this.sequenceTickAt = at; this.sequenceIndex = -1; this.currentActionAt = at; } const isAttack = event.type === COMBAT_EVENT.UNIT_ATTACKED || event.type === COMBAT_EVENT.UNIT_DODGED; const attacker = event.attacker ?? event.source; const isMelee = isAttack && UNIT_TYPES[attacker.type].animation.attack === ATTACK_ANIMATION.MELEE; if (isMelee) return at; if (isAttack || event.type === COMBAT_EVENT.UNIT_HEALED) { this.sequenceIndex += 1; this.currentActionAt = at + this.sequenceIndex * ATTACK_STAGGER_MS; } return this.currentActionAt; }
+  actionTime(event) { const at = event.at ?? 0; if (this.sequenceTickAt !== at) { this.sequenceTickAt = at; this.sequenceIndex = -1; this.currentActionAt = at; } const isAttack = event.type === COMBAT_EVENT.UNIT_ATTACKED || event.type === COMBAT_EVENT.UNIT_DODGED; const attacker = event.attacker ?? event.source; const isMelee = isAttack && attackAnimationFor(UNIT_TYPES[attacker.type]) === ATTACK_ANIMATION.MELEE; if (isMelee) return at; if (isAttack || event.type === COMBAT_EVENT.UNIT_HEALED) { this.sequenceIndex += 1; this.currentActionAt = at + this.sequenceIndex * ATTACK_STAGGER_MS; } return this.currentActionAt; }
   present(model, event) {
     const duration = Math.max(110, Math.min(480, GAME_CONFIG.tickIntervalMs * 0.85)); const at = this.actionTime(event);
     switch (event.type) {
