@@ -28,7 +28,7 @@ export class MovementPolicy {
   movementBlocker(unit, occupants) {
     const type = UNIT_TYPES[unit.type];
     if (!hasUnitTag(type, UNIT_TAG.FLYING)) return occupants[0] ?? null;
-    return occupants.find((occupant) => occupant.team === unit.team || hasUnitTag(occupant.type, UNIT_TAG.FLYING)) ?? null;
+    return occupants.find((occupant) => hasUnitTag(occupant.type, UNIT_TAG.FLYING)) ?? null;
   }
 
   tryRamWall(model, unit, occupant, nextColumn, now) {
