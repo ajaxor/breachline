@@ -122,12 +122,21 @@ export class GameModel {
     return true;
   }
 
+  ageCorpseBlockers() {
+    for (const unit of this.units) {
+      if (unit.alive || !unit.blocksCell) continue;
+      if ((unit.corpseBlockTicksRemaining ?? 0) > 0) unit.corpseBlockTicksRemaining -= 1;
+      else unit.blocksCell = false;
+    }
+  }
+
   tick() {
     if (this.mode !== MODE.BATTLE || this.battleOver) return this.result;
     this.tickCount += 1;
     const now = this.now();
     this.effects = this.effects.filter((effect) => now - effect.start < effect.duration);
     const duration = Math.max(110, Math.min(480, GAME_CONFIG.tickIntervalMs * 0.85));
+    this.ageCorpseBlockers();
     const actingUnits = this.units.filter((unit) => unit.alive);
     actingUnits.forEach((unit) => { unit.previousRow = unit.row; unit.previousColumn = unit.column; unit.animationStartedAt = now; unit.animationDuration = duration; unit.movedThisTurn = false; unit.actedThisTick = false; });
     this.spatialIndex = new SpatialIndex(this.units);
@@ -184,12 +193,12 @@ export class GameModel {
         return aura?.effect === AURA_EFFECT.STEALTH && gridDistance(source, unit) <= aura.range;
       });
       const stealthGranted = naturallyStealthed || jammedStealth;
-      unit.stealthed = stealthGranted && !this.spatialIndex.nearby(unit.row, unit.column, 1).some((other) => other.team !== unit.team && gridDistance(unit, other) <= 1);
+      unit.stealthed = stealthGranted && !this.spatialIndex.nearby(unit.row, unit.column, 1).some((other) => other.alive && other.team !== unit.team && gridDistance(unit, other) <= 1);
     }
   }
 
   addDeathEffect(unit, now) { this.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DESTROYED, unit: snapshot(unit), at: now, silent: true }); }
-  killUnit(unit, now) { unit.alive = false; this.spatialIndex.remove(unit); this.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DESTROYED, unit: snapshot(unit), at: now }); }
+  killUnit(unit, now) { unit.alive = false; unit.blocksCell = true; unit.corpseBlockTicksRemaining = 1; this.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DESTROYED, unit: snapshot(unit), at: now }); }
 
   determineResult() {
     if (this.playerLineHp <= 0 && this.enemyLineHp <= 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — BOTH LINES BREACHED', playerWon: false };
