@@ -178,6 +178,7 @@ export class BattlefieldRenderer extends CanvasRenderer {
     const logicalWidth = GAME_CONFIG.columns * cell;
     const logicalHeight = GAME_CONFIG.rows * cell;
     if (!this.isPortrait) ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.drawEndWalls(logicalWidth, logicalHeight);
     this.drawDeploymentZone(GAME_CONFIG.playerZone, 'rgba(56,189,248,.06)');
     this.drawDeploymentZone(GAME_CONFIG.enemyZone, 'rgba(255,93,93,.06)');
     ctx.strokeStyle = '#16202a';
@@ -191,24 +192,55 @@ export class BattlefieldRenderer extends CanvasRenderer {
     ctx.restore();
   }
 
+  drawEndWalls(logicalWidth, logicalHeight) {
+    this.drawPerspectiveWall(0, logicalHeight, '#38bdf8', -1);
+    this.drawPerspectiveWall(logicalWidth, logicalHeight, '#ff5d5d', 1);
+  }
+
+  drawPerspectiveWall(edgeX, height, color, side) {
+    const ctx = this.context;
+    const cell = this.cellSize;
+    const face = cell * 0.22;
+    const depth = cell * 0.48;
+    const lean = cell * 0.24;
+    const innerX = edgeX - side * face;
+    const outerX = edgeX + side * depth;
+    const top = cell * 0.28;
+    const bottom = height - cell * 0.28;
+    ctx.save();
+    ctx.shadowColor = color;
+    ctx.shadowBlur = cell * 0.16;
+    ctx.fillStyle = side > 0 ? 'rgba(255,93,93,0.12)' : 'rgba(56,189,248,0.12)';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1.5, cell * 0.05);
+    ctx.beginPath();
+    ctx.moveTo(innerX, top);
+    ctx.lineTo(outerX, top + lean);
+    ctx.lineTo(outerX, bottom - lean);
+    ctx.lineTo(innerX, bottom);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 0.55;
+    ctx.lineWidth = Math.max(1, cell * 0.025);
+    for (let row = 1; row < GAME_CONFIG.rows; row += 1) {
+      const t = row / GAME_CONFIG.rows;
+      this.line(lerp(innerX, outerX, t * 0.2), lerp(top, bottom, t), lerp(outerX, innerX, t * 0.1), lerp(top + lean, bottom - lean, t));
+    }
+    ctx.restore();
+  }
+
   drawDeploymentZone(columns, color) {
     this.context.fillStyle = color;
     columns.forEach((column) => this.context.fillRect(column * this.cellSize, 0, this.cellSize, GAME_CONFIG.rows * this.cellSize));
   }
 
-  prepareUnitContext() {
-    if (this.isPortrait) this.context.rotate(Math.PI / 2);
-  }
-
-  shouldDrawHealthBar(unit, ghost) {
-    return !ghost && unit.hp < unit.maxHp;
-  }
+  prepareUnitContext() { if (this.isPortrait) this.context.rotate(Math.PI / 2); }
+  shouldDrawHealthBar(unit, ghost) { return !ghost && unit.hp < unit.maxHp; }
 
   drawText(effect, progress) {
-    if (!this.isPortrait) {
-      super.drawText(effect, progress);
-      return;
-    }
+    if (!this.isPortrait) { super.drawText(effect, progress); return; }
     const ctx = this.context;
     ctx.save();
     ctx.translate(this.x(effect.column), this.y(effect.row));
@@ -223,16 +255,10 @@ export class BattlefieldRenderer extends CanvasRenderer {
 
   drawProjectile(effect, progress, color) {
     switch (effect.attackStyle) {
-      case ATTACK_ANIMATION.MISSILE:
-        this.drawMissile(effect, progress, color);
-        break;
-      case ATTACK_ANIMATION.LOB:
-        this.drawLobbedProjectile(effect, progress, color);
-        break;
+      case ATTACK_ANIMATION.MISSILE: this.drawMissile(effect, progress, color); break;
+      case ATTACK_ANIMATION.LOB: this.drawLobbedProjectile(effect, progress, color); break;
       case ATTACK_ANIMATION.LASER:
-      default:
-        this.drawLaser(effect, progress, color);
-        break;
+      default: this.drawLaser(effect, progress, color); break;
     }
   }
 
@@ -325,10 +351,7 @@ export class BattlefieldRenderer extends CanvasRenderer {
   }
 
   drawDeath(effect, progress) {
-    if (effect.deathStyle === DEATH_ANIMATION.SPIN_OUT) {
-      this.drawSpinOutDeath(effect, progress);
-      return;
-    }
+    if (effect.deathStyle === DEATH_ANIMATION.SPIN_OUT) { this.drawSpinOutDeath(effect, progress); return; }
     this.drawExplosiveDeath(effect, progress);
   }
 
@@ -353,7 +376,6 @@ export class BattlefieldRenderer extends CanvasRenderer {
     const y = this.y(effect.row);
     const fade = 1 - progress;
     const flash = Math.sin(Math.min(1, progress * 2) * Math.PI);
-
     ctx.save();
     ctx.globalAlpha = fade;
     ctx.translate(x, y);
@@ -361,7 +383,6 @@ export class BattlefieldRenderer extends CanvasRenderer {
     ctx.scale(1 + flash * 0.35, 1 + flash * 0.35);
     drawUnitGraphic(ctx, effect.graphic ?? effect.shape, 0, 0, this.cellSize * 0.32 * fade, effect.color);
     ctx.restore();
-
     ctx.save();
     ctx.globalAlpha = fade;
     for (let index = 0; index < 10; index += 1) {
