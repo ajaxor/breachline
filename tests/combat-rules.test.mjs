@@ -97,28 +97,25 @@ test('detonation events use the unit animated position instead of its movement d
   assert.equal(event.unit.column, 2.5);
 });
 
-test('units stop at the battlefield wall and target it like a unit', () => {
-  const unit = createBattleUnit({ id: 1, row: 2, column: GAME_CONFIG.columns - 2 });
-  const wall = createBattleUnit({ id: 2, team: TEAM.ENEMY, type: 'wall', row: 2, column: GAME_CONFIG.columns - 1, overrides: { baseWall: true, hp: GAME_CONFIG.baseHp, maxHp: GAME_CONFIG.baseHp } });
-  const model = withUnits(unit, wall);
+test('units can occupy the end column and target the line behind the grid', () => {
+  const unit = createBattleUnit({ id: 1, row: 2, column: GAME_CONFIG.columns - 1 });
+  const model = withUnits(unit);
+  assert.equal(model.units.some((candidate) => candidate.type === 'wall' && candidate.lineObjective), false);
   assert.equal(model.moveUnit(unit, 100, 100), false);
   assert.equal(unit.breached, false);
   assert.equal(model.tryCombatAction(unit, UNIT_TYPES.grunt, 100, 100), true);
-  assert.equal(model.enemyBaseHp, GAME_CONFIG.baseHp - UNIT_TYPES.grunt.attack);
-  assert.equal(wall.hp, GAME_CONFIG.baseHp - UNIT_TYPES.grunt.attack);
+  assert.equal(model.enemyLineHp, GAME_CONFIG.baseHp - UNIT_TYPES.grunt.attack);
   assert.equal(model.combatEvents.at(-1).type, COMBAT_EVENT.UNIT_ATTACKED);
-  assert.equal(model.combatEvents.at(-1).target.baseWall, true);
+  assert.equal(model.combatEvents.at(-1).target.lineObjective, true);
 });
 
-test('bomb units detonate against base wall targets', () => {
-  const bomber = createBattleUnit({ id: 1, type: 'bomber', row: 2, column: GAME_CONFIG.columns - 2 });
-  const wall = createBattleUnit({ id: 2, team: TEAM.ENEMY, type: 'wall', row: 2, column: GAME_CONFIG.columns - 1, overrides: { baseWall: true, hp: GAME_CONFIG.baseHp, maxHp: GAME_CONFIG.baseHp } });
-  const model = withUnits(bomber, wall);
+test('bomb units detonate against virtual line targets', () => {
+  const bomber = createBattleUnit({ id: 1, type: 'bomber', row: 2, column: GAME_CONFIG.columns - 1 });
+  const model = withUnits(bomber);
   model.processUnit(bomber, 100, 100);
-  assert.equal(model.enemyBaseHp, GAME_CONFIG.baseHp - UNIT_TYPES.bomber.attack);
-  assert.equal(wall.hp, GAME_CONFIG.baseHp - UNIT_TYPES.bomber.attack);
+  assert.equal(model.enemyLineHp, GAME_CONFIG.baseHp - UNIT_TYPES.bomber.attack);
   assert.equal(bomber.alive, false);
-  assert.equal(model.combatEvents.some((event) => event.type === COMBAT_EVENT.SPLASH_HIT && event.target.baseWall), true);
+  assert.equal(model.combatEvents.some((event) => event.type === COMBAT_EVENT.SPLASH_HIT && event.target.lineObjective), true);
   assert.equal(model.combatEvents.some((event) => event.type === COMBAT_EVENT.UNIT_DETONATED), true);
 });
 
@@ -201,15 +198,15 @@ test('stationary units never move', () => {
   assert.deepEqual({ row: structure.row, column: structure.column }, { row: 2, column: 10 });
 });
 
-test('simultaneous base destruction and mutual annihilation resolve as defeats', () => {
+test('simultaneous line breach and mutual annihilation resolve as defeats', () => {
   const model = new GameModel();
-  model.playerBaseHp = 0;
-  model.enemyBaseHp = 0;
+  model.playerLineHp = 0;
+  model.enemyLineHp = 0;
   let result = model.determineResult();
   assert.equal(result.cssClass, RESULT_TYPE.ENEMY_WIN);
   assert.equal(result.playerWon, false);
-  model.playerBaseHp = GAME_CONFIG.baseHp;
-  model.enemyBaseHp = GAME_CONFIG.baseHp;
+  model.playerLineHp = GAME_CONFIG.baseHp;
+  model.enemyLineHp = GAME_CONFIG.baseHp;
   model.units = [
     createBattleUnit({ id: 1, overrides: { alive: false } }),
     createBattleUnit({ id: 2, team: TEAM.ENEMY, overrides: { alive: false } }),
