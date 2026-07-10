@@ -119,12 +119,12 @@ test('bomb units detonate against virtual line targets', () => {
   assert.equal(model.combatEvents.some((event) => event.type === COMBAT_EVENT.UNIT_DETONATED), true);
 });
 
-test('flying units do not move onto aircraft or friendly ground units', () => {
+test('flying units overfly ground units but not aircraft', () => {
   const flyer = createBattleUnit({ id: 1, type: 'flyer', row: 2, column: 4 });
   const friendlyGround = createBattleUnit({ id: 2, team: TEAM.PLAYER, row: 2, column: 5 });
   let model = withUnits(flyer, friendlyGround);
-  assert.equal(model.moveUnit(flyer, 100, 100), false);
-  assert.deepEqual({ row: flyer.row, column: flyer.column }, { row: 2, column: 4 });
+  assert.equal(model.moveUnit(flyer, 100, 100), true);
+  assert.deepEqual({ row: flyer.row, column: flyer.column }, { row: 2, column: 5 });
 
   const leadFlyer = createBattleUnit({ id: 3, type: 'midge', row: 3, column: 5 });
   flyer.row = 3;
