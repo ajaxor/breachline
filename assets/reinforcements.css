@@ -37,6 +37,31 @@
   min-width: 72px;
 }
 
+.draft-dialog {
+  background: #0b1219;
+}
+
+.draft-card {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.draft-card .unit-description {
+  background: #111d27;
+  border-color: #334654;
+  box-shadow: inset 0 0 0 1px #081017, 0 8px 20px #03060966;
+}
+
+.draft-card:hover .unit-description,
+.draft-card:focus-visible .unit-description {
+  background: #172733;
+}
+
+.draft-card:focus:not(:focus-visible) .unit-description {
+  transform: none;
+  border-color: #334654;
+  background: #111d27;
+}
+
 .draft-card.pair {
   position: relative;
   padding: 0;
