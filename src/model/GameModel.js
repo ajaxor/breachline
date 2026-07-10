@@ -9,6 +9,7 @@ import { SpatialIndex } from './SpatialIndex.js';
 import { gridDistance } from './TargetingPolicy.js';
 
 const snapshot = (unit) => ({ id: unit.id, team: unit.team, type: unit.type, row: unit.row, column: unit.column });
+const isBaseWallUnit = (unit) => Boolean(unit?.baseWall);
 
 export class GameModel {
   constructor({ random = Math.random, now = () => performance.now(), unitFactory = new BattleUnitFactory(), actionResolver = new CombatActionResolver(), campaignProgression = new CampaignProgression(), eventPresenter = null, createDeploymentPolicy = (model) => new BudgetDeploymentPolicy(model) } = {}) {
@@ -33,8 +34,8 @@ export class GameModel {
   get budget() { return this.mission.playerBudget; }
   get spentBudget() { return this.placement.reduce((sum, unit) => sum + UNIT_TYPES[unit.type].cost, 0); }
   get canLaunch() { return this.deploymentPolicy.canLaunch; }
-  get livingPlayerCount() { return this.units.filter((unit) => unit.alive && unit.team === TEAM.PLAYER).length; }
-  get livingEnemyCount() { return this.units.filter((unit) => unit.alive && unit.team === TEAM.ENEMY).length; }
+  get livingPlayerCount() { return this.units.filter((unit) => unit.alive && unit.team === TEAM.PLAYER && !isBaseWallUnit(unit)).length; }
+  get livingEnemyCount() { return this.units.filter((unit) => unit.alive && unit.team === TEAM.ENEMY && !isBaseWallUnit(unit)).length; }
   get rosterTypes() { return PLAYER_UNIT_TYPES.filter((type) => this.roster[type.key]); }
 
   resetBattle() {
@@ -102,11 +103,30 @@ export class GameModel {
     this.resetBattle();
     this.mode = MODE.BATTLE;
     const startedAt = this.now();
-    this.units = [...playerFormation.map((plan) => this.unitFactory.create(plan, TEAM.PLAYER, this.nextUnitId++, startedAt)), ...enemyFormation.map((plan) => this.unitFactory.create(plan, TEAM.ENEMY, this.nextUnitId++, startedAt))];
+    const combatUnits = [...playerFormation.map((plan) => this.unitFactory.create(plan, TEAM.PLAYER, this.nextUnitId++, startedAt)), ...enemyFormation.map((plan) => this.unitFactory.create(plan, TEAM.ENEMY, this.nextUnitId++, startedAt))];
+    this.units = [...this.createBaseWalls(startedAt), ...combatUnits];
     this.spatialIndex = new SpatialIndex(this.units);
     this.refreshStealth();
     this.emitCombatEvent({ type: COMBAT_EVENT.BATTLE_STARTED, label: missionLabel, playerCount: this.livingPlayerCount, enemyCount: this.livingEnemyCount, at: startedAt });
     return true;
+  }
+
+  createBaseWalls(startedAt) {
+    const walls = [];
+    for (let row = 0; row < GAME_CONFIG.rows; row += 1) {
+      walls.push(this.createBaseWall(row, 0, TEAM.PLAYER, startedAt));
+      walls.push(this.createBaseWall(row, GAME_CONFIG.columns - 1, TEAM.ENEMY, startedAt));
+    }
+    return walls;
+  }
+
+
+  createBaseWall(row, column, team, startedAt) {
+    const wall = this.unitFactory.create({ row, column, type: 'wall' }, team, this.nextUnitId++, startedAt);
+    wall.baseWall = true;
+    wall.hp = GAME_CONFIG.baseHp;
+    wall.maxHp = GAME_CONFIG.baseHp;
+    return wall;
   }
 
   tick() {
@@ -136,11 +156,25 @@ export class GameModel {
   attackUnit(attacker, target, enemies, now, duration) { return this.actionResolver.attackUnit(this, attacker, target, enemies, now, duration); }
   moveUnit(unit, now, duration) { return this.actionResolver.movement.move(this, unit, now, duration); }
 
-  breach(unit, direction, now) {
-    this.spatialIndex.remove(unit);
-    unit.breached = true;
-    unit.column = direction > 0 ? GAME_CONFIG.columns - 1 : 0;
-    this.emitCombatEvent({ type: COMBAT_EVENT.UNIT_BREACHED, unit: snapshot(unit), targetBase: unit.team === TEAM.PLAYER ? 'hostile' : 'home', at: now });
+  baseHpForTeam(team) { return team === TEAM.PLAYER ? this.playerBaseHp : this.enemyBaseHp; }
+
+  damageBaseWall(target, damage, now) {
+    if (target.team === TEAM.PLAYER) this.playerBaseHp = Math.max(0, this.playerBaseHp - damage);
+    else this.enemyBaseHp = Math.max(0, this.enemyBaseHp - damage);
+    this.syncBaseWalls(target.team, now);
+  }
+
+  syncBaseWalls(team, now) {
+    const hp = this.baseHpForTeam(team);
+    for (const wall of this.units) {
+      if (wall.team !== team || !isBaseWallUnit(wall)) continue;
+      wall.hp = hp;
+      if (hp <= 0 && wall.alive) {
+        wall.alive = false;
+        this.spatialIndex.remove(wall);
+        this.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DESTROYED, unit: snapshot(wall), at: now, silent: true });
+      }
+    }
   }
 
   attackBase(unit, now) {
@@ -169,9 +203,9 @@ export class GameModel {
   killUnit(unit, now) { unit.alive = false; this.spatialIndex.remove(unit); this.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DESTROYED, unit: snapshot(unit), at: now }); }
 
   determineResult() {
-    if (this.playerBaseHp <= 0 && this.enemyBaseHp <= 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — BOTH BASES FALL SIMULTANEOUSLY', playerWon: false };
-    if (this.enemyBaseHp <= 0) return { cssClass: RESULT_TYPE.PLAYER_WIN, text: 'VICTORY — HOSTILE BASE DESTROYED', playerWon: true };
-    if (this.playerBaseHp <= 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — YOUR BASE IS DESTROYED', playerWon: false };
+    if (this.playerBaseHp <= 0 && this.enemyBaseHp <= 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — BOTH BASE WALLS FALL SIMULTANEOUSLY', playerWon: false };
+    if (this.enemyBaseHp <= 0) return { cssClass: RESULT_TYPE.PLAYER_WIN, text: 'VICTORY — HOSTILE BASE WALL DESTROYED', playerWon: true };
+    if (this.playerBaseHp <= 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — YOUR BASE WALL IS DESTROYED', playerWon: false };
     if (this.livingPlayerCount === 0 && this.livingEnemyCount === 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — MUTUAL ANNIHILATION', playerWon: false };
     if (this.livingPlayerCount === 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — YOUR FORCE ELIMINATED', playerWon: false };
     if (this.livingEnemyCount === 0) return { cssClass: RESULT_TYPE.PLAYER_WIN, text: 'VICTORY — HOSTILE FORCE ELIMINATED', playerWon: true };
@@ -184,5 +218,6 @@ export class GameModel {
   addLog(message, cssClass = '') { this.logEntries.push({ message, cssClass }); if (this.logEntries.length > GAME_CONFIG.maxLogEntries) this.logEntries.splice(0, this.logEntries.length - GAME_CONFIG.maxLogEntries); }
   point(unit) { return { row: unit.row, column: unit.column }; }
   occupantAt(row, column) { return this.spatialIndex.occupantAt(row, column); }
+  occupantsAt(row, column) { return this.spatialIndex.occupantsAt(row, column); }
   shuffle(items) { const copy = items.slice(); for (let i = copy.length - 1; i > 0; i -= 1) { const j = Math.floor(this.random() * (i + 1)); [copy[i], copy[j]] = [copy[j], copy[i]]; } return copy; }
 }
