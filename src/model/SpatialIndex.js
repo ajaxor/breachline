@@ -7,7 +7,7 @@ export class SpatialIndex {
   }
 
   add(unit) {
-    if (!unit.alive || unit.breached) return;
+    if ((!unit.alive && !unit.blocksCell) || unit.breached) return;
     const key = keyFor(unit.row, unit.column);
     const occupants = this.cells.get(key) ?? [];
     occupants.push(unit);
@@ -29,7 +29,7 @@ export class SpatialIndex {
   }
 
   occupantsAt(row, column) {
-    return this.cells.get(keyFor(row, column))?.filter((unit) => unit.alive && !unit.breached) ?? [];
+    return this.cells.get(keyFor(row, column))?.filter((unit) => (unit.alive || unit.blocksCell) && !unit.breached) ?? [];
   }
 
   occupantAt(row, column) {
