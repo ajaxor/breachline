@@ -25,10 +25,16 @@ export class MovementPolicy {
     return true;
   }
 
+  movementBlocker(unit, occupants) {
+    const type = UNIT_TYPES[unit.type];
+    if (!hasUnitTag(type, UNIT_TAG.FLYING)) return occupants[0] ?? null;
+    return occupants.find((occupant) => occupant.team === unit.team || hasUnitTag(occupant.type, UNIT_TAG.FLYING)) ?? null;
+  }
+
   tryRamWall(model, unit, occupant, nextColumn, now) {
     const type = UNIT_TYPES[unit.type];
     const occupantType = UNIT_TYPES[occupant?.type];
-    if (!hasUnitTag(type, UNIT_TAG.RAM) || occupantType?.role !== UNIT_ROLE.WALL) return false;
+    if (!hasUnitTag(type, UNIT_TAG.RAM) || occupantType?.role !== UNIT_ROLE.WALL || hasUnitTag(occupantType, UNIT_TAG.BASE_WALL)) return false;
     model.killUnit(occupant, now);
     unit.column = nextColumn;
     return true;
@@ -45,12 +51,10 @@ export class MovementPolicy {
 
     for (let step = 0; step < steps; step += 1) {
       const nextColumn = unit.column + direction;
-      if (nextColumn < 0 || nextColumn >= GAME_CONFIG.columns) {
-        model.breach(unit, direction, now, duration);
-        return true;
-      }
-      const occupant = model.occupantAt(unit.row, nextColumn);
-      if (!hasUnitTag(type, UNIT_TAG.FLYING) && occupant) {
+      if (nextColumn < 0 || nextColumn >= GAME_CONFIG.columns) return moved;
+      const occupants = model.occupantsAt?.(unit.row, nextColumn) ?? [model.occupantAt(unit.row, nextColumn)].filter(Boolean);
+      const occupant = this.movementBlocker(unit, occupants);
+      if (occupant) {
         if (this.tryRamWall(model, unit, occupant, nextColumn, now)) {
           moved = true;
           continue;
@@ -77,22 +81,17 @@ export class MovementPolicy {
       const type = UNIT_TYPES[unit.type];
       if (hasUnitTag(type, UNIT_TAG.STATIONARY)) return false;
       const nextColumn = unit.column + direction;
-      if (nextColumn < 0 || nextColumn >= GAME_CONFIG.columns) {
-        moves.push({ unit, breach: true, previousRow: unit.row, previousColumn: unit.column });
-        continue;
-      }
-      const occupant = model.occupantAt(unit.row, nextColumn);
-      if (occupant && !formationIds.has(occupant.id)) return false;
+      if (nextColumn < 0 || nextColumn >= GAME_CONFIG.columns) return false;
+      const occupants = model.occupantsAt?.(unit.row, nextColumn) ?? [model.occupantAt(unit.row, nextColumn)].filter(Boolean);
+      const blocker = occupants.find((occupant) => !formationIds.has(occupant.id));
+      if (blocker) return false;
       moves.push({ unit, nextColumn, previousRow: unit.row, previousColumn: unit.column });
     }
 
     for (const move of moves) model.spatialIndex.remove(move.unit);
     for (const move of moves) {
-      if (move.breach) model.breach(move.unit, direction, now, duration);
-      else {
-        move.unit.column = move.nextColumn;
-        model.spatialIndex.add(move.unit);
-      }
+      move.unit.column = move.nextColumn;
+      model.spatialIndex.add(move.unit);
     }
     return true;
   }
