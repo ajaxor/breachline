@@ -79,6 +79,11 @@ export class FlowGameView extends GameView {
     this.elements.phaseLabel.textContent = `${difficulty} · MISSION ${model.selectedMission + 1}/${model.campaign.length}`;
   }
 
+  renderDraft(model) {
+    if (this.elements.draftChoices.contains(this.document.activeElement)) this.document.activeElement.blur();
+    super.renderDraft(model);
+  }
+
   showResult(result, { hasNextMission, canRetry, sandbox }) {
     this.clearBanner();
     const banner = this.elements.bannerOverlay;
