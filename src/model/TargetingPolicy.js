@@ -14,20 +14,25 @@ export class TargetingPolicy {
     return target.row === attacker.row && target.column === attacker.column + direction;
   }
 
-  isInAttackPattern(attacker, target, type = UNIT_TYPES[attacker.type]) {
-    if (hasUnitTag(type, UNIT_TAG.SWIVEL)) return gridDistance(attacker, target) <= type.range;
-    return attacker.row === target.row && laneDistance(attacker, target) <= type.range;
+  isSidewaysInRow(attacker, target, type = UNIT_TYPES[attacker.type]) {
+    return target.column === attacker.column && Math.abs(target.row - attacker.row) <= type.range;
   }
 
-  canTarget(attacker, target, type = UNIT_TYPES[attacker.type]) {
+  isInAttackPattern(attacker, target, type = UNIT_TYPES[attacker.type], { allowSideways = false } = {}) {
+    if (hasUnitTag(type, UNIT_TAG.SWIVEL)) return gridDistance(attacker, target) <= type.range;
+    if (attacker.row === target.row && laneDistance(attacker, target) <= type.range) return true;
+    return allowSideways && type.role === UNIT_ROLE.RANGED && this.isSidewaysInRow(attacker, target, type);
+  }
+
+  canTarget(attacker, target, type = UNIT_TYPES[attacker.type], options = {}) {
     if (!this.isAhead(attacker, target)) return false;
-    if (!this.isInAttackPattern(attacker, target, type)) return false;
+    if (!this.isInAttackPattern(attacker, target, type, options)) return false;
     const targetType = UNIT_TYPES[target.type];
     if (!target.lineObjective && hasUnitTag(type, UNIT_TAG.RAM) && targetType?.role === UNIT_ROLE.WALL) return false;
     if (!target.lineObjective && targetType?.role === UNIT_ROLE.WALL && !this.isBlockingAdjacent(attacker, target)) return false;
     if (hasUnitTag(target.type, UNIT_TAG.FLYING)
       && !hasUnitTag(type, UNIT_TAG.FLYING)
-      && !hasUnitTag(type, UNIT_TAG.ANTI_AIR)) return false;
+      && type.range <= 1) return false;
     const stealthActive = target.stealthed ?? hasUnitTag(target.type, UNIT_TAG.STEALTH);
     return !stealthActive || gridDistance(attacker, target) <= 1;
   }
