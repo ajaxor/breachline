@@ -28,8 +28,12 @@ export class SpatialIndex {
     this.add(unit);
   }
 
+  occupantsAt(row, column) {
+    return this.cells.get(keyFor(row, column))?.filter((unit) => unit.alive && !unit.breached) ?? [];
+  }
+
   occupantAt(row, column) {
-    return this.cells.get(keyFor(row, column))?.find((unit) => unit.alive && !unit.breached) ?? null;
+    return this.occupantsAt(row, column)[0] ?? null;
   }
 
   nearby(row, column, range) {
