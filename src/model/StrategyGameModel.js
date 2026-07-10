@@ -11,6 +11,7 @@ const byRoleThenName = (left, right) => (ROLE_ORDER.get(left.role) - ROLE_ORDER.
 const choiceUnits = (choice) => choice.units ?? [choice];
 const choiceRoles = (choice) => new Set(choiceUnits(choice).map((unit) => unit.role));
 const isSupportPair = (first, second) => first.role === UNIT_ROLE.SUPPORT && second.role === UNIT_ROLE.SUPPORT;
+const PAIR_OFFER_CHANCE = 0.25;
 
 export class StrategyGameModel extends GameModel {
   constructor(options = {}) {
@@ -139,10 +140,12 @@ export class StrategyGameModel extends GameModel {
 
   rollDraftChoices() {
     if (this.pendingDrafts <= 0) { this.draftChoices = []; return this.draftChoices; }
-    const lockedTypes = PLAYER_UNIT_TYPES.filter((type) => !this.roster[type.key]);
-    const preferredPool = lockedTypes.length ? lockedTypes : PLAYER_UNIT_TYPES;
+    const openingDraft = !this.isSandbox && this.currentDraftMissionIndex === 0;
+    const eligibleTypes = openingDraft ? PLAYER_UNIT_TYPES.filter((type) => type.techLevel === 1) : PLAYER_UNIT_TYPES;
+    const lockedTypes = eligibleTypes.filter((type) => !this.roster[type.key]);
+    const preferredPool = lockedTypes.length ? lockedTypes : eligibleTypes;
     const singlePool = preferredPool.filter((type) => type.role !== UNIT_ROLE.SUPPORT);
-    const pairPool = preferredPool.length >= 2 ? preferredPool : PLAYER_UNIT_TYPES;
+    const pairPool = openingDraft ? [] : (preferredPool.length >= 2 ? preferredPool : PLAYER_UNIT_TYPES);
     const choices = [];
     const usedRoles = new Set();
     const usedUnitKeys = new Set();
@@ -185,7 +188,7 @@ export class StrategyGameModel extends GameModel {
     };
 
     for (let index = 0; index < 3; index += 1) {
-      const shouldPair = pairPool.length >= 2 && (this.random() < 0.45 || singlePool.length === 0);
+      const shouldPair = pairPool.length >= 2 && (this.random() < PAIR_OFFER_CHANCE || singlePool.length === 0);
       if (shouldPair) {
         const pair = bestPair();
         if (pair) { addChoice(this.createPairDraft(pair[0], pair[1])); continue; }
