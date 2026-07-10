@@ -80,7 +80,7 @@ test('melee flying attackers use projectile effects instead of lunging', () => {
 
   const attack = model.effects.find((effect) => effect.type === EFFECT_TYPE.RANGED);
   assert.ok(attack, 'flying melee attack should render as a projectile-style ranged effect');
-  assert.equal(attack.attackStyle, ATTACK_ANIMATION.LASER);
+  assert.equal(attack.attackStyle, ATTACK_ANIMATION.MISSILE);
   assert.equal(model.effects.some((effect) => effect.type === EFFECT_TYPE.MELEE), false);
 });
 
