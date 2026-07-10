@@ -25,13 +25,13 @@ const createRenderer = (width, height) => {
   return { renderer, canvas };
 };
 
-test('landscape battlefield includes equal wall gutters outside the grid', () => {
+test('landscape battlefield reserves centered gutters for outward-slanting walls', () => {
   const { renderer, canvas } = createRenderer(1200, 700);
   renderer.resize({});
 
   assert.equal(renderer.isPortrait, false);
   assert.equal(canvas.width, (GAME_CONFIG.columns + 1) * renderer.cellSize);
-  assert.equal(canvas.height, GAME_CONFIG.rows * renderer.cellSize);
+  assert.equal(canvas.height, (GAME_CONFIG.rows + 0.48) * renderer.cellSize);
 
   const walls = [];
   renderer.drawPerspectiveWall = (...args) => walls.push(args);
@@ -40,21 +40,23 @@ test('landscape battlefield includes equal wall gutters outside the grid', () =>
   assert.equal(walls[1][3], 1);
 });
 
-test('portrait battlefield includes equal wall gutters above and below the rotated grid', () => {
+test('portrait battlefield preserves the same wall and lean gutters after rotation', () => {
   const { renderer, canvas } = createRenderer(700, 1200);
   renderer.resize({});
 
   assert.equal(renderer.isPortrait, true);
-  assert.equal(canvas.width, GAME_CONFIG.rows * renderer.cellSize);
+  assert.equal(canvas.width, (GAME_CONFIG.rows + 0.48) * renderer.cellSize);
   assert.equal(canvas.height, (GAME_CONFIG.columns + 1) * renderer.cellSize);
 });
 
-test('wall gutters are not selectable and grid pointer mapping remains centered', () => {
+test('all wall gutters are unselectable and grid pointer mapping remains centered', () => {
   const { renderer, canvas } = createRenderer(1200, 700);
   renderer.resize({});
-  const gutter = renderer.cellSize / 2;
+  const endGutter = renderer.cellSize / 2;
+  const leanGutter = renderer.cellSize * 0.24;
 
-  assert.equal(renderer.cellFromPointer({ clientX: gutter / 2, clientY: renderer.cellSize / 2 }), null);
-  assert.deepEqual(renderer.cellFromPointer({ clientX: gutter + renderer.cellSize / 2, clientY: renderer.cellSize / 2 }), { row: 0, column: 0 });
-  assert.equal(renderer.cellFromPointer({ clientX: canvas.width - gutter / 2, clientY: renderer.cellSize / 2 }), null);
+  assert.equal(renderer.cellFromPointer({ clientX: endGutter / 2, clientY: leanGutter + renderer.cellSize / 2 }), null);
+  assert.equal(renderer.cellFromPointer({ clientX: endGutter + renderer.cellSize / 2, clientY: leanGutter / 2 }), null);
+  assert.deepEqual(renderer.cellFromPointer({ clientX: endGutter + renderer.cellSize / 2, clientY: leanGutter + renderer.cellSize / 2 }), { row: 0, column: 0 });
+  assert.equal(renderer.cellFromPointer({ clientX: canvas.width - endGutter / 2, clientY: leanGutter + renderer.cellSize / 2 }), null);
 });
