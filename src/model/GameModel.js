@@ -192,7 +192,7 @@ export class GameModel {
   killUnit(unit, now) { unit.alive = false; this.spatialIndex.remove(unit); this.emitCombatEvent({ type: COMBAT_EVENT.UNIT_DESTROYED, unit: snapshot(unit), at: now }); }
 
   determineResult() {
-    if (this.playerLineHp <= 0 && this.enemyLineHp <= 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'BREACH — BOTH LINES BREAK', playerWon: false };
+    if (this.playerLineHp <= 0 && this.enemyLineHp <= 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — BOTH LINES BREACHED', playerWon: false };
     if (this.enemyLineHp <= 0) return { cssClass: RESULT_TYPE.PLAYER_WIN, text: 'VICTORY — BREACH ACHIEVED', playerWon: true };
     if (this.playerLineHp <= 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — LINE BREACHED', playerWon: false };
     if (this.livingPlayerCount === 0 && this.livingEnemyCount === 0) return { cssClass: RESULT_TYPE.ENEMY_WIN, text: 'DEFEAT — MUTUAL ANNIHILATION', playerWon: false };
