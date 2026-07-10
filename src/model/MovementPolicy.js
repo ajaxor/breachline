@@ -31,6 +31,17 @@ export class MovementPolicy {
     return occupants.find((occupant) => hasUnitTag(occupant.type, UNIT_TAG.FLYING)) ?? null;
   }
 
+  blockerAhead(model, unit) {
+    const nextColumn = unit.column + this.directionFor(unit);
+    if (nextColumn < 0 || nextColumn >= GAME_CONFIG.columns) return null;
+    const occupants = model.occupantsAt?.(unit.row, nextColumn) ?? [model.occupantAt(unit.row, nextColumn)].filter(Boolean);
+    return this.movementBlocker(unit, occupants);
+  }
+
+  isBlockedAhead(model, unit) {
+    return Boolean(this.blockerAhead(model, unit));
+  }
+
   tryRamWall(model, unit, occupant, nextColumn, now) {
     const type = UNIT_TYPES[unit.type];
     const occupantType = UNIT_TYPES[occupant?.type];
