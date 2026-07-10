@@ -1,6 +1,7 @@
 import { GAME_CONFIG, MODE, UNIT_TYPES } from '../data/gameConfig.js';
 
 const BATTLE_SPEED = 0.5;
+const RESULT_REVEAL_PADDING_MS = 220;
 const defaultScheduler = Object.freeze({
   setInterval: (callback, delay) => window.setInterval(callback, delay),
   clearInterval: (handle) => window.clearInterval(handle),
@@ -140,11 +141,17 @@ export class GameController {
   runBattleTick() {
     const effectStart = this.model.effects.length;
     const result = this.model.tick();
-    const tickDuration = this.movementDuration();
+    const tickDuration = result ? this.effectWindowDuration(effectStart) : this.movementDuration();
     this.fitEffectsToTickWindow(effectStart, tickDuration);
     this.refresh(false);
     if (result) {
-      this.view.showResult(result, this.model.selectedMission + 1 < this.model.campaign.length);
+      this.stopTimer();
+      this.timer = this.scheduler.setTimeout(() => {
+        this.timer = null;
+        this.renderer.render(this.model);
+        this.stopAnimationLoop();
+        this.view.showResult(result, this.model.selectedMission + 1 < this.model.campaign.length);
+      }, tickDuration + RESULT_REVEAL_PADDING_MS);
       return;
     }
     this.scheduleBattleTick(tickDuration);
@@ -152,6 +159,15 @@ export class GameController {
 
   movementDuration() {
     return Math.max(220, Math.min(960, GAME_CONFIG.tickIntervalMs * 0.85 / BATTLE_SPEED));
+  }
+
+  effectWindowDuration(effectStart) {
+    const effects = this.model.effects.slice(effectStart);
+    if (effects.length === 0) return this.movementDuration();
+    const starts = effects.map((effect) => effect.actionStart ?? effect.start).filter(Number.isFinite);
+    const ends = effects.map((effect) => (effect.start ?? 0) + (effect.duration ?? 0)).filter(Number.isFinite);
+    if (starts.length === 0 || ends.length === 0) return this.movementDuration();
+    return Math.max(this.movementDuration(), Math.max(...ends) - Math.min(...starts));
   }
 
   fitEffectsToTickWindow(effectStart, tickDuration) {
