@@ -193,31 +193,28 @@ export class BattlefieldRenderer extends CanvasRenderer {
   }
 
   drawEndWalls(logicalWidth, logicalHeight) {
-    this.drawPerspectiveWall(0, logicalHeight, '#38bdf8', -1);
-    this.drawPerspectiveWall(logicalWidth, logicalHeight, '#ff5d5d', 1);
+    this.drawPerspectiveWall(0, logicalHeight, '#38bdf8', 1);
+    this.drawPerspectiveWall(logicalWidth, logicalHeight, '#ff5d5d', -1);
   }
 
-  drawPerspectiveWall(edgeX, height, color, side) {
+  drawPerspectiveWall(edgeX, height, color, inward) {
     const ctx = this.context;
     const cell = this.cellSize;
-    const face = cell * 0.22;
-    const depth = cell * 0.48;
+    const depth = cell * 0.5;
     const lean = cell * 0.24;
-    const innerX = edgeX - side * face;
-    const outerX = edgeX + side * depth;
-    const top = cell * 0.28;
-    const bottom = height - cell * 0.28;
+    const gridX = edgeX;
+    const farX = edgeX + inward * depth;
     ctx.save();
     ctx.shadowColor = color;
     ctx.shadowBlur = cell * 0.16;
-    ctx.fillStyle = side > 0 ? 'rgba(255,93,93,0.12)' : 'rgba(56,189,248,0.12)';
+    ctx.fillStyle = color === '#ff5d5d' ? 'rgba(255,93,93,0.12)' : 'rgba(56,189,248,0.12)';
     ctx.strokeStyle = color;
     ctx.lineWidth = Math.max(1.5, cell * 0.05);
     ctx.beginPath();
-    ctx.moveTo(innerX, top);
-    ctx.lineTo(outerX, top + lean);
-    ctx.lineTo(outerX, bottom - lean);
-    ctx.lineTo(innerX, bottom);
+    ctx.moveTo(gridX, 0);
+    ctx.lineTo(farX, lean);
+    ctx.lineTo(farX, height - lean);
+    ctx.lineTo(gridX, height);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
@@ -226,7 +223,7 @@ export class BattlefieldRenderer extends CanvasRenderer {
     ctx.lineWidth = Math.max(1, cell * 0.025);
     for (let row = 1; row < GAME_CONFIG.rows; row += 1) {
       const t = row / GAME_CONFIG.rows;
-      this.line(lerp(innerX, outerX, t * 0.2), lerp(top, bottom, t), lerp(outerX, innerX, t * 0.1), lerp(top + lean, bottom - lean, t));
+      this.line(gridX, height * t, farX, lerp(lean, height - lean, t));
     }
     ctx.restore();
   }
