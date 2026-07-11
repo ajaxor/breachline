@@ -1,0 +1,91 @@
+name: Apply combat visual and stun task
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/apply-combat-visual-stun-task.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply requested changes
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          def read(path):
+              return Path(path).read_text()
+
+          def write(path, text):
+              Path(path).write_text(text)
+
+          path = 'src/data/gameConfig.js'
+          text = read(path)
+          text = text.replace("LEADER: 'leader', STUN_FIELD: 'stun-field', JAMMER", "LEADER: 'leader', STUN: 'stun', JAMMER")
+          text = text.replace("  if (tags.has(UNIT_TAG.SALVO) || tags.has(UNIT_TAG.RELOAD)) return ATTACK_ANIMATION.MISSILE;", "  if (tags.has(UNIT_TAG.STUN)) return ATTACK_ANIMATION.LIGHTNING;\n  if (tags.has(UNIT_TAG.SALVO) || tags.has(UNIT_TAG.RELOAD)) return ATTACK_ANIMATION.MISSILE;")
+          text = re.sub(r"  disruptor: unit\(\{.*?\}\),\n", "  disruptor: unit({ key: 'disruptor', name: 'Disruptor', role: UNIT_ROLE.SUPPORT, techLevel: 3, cost: 40, hp: 28, attack: 4, range: 3, tags: [UNIT_TAG.STUN, UNIT_TAG.SALVO, UNIT_TAG.SWIVEL], campaign: { unlockMission: 5, initialWeight: 0.1, weightGrowth: 0.02 }, behavior: 'Fires lightning at every valid enemy within range. Each hit stuns its target for two turns.', graphic: 'disruptor' }),\n", text)
+          text = re.sub(r"  stormwing: unit\(\{.*?\}\),\n", "  stormwing: unit({ key: 'stormwing', name: 'Stormwing', role: UNIT_ROLE.FLYING, techLevel: 3, cost: 48, hp: 14, attack: 4, range: 3, tags: [UNIT_TAG.STUN, UNIT_TAG.SALVO, UNIT_TAG.ANTI_AIR, UNIT_TAG.SWIVEL], campaign: { unlockMission: 5, initialWeight: 0.11, weightGrowth: 0.022 }, behavior: 'A flying anti-air disruptor that fires lightning at every valid ground and flying target within range. Each hit stuns its target for two turns.', graphic: 'stormwing' }),\n", text)
+          text = re.sub(r"  teslaCoil: unit\(\{.*?\}\),\n", "  teslaCoil: unit({ key: 'teslaCoil', name: 'Tesla Coil', role: UNIT_ROLE.STRUCTURE, techLevel: 3, cost: 76, hp: 120, attack: 8, range: 2, tags: [UNIT_TAG.STUN, UNIT_TAG.SALVO, UNIT_TAG.SWIVEL, UNIT_TAG.ANTI_AIR], animation: { attack: ATTACK_ANIMATION.LIGHTNING }, campaign: { unlockMission: 5, initialWeight: 0.1, weightGrowth: 0.022 }, behavior: 'A close-defense coil that arcs low damage into every ground and flying target within range. Each hit stuns its target for two turns.', graphic: 'tesla-coil' }),\n", text)
+          write(path, text)
+
+          path = 'src/model/CombatActionResolver.js'
+          lines = read(path).splitlines()
+          lines = [line for line in lines if not line.startswith('  applyStunFields(units)')]
+          text = '\n'.join(lines) + '\n'
+          text = text.replace(' { const queue = units.slice(); let consecutivePasses = 0; this.applyStunFields(units); this.resolvedFormations.clear();', ' { const queue = units.slice(); let consecutivePasses = 0; this.resolvedFormations.clear();')
+          old = "const damage = this.applyDamage(model, attacker, target, rawDamage, COMBAT_EVENT.UNIT_ATTACKED, now, duration); this.reflectThorns"
+          new = "const damage = this.applyDamage(model, attacker, target, rawDamage, COMBAT_EVENT.UNIT_ATTACKED, now, duration); if (!target.lineObjective && target.alive && hasUnitTag(attacker.type, UNIT_TAG.STUN)) target.stunTurnsRemaining = Math.max(target.stunTurnsRemaining ?? 0, STUN_TURNS); this.reflectThorns"
+          if old not in text:
+              raise SystemExit('attackUnit patch anchor missing')
+          text = text.replace(old, new)
+          write(path, text)
+
+          path = 'src/frontend/CombatEventPresenter.js'
+          text = read(path)
+          text = text.replace("const point = (unit) => ({ row: unit.row, column: unit.column });", "const point = (unit) => unit.lineObjective\n  ? { row: unit.row, column: unit.team === TEAM.PLAYER ? -0.75 : GAME_CONFIG.columns - 0.25 }\n  : { row: unit.row, column: unit.column };")
+          text = text.replace("const animatedPoint = (unit, at) => {\n  if (unit.animationStartedAt === undefined", "const animatedPoint = (unit, at) => {\n  if (unit.lineObjective) return point(unit);\n  if (unit.animationStartedAt === undefined")
+          write(path, text)
+
+          path = 'src/frontend/DeploymentBattlefieldRenderer.js'
+          text = read(path)
+          text = text.replace("import { AURA_EFFECT, GAME_CONFIG, MODE, TEAM, UNIT_TYPES } from '../data/gameConfig.js';", "import { AURA_EFFECT, GAME_CONFIG, MODE, TEAM, UNIT_ROLE, UNIT_TYPES } from '../data/gameConfig.js';")
+          text = text.replace("const RANGE_STYLE = Object.freeze({\n  heal:", "const RANGE_STYLE = Object.freeze({\n  ranged: { fill: 'rgba(248, 250, 252, 0.055)', stroke: 'rgba(248, 250, 252, 0.22)' },\n  heal:")
+          text = text.replace("ctx.rotate(Math.PI / 4 + progress * 0.22);", "ctx.rotate(Math.PI / 4 + progress * Math.PI * 2.25);")
+          text = text.replace("const angle = index * Math.PI / 4 + progress * 0.35;", "const angle = index * Math.PI / 4 + progress * Math.PI * 2;")
+          text = text.replace("      if (type?.action === UNIT_ACTION.HEAL) {", "      if (type?.role === UNIT_ROLE.RANGED) this.drawRangeZone(unit.row, unit.column, type.range, RANGE_STYLE.ranged, type.graphic ?? type.shape);\n      if (type?.action === UNIT_ACTION.HEAL) {")
+          text = text.replace("  drawRangeZone(originRow, originColumn, range, style) {", "  drawRangeZone(originRow, originColumn, range, style, graphic) {")
+          anchor = "        ctx.fillRect(x, y, size, size);\n        ctx.strokeRect(x, y, size, size);"
+          replacement = "        ctx.fillRect(x, y, size, size);\n        ctx.strokeRect(x, y, size, size);\n        if (graphic) {\n          ctx.save();\n          ctx.globalAlpha = 0.16;\n          drawUnitGraphic(ctx, graphic, x + size / 2, y + size / 2, cell * 0.105, '#f8fafc');\n          ctx.restore();\n        }"
+          index = text.rfind(anchor)
+          if index < 0:
+              raise SystemExit('range overlay patch anchor missing')
+          text = text[:index] + text[index:].replace(anchor, replacement, 1)
+          write(path, text)
+
+          Path('VERSION').write_text('0.31.0\n')
+          workflow = Path('.github/workflows/apply-combat-visual-stun-task.yml')
+          workflow.unlink()
+          PY
+      - name: Validate
+        run: |
+          npm test
+          npm run balance:check
+      - name: Commit changes
+        run: |
+          git config user.name "Breach Line task bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Rework stun attacks and range overlays"
+          git push origin HEAD:main
