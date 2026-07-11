@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TEAM, UNIT_ROLE, UNIT_TAG, UNIT_TYPES, hasUnitTag } from '../src/data/gameConfig.js';
+import { ATTACK_ANIMATION } from '../src/data/gameTypes.js';
 import { CombatActionResolver } from '../src/model/CombatActionResolver.js';
 import { SpatialIndex } from '../src/model/SpatialIndex.js';
 import { createBattleUnit } from './helpers/createBattleUnit.mjs';
@@ -46,11 +47,36 @@ test('reaper cleaves enemies directly beside its melee target', () => {
 });
 
 test('hostile-only additions preserve their intended niches', () => {
+  assert.equal(UNIT_TYPES.mine.role, UNIT_ROLE.STRUCTURE);
   assert.equal(hasUnitTag(UNIT_TYPES.mine, UNIT_TAG.AI_ONLY), true);
+  assert.equal(hasUnitTag(UNIT_TYPES.mine, UNIT_TAG.STATIONARY), true);
   assert.equal(hasUnitTag(UNIT_TYPES.mine, UNIT_TAG.BOMB), true);
   assert.equal(hasUnitTag(UNIT_TYPES.mine, UNIT_TAG.AOE), true);
   assert.equal(UNIT_TYPES.hangar.production.type, 'midge');
   assert.equal(UNIT_TYPES.teslaCoil.role, UNIT_ROLE.STRUCTURE);
   assert.equal(hasUnitTag(UNIT_TYPES.teslaCoil, UNIT_TAG.SALVO), true);
   assert.equal(hasUnitTag(UNIT_TYPES.teslaCoil, UNIT_TAG.ANTI_AIR), true);
+  assert.equal(UNIT_TYPES.teslaCoil.animation.attack, ATTACK_ANIMATION.LIGHTNING);
+});
+
+test('continuous stun fields cannot refresh a unit past two stunned turns', () => {
+  const resolver = new CombatActionResolver();
+  const disruptor = createBattleUnit({ id: 1, team: TEAM.ENEMY, type: 'disruptor', row: 3, column: 6 });
+  const target = createBattleUnit({ id: 2, team: TEAM.PLAYER, type: 'grunt', row: 3, column: 6 });
+  const units = [disruptor, target];
+
+  resolver.applyStunFields(units);
+  assert.equal(target.stunTurnsRemaining, 2);
+  resolver.ageStuns(units);
+  resolver.applyStunFields(units);
+  assert.equal(target.stunTurnsRemaining, 1);
+  resolver.ageStuns(units);
+  resolver.applyStunFields(units);
+  assert.equal(resolver.isStunned(target), false);
+
+  target.column = 4;
+  resolver.applyStunFields(units);
+  target.column = 6;
+  resolver.applyStunFields(units);
+  assert.equal(target.stunTurnsRemaining, 2);
 });
