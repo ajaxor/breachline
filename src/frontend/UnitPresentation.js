@@ -38,6 +38,7 @@ const TAG_DESCRIPTION = Object.freeze({
   [UNIT_TAG.JAMMER]: 'Cloaks allied units within the aura. Cloaked units remain targetable by adjacent enemies.',
   [UNIT_TAG.THORNS]: 'Reflects a portion of melee damage back at the attacker.',
   [UNIT_TAG.FACTORY]: 'Produces a weak unit into the lane ahead whenever production is ready and the space is clear.',
+  [UNIT_TAG.CLEAVE]: 'A melee attack also deals full damage to enemies immediately beside the primary target.',
 });
 
 const HIDDEN_TAGS = new Set([UNIT_TAG.AI_ONLY, UNIT_TAG.PLAYER_ONLY]);
