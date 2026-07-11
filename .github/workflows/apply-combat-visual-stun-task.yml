@@ -89,3 +89,5 @@ jobs:
           git add -A
           git commit -m "Rework stun attacks and range overlays"
           git push origin HEAD:main
+
+# trigger existing workflow
