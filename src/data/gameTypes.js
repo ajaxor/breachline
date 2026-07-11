@@ -18,6 +18,7 @@ export const ATTACK_ANIMATION = Object.freeze({
   LASER: 'laser',
   MISSILE: 'missile',
   LOB: 'lob',
+  LIGHTNING: 'lightning',
 });
 
 export const MOVEMENT_ANIMATION = Object.freeze({
