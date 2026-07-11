@@ -29,24 +29,35 @@ function addDeathEffect(model, unit, at, duration, actionStart) {
   model.effects.push({ type: EFFECT_TYPE.DEATH, ...animatedPoint(unit, at), shape: definition.shape, graphic: definition.graphic, deathStyle: definition.animation.death, color: teamColor(unit.team), seed: unit.id * 2.399963229728653, actionStart, start: at, duration: Math.max(duration * 2.1, 760) });
 }
 function addGroundDeathExplosion(model, unit, at, duration) { model.effects.push({ type: EFFECT_TYPE.EXPLOSION, ...animatedPoint(unit, at), start: at, duration: Math.max(duration * 1.55, 560), intensity: 0.9 }); }
-function addHealthLossEffect(model, target, damage, actionStart, impactStart, duration) {
-  const effect = { type: EFFECT_TYPE.HEALTH_LOSS, targetId: target.id, hpBefore: Math.min(target.maxHp, target.hp + damage), hpAfter: Math.max(0, target.hp), maxHp: target.maxHp, actionStart, start: impactStart, duration: Math.max(260, duration * 0.7) };
-  if (target.lineObjective) {
-    const prefix = `line:${target.team}:`;
-    const simultaneous = model.effects.filter((candidate) => candidate.type === EFFECT_TYPE.HEALTH_LOSS
-      && String(candidate.targetId).startsWith(prefix)
-      && candidate.actionStart === actionStart
-      && candidate.start === impactStart);
-    if (simultaneous.length > 0) {
-      const hpBefore = Math.max(effect.hpBefore, ...simultaneous.map((candidate) => candidate.hpBefore));
-      for (const candidate of simultaneous) {
-        candidate.hpBefore = hpBefore;
-        candidate.hpAfter = effect.hpAfter;
-      }
-      effect.hpBefore = hpBefore;
-    }
-  }
+function addHealthLossEffect(model, target, damage, actionStart, impactStart, duration, timelineAt) {
+  const effect = {
+    type: EFFECT_TYPE.HEALTH_LOSS,
+    targetId: target.id,
+    hpBefore: Math.min(target.maxHp, target.hp + damage),
+    hpAfter: Math.max(0, target.hp),
+    maxHp: target.maxHp,
+    actionStart,
+    start: impactStart,
+    duration: Math.max(260, duration * 0.7),
+  };
+  if (target.lineObjective) effect.wallTimelineAt = timelineAt;
   model.effects.push(effect);
+
+  if (!target.lineObjective) return;
+  const prefix = `line:${target.team}:`;
+  const grouped = model.effects.filter((candidate) => candidate.type === EFFECT_TYPE.HEALTH_LOSS
+    && String(candidate.targetId).startsWith(prefix)
+    && candidate.wallTimelineAt === timelineAt);
+  const start = Math.min(...grouped.map((candidate) => candidate.start));
+  const end = Math.max(...grouped.map((candidate) => candidate.start + candidate.duration));
+  const hpBefore = Math.max(...grouped.map((candidate) => candidate.hpBefore));
+  const hpAfter = Math.min(...grouped.map((candidate) => candidate.hpAfter));
+  for (const candidate of grouped) {
+    candidate.hpBefore = hpBefore;
+    candidate.hpAfter = hpAfter;
+    candidate.start = start;
+    candidate.duration = Math.max(1, end - start);
+  }
 }
 function latestHealthLoss(model, unitId) { return [...model.effects].reverse().find((effect) => effect.type === EFFECT_TYPE.HEALTH_LOSS && effect.targetId === unitId); }
 function addDetonationEffects(model, unit, at, duration) { for (let rowOffset = -1; rowOffset <= 1; rowOffset += 1) for (let columnOffset = -1; columnOffset <= 1; columnOffset += 1) { const row = unit.row + rowOffset; const column = unit.column + columnOffset; if (row < 0 || row >= GAME_CONFIG.rows || column < 0 || column >= GAME_CONFIG.columns) continue; const distance = Math.hypot(rowOffset, columnOffset); model.effects.push({ type: EFFECT_TYPE.EXPLOSION, row, column, start: at + distance * 35, duration: Math.max(duration * 1.4, 500), intensity: distance === 0 ? 1 : 0.72 }); } }
@@ -122,10 +133,10 @@ export class CombatEventPresenter {
     switch (event.type) {
       case COMBAT_EVENT.BATTLE_STARTED: model.addLog(`${event.label} begins. Your force: ${event.playerCount} units. Hostile force: ${event.enemyCount} units.`, LOG_TYPE.SYSTEM); break;
       case COMBAT_EVENT.UNIT_HEALED: model.effects.push({ type: EFFECT_TYPE.HEAL, from: point(event.source), to: point(event.target), start: at, duration }, { type: EFFECT_TYPE.TEXT, ...point(event.target), text: `+${event.amount}`, color: '#4ade80', start: at, duration: duration * 1.3 }); model.addLog(`${UNIT_TYPES[event.source.type].name} #${event.source.id} restores ${event.amount} HP to ${UNIT_TYPES[event.target.type].name} #${event.target.id}.`, LOG_TYPE.HIT); break;
-      case COMBAT_EVENT.UNIT_ATTACKED: { const { impactAt } = addAttackEffect(model, event.attacker, event.target, at, duration); model.effects.push({ type: EFFECT_TYPE.TEXT, ...animatedPoint(event.target, impactAt), text: `-${event.damage}`, color: '#ff5d5d', actionStart: at, start: impactAt, duration: duration * 1.3 }); addHealthLossEffect(model, event.target, event.damage, at, impactAt, duration); model.addLog(`${UNIT_TYPES[event.attacker.type].name} #${event.attacker.id} hits ${targetName(event.target)} for ${event.damage}.`, event.target.lineObjective ? (event.attacker.team === TEAM.PLAYER ? LOG_TYPE.KILL : LOG_TYPE.PLAYER_LOSS) : LOG_TYPE.HIT); break; }
+      case COMBAT_EVENT.UNIT_ATTACKED: { const { impactAt } = addAttackEffect(model, event.attacker, event.target, at, duration); model.effects.push({ type: EFFECT_TYPE.TEXT, ...animatedPoint(event.target, impactAt), text: `-${event.damage}`, color: '#ff5d5d', actionStart: at, start: impactAt, duration: duration * 1.3 }); addHealthLossEffect(model, event.target, event.damage, at, impactAt, duration, event.at ?? at); model.addLog(`${UNIT_TYPES[event.attacker.type].name} #${event.attacker.id} hits ${targetName(event.target)} for ${event.damage}.`, event.target.lineObjective ? (event.attacker.team === TEAM.PLAYER ? LOG_TYPE.KILL : LOG_TYPE.PLAYER_LOSS) : LOG_TYPE.HIT); break; }
       case COMBAT_EVENT.UNIT_DODGED: addAttackEffect(model, event.attacker, event.target, at, duration); model.effects.push({ type: EFFECT_TYPE.TEXT, ...point(event.unit), text: 'DODGE', color: '#f8fafc', start: at, duration: duration * 1.3 }); model.addLog(`${UNIT_TYPES[event.unit.type].name} #${event.unit.id} dodges ${UNIT_TYPES[event.attacker.type].name} #${event.attacker.id}'s attack.`, LOG_TYPE.HIT); break;
       case COMBAT_EVENT.UNIT_PUSHED: model.addLog(`${UNIT_TYPES[event.source.type].name} #${event.source.id} pushes ${UNIT_TYPES[event.unit.type].name} #${event.unit.id} backward.`, LOG_TYPE.HIT); break;
-      case COMBAT_EVENT.SPLASH_HIT: { const impactAt = at + duration * 0.2; model.effects.push({ type: EFFECT_TYPE.TEXT, ...animatedPoint(event.target, impactAt), text: `-${event.damage}`, color: '#ff5d5d', actionStart: at, start: impactAt, duration: duration * 1.3 }); addHealthLossEffect(model, event.target, event.damage, at, impactAt, duration); model.addLog(`Splash blast hits ${targetName(event.target)} for ${event.damage}.`, event.target.lineObjective ? (event.source.team === TEAM.PLAYER ? LOG_TYPE.KILL : LOG_TYPE.PLAYER_LOSS) : LOG_TYPE.HIT); break; }
+      case COMBAT_EVENT.SPLASH_HIT: { const impactAt = at + duration * 0.2; model.effects.push({ type: EFFECT_TYPE.TEXT, ...animatedPoint(event.target, impactAt), text: `-${event.damage}`, color: '#ff5d5d', actionStart: at, start: impactAt, duration: duration * 1.3 }); addHealthLossEffect(model, event.target, event.damage, at, impactAt, duration, event.at ?? at); model.addLog(`Splash blast hits ${targetName(event.target)} for ${event.damage}.`, event.target.lineObjective ? (event.source.team === TEAM.PLAYER ? LOG_TYPE.KILL : LOG_TYPE.PLAYER_LOSS) : LOG_TYPE.HIT); break; }
       case COMBAT_EVENT.UNIT_DETONATED: addDetonationEffects(model, event.unit, at, duration); addDeathEffect(model, event.unit, at, duration); model.addLog(`${UNIT_TYPES[event.unit.type].name} #${event.unit.id} detonates and is destroyed.`, event.unit.team === TEAM.PLAYER ? LOG_TYPE.PLAYER_LOSS : LOG_TYPE.KILL); break;
       case COMBAT_EVENT.UNIT_BREACHED: model.effects.push({ type: EFFECT_TYPE.TEXT, ...point(event.unit), text: 'BREACH!', color: '#fbbf24', start: at, duration: Math.max(duration * 1.6, 400) }); model.addLog(`${UNIT_TYPES[event.unit.type].name} #${event.unit.id} breaks through the line!`, LOG_TYPE.SYSTEM); break;
       case COMBAT_EVENT.BASE_ATTACKED: model.effects.push({ type: EFFECT_TYPE.TEXT, ...point(event.unit), text: `-${event.damage}`, color: '#fbbf24', start: at, duration: duration * 1.2 }); model.addLog(`${UNIT_TYPES[event.unit.type].name} #${event.unit.id} strikes the line for ${event.damage}.`, event.unit.team === TEAM.PLAYER ? LOG_TYPE.KILL : LOG_TYPE.PLAYER_LOSS); break;
