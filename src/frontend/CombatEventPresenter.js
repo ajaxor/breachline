@@ -3,9 +3,11 @@ import { ATTACK_ANIMATION, COMBAT_EVENT, DEATH_ANIMATION, EFFECT_TYPE, LOG_TYPE 
 
 const ATTACK_STAGGER_MS = 180;
 const BATTLE_SPEED = 0.5;
-const BREACH_COLLAPSE_DELAY_MS = 180;
-const BREACH_WALL_STAGGER_MS = 55;
-const BREACH_WAVE_STEP_MS = 85;
+const BREACH_COLLAPSE_DELAY_MS = 650;
+const BREACH_WALL_STAGGER_MS = 110;
+const BREACH_WAVE_STEP_MS = 180;
+const BREACH_WALL_EXPLOSION_MS = 1050;
+const BREACH_WAVE_EXPLOSION_MS = 850;
 const clamp01 = (value) => Math.max(0, Math.min(1, value));
 const lerp = (start, end, progress) => start + (end - start) * progress;
 const point = (unit) => ({ row: unit.row, column: unit.column });
@@ -52,21 +54,50 @@ function addAttackEffect(model, attacker, target, at, duration) { const animatio
 function addBreachCollapseEffects(model, result, at, duration) {
   const losingTeam = result.playerWon ? TEAM.ENEMY : TEAM.PLAYER;
   const wallColumn = losingTeam === TEAM.PLAYER ? 0 : GAME_CONFIG.columns - 1;
+  const direction = losingTeam === TEAM.PLAYER ? 1 : -1;
   const collapseAt = at + BREACH_COLLAPSE_DELAY_MS;
+  const wallCollapseSpan = (GAME_CONFIG.rows - 1) * BREACH_WALL_STAGGER_MS;
+  const waveAt = collapseAt + wallCollapseSpan + 520;
+
+  model.effects.push({
+    type: EFFECT_TYPE.TEXT,
+    row: (GAME_CONFIG.rows - 1) / 2,
+    column: wallColumn,
+    text: 'WALL COLLAPSE',
+    color: '#f8fafc',
+    actionStart: collapseAt,
+    start: collapseAt,
+    duration: 1300,
+  });
+
   for (let row = 0; row < GAME_CONFIG.rows; row += 1) {
-    model.effects.push({
-      type: EFFECT_TYPE.EXPLOSION,
-      row,
-      column: wallColumn,
-      start: collapseAt + row * BREACH_WALL_STAGGER_MS,
-      duration: Math.max(620, duration * 1.7),
-      intensity: 1,
-    });
+    const start = collapseAt + row * BREACH_WALL_STAGGER_MS;
+    model.effects.push({ type: EFFECT_TYPE.EXPLOSION, row, column: wallColumn, start, duration: BREACH_WALL_EXPLOSION_MS, intensity: 1.35 });
+    const innerColumn = wallColumn + direction;
+    if (innerColumn >= 0 && innerColumn < GAME_CONFIG.columns) {
+      model.effects.push({ type: EFFECT_TYPE.EXPLOSION, row, column: innerColumn, start: start + 120, duration: BREACH_WALL_EXPLOSION_MS, intensity: 1.05 });
+    }
   }
+
+  for (let distance = 0; distance < GAME_CONFIG.columns; distance += 1) {
+    const column = wallColumn + direction * distance;
+    const stepAt = waveAt + distance * BREACH_WAVE_STEP_MS;
+    for (let row = 0; row < GAME_CONFIG.rows; row += 1) {
+      model.effects.push({
+        type: EFFECT_TYPE.EXPLOSION,
+        row,
+        column,
+        start: stepAt + Math.abs(row - (GAME_CONFIG.rows - 1) / 2) * 18,
+        duration: BREACH_WAVE_EXPLOSION_MS,
+        intensity: 0.92,
+      });
+    }
+  }
+
   const units = model.units.filter((unit) => unit.alive);
   for (const unit of units) {
     const distance = losingTeam === TEAM.PLAYER ? unit.column : GAME_CONFIG.columns - 1 - unit.column;
-    const deathAt = collapseAt + 260 + distance * BREACH_WAVE_STEP_MS;
+    const deathAt = waveAt + distance * BREACH_WAVE_STEP_MS + 170;
     model.effects.push({
       type: EFFECT_TYPE.HEALTH_LOSS,
       targetId: unit.id,
