@@ -1,4 +1,4 @@
-import { TEAM, UNIT_ROLE, UNIT_TYPES } from '../data/gameConfig.js';
+import { GAME_CONFIG, TEAM, UNIT_ROLE, UNIT_TYPES } from '../data/gameConfig.js';
 import { ATTACK_ANIMATION } from '../data/gameTypes.js';
 import { DeploymentBattlefieldRenderer } from './DeploymentBattlefieldRenderer.js';
 import { drawUnitGraphic } from './UnitGraphics.js';
@@ -69,8 +69,8 @@ export class CombatRangeBattlefieldRenderer extends DeploymentBattlefieldRendere
     ctx.fillStyle = RANGE_STYLE.fill;
     ctx.strokeStyle = RANGE_STYLE.stroke;
     ctx.lineWidth = Math.max(1, cell * 0.025);
-    for (let row = 0; row < 8; row += 1) {
-      for (let column = 0; column < 14; column += 1) {
+    for (let row = 0; row < GAME_CONFIG.rows; row += 1) {
+      for (let column = 0; column < GAME_CONFIG.columns; column += 1) {
         if (Math.abs(row - unit.row) + Math.abs(column - unit.column) > type.range) continue;
         const inset = Math.max(1, cell * 0.06);
         const x = column * cell + inset;
