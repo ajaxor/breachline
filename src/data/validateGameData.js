@@ -91,7 +91,8 @@ function validateUnit(mapKey, type) {
   if (type.production !== undefined) {
     assert(type.tags.includes(UNIT_TAG.FACTORY), `${label} production units must use the factory tag`);
     assert(typeof type.production.type === 'string' && UNIT_TYPES[type.production.type], `${label} production.type must reference a unit`);
-    assert(UNIT_TYPES[type.production.type].role === UNIT_ROLE.MELEE, `${label} factories should produce melee units`);
+    const producedRole = UNIT_TYPES[type.production.type].role;
+    assert(producedRole === UNIT_ROLE.MELEE || producedRole === UNIT_ROLE.FLYING, `${label} factories should produce melee or flying units`);
     assertPositiveNumber(type.production.interval, `${label} production.interval`, { integer: true });
   }
   if (type.thorns !== undefined) {
