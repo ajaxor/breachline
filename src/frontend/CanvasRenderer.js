@@ -1,5 +1,5 @@
 import { GAME_CONFIG, MODE, TEAM, UNIT_TYPES } from '../data/gameConfig.js';
-import { EFFECT_TYPE } from '../data/gameTypes.js';
+import { ATTACK_ANIMATION, EFFECT_TYPE } from '../data/gameTypes.js';
 import { drawUnitGraphic } from './UnitGraphics.js';
 
 const lerp = (start, end, progress) => start + (end - start) * progress;
@@ -157,6 +157,10 @@ export class CanvasRenderer {
   }
 
   drawProjectile(effect, progress, color) {
+    if (effect.attackStyle === ATTACK_ANIMATION.LIGHTNING) {
+      this.drawLightning(effect, progress, color);
+      return;
+    }
     const fromX = this.x(effect.from.column), fromY = this.y(effect.from.row);
     const toX = this.x(effect.to.column), toY = this.y(effect.to.row);
     const travel = Math.min(1, progress / 0.55);
@@ -171,6 +175,49 @@ export class CanvasRenderer {
     ctx.stroke();
     ctx.restore();
     if (progress > 0.5) this.drawImpact(toX, toY, (progress - 0.5) / 0.5, color);
+  }
+
+  drawLightning(effect, progress, color) {
+    const fromX = this.x(effect.from.column), fromY = this.y(effect.from.row);
+    const toX = this.x(effect.to.column), toY = this.y(effect.to.row);
+    const ctx = this.context;
+    const fade = 1 - progress;
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    const length = Math.max(1, Math.hypot(dx, dy));
+    const normalX = -dy / length;
+    const normalY = dx / length;
+    const seed = (effect.attackerId ?? 0) * 17 + (effect.targetId ?? 0) * 31;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, fade * 1.8);
+    ctx.strokeStyle = '#f8fafc';
+    ctx.shadowColor = color;
+    ctx.shadowBlur = this.cellSize * 0.22;
+    ctx.lineWidth = Math.max(1.5, this.cellSize * 0.045 * (0.7 + fade * 0.5));
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    const segments = 8;
+    for (let index = 1; index < segments; index += 1) {
+      const t = index / segments;
+      const envelope = Math.sin(t * Math.PI);
+      const jitter = Math.sin(seed + index * 12.9898 + Math.floor(progress * 9) * 4.1414) * this.cellSize * 0.18 * envelope;
+      ctx.lineTo(lerp(fromX, toX, t) + normalX * jitter, lerp(fromY, toY, t) + normalY * jitter);
+    }
+    ctx.lineTo(toX, toY);
+    ctx.stroke();
+    ctx.globalAlpha *= 0.55;
+    ctx.lineWidth = Math.max(1, this.cellSize * 0.022);
+    for (const branch of [0.32, 0.58]) {
+      const baseX = lerp(fromX, toX, branch);
+      const baseY = lerp(fromY, toY, branch);
+      const direction = Math.sin(seed + branch * 19) >= 0 ? 1 : -1;
+      ctx.beginPath();
+      ctx.moveTo(baseX, baseY);
+      ctx.lineTo(baseX + normalX * direction * this.cellSize * 0.24 + dx / length * this.cellSize * 0.08, baseY + normalY * direction * this.cellSize * 0.24 + dy / length * this.cellSize * 0.08);
+      ctx.stroke();
+    }
+    ctx.restore();
+    this.drawImpact(toX, toY, clamp01(progress * 1.7), color);
   }
 
   drawHeal(effect, progress) {
