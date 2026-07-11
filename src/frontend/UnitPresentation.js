@@ -34,7 +34,7 @@ const TAG_DESCRIPTION = Object.freeze({
   [UNIT_TAG.LEADER]: 'Makes surviving allied ground units advance together as a Formation while this unit remains alive.',
   [UNIT_TAG.SHIELD]: 'Reduces each hit against allied units within the aura by the listed shield value. Multiple shield auras do not stack.',
   [UNIT_TAG.ENHANCE]: 'Adds the listed damage bonus to attacks made by allied units within the aura. Multiple enhancement auras do not stack.',
-  [UNIT_TAG.STUN_FIELD]: 'Stuns enemies aligned across the same battlefield row. The stun persists briefly after they leave the field.',
+  [UNIT_TAG.STUN_FIELD]: 'Stuns enemies aligned across the same battlefield row for two turns. A unit then breaks out and cannot be re-stunned until it leaves the field.',
   [UNIT_TAG.JAMMER]: 'Cloaks allied units within the aura. Cloaked units remain targetable by adjacent enemies.',
   [UNIT_TAG.THORNS]: 'Reflects a portion of melee damage back at the attacker.',
   [UNIT_TAG.FACTORY]: 'Produces a weak unit into the lane ahead whenever production is ready and the space is clear.',
