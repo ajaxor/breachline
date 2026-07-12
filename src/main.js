@@ -1,5 +1,6 @@
 import { FlowGameController } from './backend/FlowGameController.js';
 import { validateGameData } from './data/validateGameData.js';
+import { AudioDirector } from './frontend/AudioDirector.js';
 import { CenteredCombatEventPresenter } from './frontend/CenteredCombatEventPresenter.js';
 import { CombatRangeBattlefieldRenderer } from './frontend/CombatRangeBattlefieldRenderer.js';
 import { FlowGameView } from './frontend/FlowGameView.js';
@@ -9,6 +10,7 @@ validateGameData();
 const view = new FlowGameView();
 const model = new StrategyGameModel({ eventPresenter: new CenteredCombatEventPresenter() });
 const renderer = new CombatRangeBattlefieldRenderer(view.elements.field, view.elements.fieldWrap);
+const audioDirector = new AudioDirector();
 const buildInfo = window.BREACH_LINE_BUILD || { version: 'dev', commit: 'local' };
-const controller = new FlowGameController(model, view, renderer, buildInfo);
+const controller = new FlowGameController(model, view, renderer, buildInfo, { audioDirector });
 controller.initialize();
