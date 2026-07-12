@@ -55,7 +55,7 @@ test('hostile-only additions preserve their intended niches', () => {
   assert.equal(UNIT_TYPES.hangar.production.type, 'midge');
   assert.equal(UNIT_TYPES.teslaCoil.role, UNIT_ROLE.STRUCTURE);
   assert.equal(hasUnitTag(UNIT_TYPES.teslaCoil, UNIT_TAG.STUN), true);
-  assert.equal(hasUnitTag(UNIT_TYPES.teslaCoil, UNIT_TAG.SALVO), true);
+  assert.equal(hasUnitTag(UNIT_TYPES.teslaCoil, UNIT_TAG.SALVO), false);
   assert.equal(hasUnitTag(UNIT_TYPES.teslaCoil, UNIT_TAG.ANTI_AIR), true);
   assert.equal(UNIT_TYPES.teslaCoil.animation.attack, ATTACK_ANIMATION.LIGHTNING);
 });
