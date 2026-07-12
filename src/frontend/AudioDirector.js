@@ -2,8 +2,9 @@ import { EFFECT_TYPE } from '../data/gameTypes.js';
 
 const AUDIO_SETTINGS_KEY = 'breach-line-audio';
 const MUSIC_STEP_MS = 220;
-const EFFECT_BUS_TAIL_SECONDS = 0.5;
 const NOISE_BUFFER_SECONDS = 1;
+const EFFECT_BATCH_SPREAD_SECONDS = 0.18;
+const VOICE_PAN_POSITIONS = Object.freeze([-0.72, 0.42, -0.24, 0.7, 0.12, -0.48, 0.55, -0.08]);
 
 const MUSIC = Object.freeze({
   title: Object.freeze({
@@ -27,7 +28,6 @@ const MUSIC = Object.freeze({
 });
 
 const midiFrequency = (note) => 440 * (2 ** ((note - 69) / 12));
-const clampDelay = (value) => Math.max(0, Math.min(1400, value));
 
 export class AudioDirector {
   constructor(browser = window) {
@@ -35,8 +35,8 @@ export class AudioDirector {
     this.context = null;
     this.musicGain = null;
     this.sfxGain = null;
+    this.voiceBuses = [];
     this.musicTimer = null;
-    this.cleanupTimers = new Set();
     this.noiseBuffer = null;
     this.scene = 'title';
     this.step = 0;
@@ -66,12 +66,23 @@ export class AudioDirector {
       this.sfxGain = this.context.createGain();
       this.musicGain.connect(this.context.destination);
       this.sfxGain.connect(this.context.destination);
+      this.voiceBuses = this.createVoiceBuses();
       this.noiseBuffer = this.createNoiseBuffer();
       this.applyVolumes();
       this.restartMusic();
     }
     if (this.context.state === 'suspended') this.context.resume();
     return true;
+  }
+
+  createVoiceBuses() {
+    if (!this.context?.createStereoPanner) return [this.sfxGain];
+    return VOICE_PAN_POSITIONS.map((position) => {
+      const panner = this.context.createStereoPanner();
+      panner.pan.value = position;
+      panner.connect(this.sfxGain);
+      return panner;
+    });
   }
 
   createNoiseBuffer() {
@@ -140,18 +151,25 @@ export class AudioDirector {
     if (!this.unlock() || this.settings.sfxMuted || !effects.length) return;
     const audible = effects.filter((effect) => [EFFECT_TYPE.RANGED, EFFECT_TYPE.MELEE, EFFECT_TYPE.EXPLOSION, EFFECT_TYPE.DEATH, EFFECT_TYPE.HEAL].includes(effect.type));
     if (!audible.length) return;
-    const origin = Math.min(...audible.map((effect) => effect.actionStart ?? effect.start ?? 0));
-    const batchStart = this.context.currentTime + 0.012;
+
+    const starts = audible.map((effect) => effect.start).filter(Number.isFinite);
+    const origin = starts.length ? Math.min(...starts) : 0;
+    const latest = starts.length ? Math.max(...starts) : origin;
+    const animationSpan = Math.max(1, latest - origin);
+    const batchSpread = Math.min(EFFECT_BATCH_SPREAD_SECONDS, animationSpan / 1000);
+    const batchStart = this.context.currentTime + 0.008;
+
     for (const effect of audible) {
-      const delay = clampDelay((effect.start ?? origin) - origin) / 1000;
+      const position = Number.isFinite(effect.start) ? (effect.start - origin) / animationSpan : 0;
+      const start = batchStart + (Math.max(0, Math.min(1, position)) * batchSpread);
       const voice = this.effectVoice++;
-      this.playEffect(effect, batchStart + delay, voice);
+      this.playEffect(effect, start, voice);
     }
   }
 
   playEffect(effect, start = this.context?.currentTime ?? 0, voice = 0) {
     if (!this.context || this.settings.sfxMuted) return;
-    const destination = this.createVoiceBus(voice, start);
+    const destination = this.voiceBuses[voice % this.voiceBuses.length] ?? this.sfxGain;
     const detune = ((voice % 7) - 3) * 7;
     switch (effect.type) {
       case EFFECT_TYPE.MELEE:
@@ -200,21 +218,6 @@ export class AudioDirector {
     }
   }
 
-  createVoiceBus(voice, start) {
-    if (!this.context?.createStereoPanner) return this.sfxGain;
-    const panner = this.context.createStereoPanner();
-    const positions = [-0.72, 0.42, -0.24, 0.7, 0.12, -0.48, 0.55, -0.08];
-    panner.pan.value = positions[voice % positions.length];
-    panner.connect(this.sfxGain);
-    const delayMs = Math.max(0, ((start + EFFECT_BUS_TAIL_SECONDS) - this.context.currentTime) * 1000);
-    const timer = this.browser.setTimeout(() => {
-      this.cleanupTimers.delete(timer);
-      try { panner.disconnect(); } catch { /* Already disconnected. */ }
-    }, delayMs);
-    this.cleanupTimers.add(timer);
-    return panner;
-  }
-
   tone(note, duration, type, volume, destination, delay = 0, sweep = 0, at = this.context?.currentTime ?? 0, detune = 0) {
     if (!this.context || note === null || note === undefined) return;
     const frequency = note < 128 ? midiFrequency(note) : note;
@@ -258,8 +261,11 @@ export class AudioDirector {
   dispose() {
     if (this.musicTimer !== null) this.browser.clearInterval(this.musicTimer);
     this.musicTimer = null;
-    for (const timer of this.cleanupTimers) this.browser.clearTimeout(timer);
-    this.cleanupTimers.clear();
+    for (const bus of this.voiceBuses) {
+      if (bus === this.sfxGain) continue;
+      try { bus.disconnect(); } catch { /* Already disconnected. */ }
+    }
+    this.voiceBuses = [];
     this.noiseBuffer = null;
     this.context?.close?.();
     this.context = null;
