@@ -117,7 +117,8 @@ test('flying unit definitions preserve their intended niches', () => {
   assert.equal(UNIT_TYPES.kite.range, 4);
   assert.equal(hasUnitTag(UNIT_TYPES.firefly, UNIT_TAG.BOMB), true);
   assert.equal(hasUnitTag(UNIT_TYPES.firefly, UNIT_TAG.AOE), true);
-  assert.equal(hasUnitTag(UNIT_TYPES.stormwing, UNIT_TAG.STUN_FIELD), true);
+  assert.equal(hasUnitTag(UNIT_TYPES.stormwing, UNIT_TAG.STUN), true);
+  assert.equal(hasUnitTag(UNIT_TYPES.stormwing, UNIT_TAG.SALVO), true);
   assert.equal(hasUnitTag(UNIT_TYPES.stormwing, UNIT_TAG.ANTI_AIR), true);
 });
 
