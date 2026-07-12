@@ -19,6 +19,7 @@ export class FlowGameController extends GameController {
 
   bindEvents() {
     const { elements } = this.view;
+    this.listen(this.view.document, 'click', (event) => this.handleUiSound(event));
     this.listen(elements.btnStartGame, 'click', () => { this.audioDirector?.unlock(); this.view.openCampaignMenu(); });
     this.view.document.querySelectorAll('[data-open-settings]').forEach((button) => this.listen(button, 'click', () => this.view.openSettings()));
     this.listen(elements.btnSettingsClose, 'click', () => this.view.closeSettings());
@@ -53,6 +54,15 @@ export class FlowGameController extends GameController {
       if (this.orientationTimer) this.scheduler.clearTimeout(this.orientationTimer);
       this.orientationTimer = this.scheduler.setTimeout(() => { this.orientationTimer = null; this.resizeIfBattleVisible(); }, 60);
     });
+  }
+
+  handleUiSound(event) {
+    const button = event.target.closest?.('button');
+    if (!button || button.disabled) return;
+    let cue = 'tap';
+    if (button === this.view.elements.btnLaunch) cue = 'launch';
+    else if (button.matches('[data-draft-choice], [data-result-action]') || button.classList.contains('primary')) cue = 'select';
+    this.audioDirector?.playUiSound(cue);
   }
 
   toggleMusic() {
@@ -165,7 +175,10 @@ export class FlowGameController extends GameController {
     if (!cell) return;
     if (this.model.isSandbox) {
       this.clearUnitInspection();
-      if (this.model.togglePlacement(cell.row, cell.column)) this.refresh();
+      if (this.model.togglePlacement(cell.row, cell.column)) {
+        this.audioDirector?.playUiSound('place');
+        this.refresh();
+      }
       return;
     }
     const enemy = this.model.enemyPlanAt(cell.row, cell.column);
@@ -176,7 +189,10 @@ export class FlowGameController extends GameController {
       return;
     }
     this.clearUnitInspection();
-    if (this.model.togglePlacement(cell.row, cell.column)) this.refresh();
+    if (this.model.togglePlacement(cell.row, cell.column)) {
+      this.audioDirector?.playUiSound('place');
+      this.refresh();
+    }
   }
 
   handleResultAction(event) {
