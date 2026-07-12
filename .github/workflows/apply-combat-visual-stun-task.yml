@@ -101,10 +101,11 @@ jobs:
           Path('VERSION').write_text('0.31.0\n')
           Path('.github/workflows/apply-combat-visual-stun-task.yml').unlink()
           PY
-      - name: Commit changes for deployment validation
+      - name: Commit staged changes
         run: |
           git config user.name "Breach Line task bot"
           git config user.email "actions@users.noreply.github.com"
+          git checkout -b agent/stun-range-finish
           git add -A
           git commit -m "Rework stun attacks and range overlays"
-          git push origin HEAD:main
+          git push --force origin HEAD:agent/stun-range-finish
