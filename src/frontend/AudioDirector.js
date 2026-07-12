@@ -4,9 +4,24 @@ const AUDIO_SETTINGS_KEY = 'breach-line-audio';
 const MUSIC_STEP_MS = 220;
 
 const MUSIC = Object.freeze({
-  title: Object.freeze({ tempo: 1.35, bass: [43, null, 43, 46, 41, null, 38, 41], lead: [67, null, 65, null, 62, 60, null, 62] }),
-  deployment: Object.freeze({ tempo: 1, bass: [41, 41, 48, 41, 44, 44, 48, 46], lead: [65, null, 68, 67, 65, null, 63, 60] }),
-  battle: Object.freeze({ tempo: 0.68, bass: [38, 38, 41, 38, 43, 41, 36, 36], lead: [62, 65, 67, 65, 70, 67, 65, 63] }),
+  title: Object.freeze({
+    tempo: 0.92,
+    bass: [38, 38, 43, 38, 41, 41, 45, 43],
+    lead: [62, null, 65, 67, 62, null, 69, 67],
+    drum: [1, 0, 0.45, 0, 0.8, 0, 0.45, 0],
+  }),
+  deployment: Object.freeze({
+    tempo: 1.45,
+    bass: [41, null, null, null, 44, null, null, null],
+    lead: [60, null, 63, null, 65, null, 63, null],
+    drum: [0, 0, 0, 0, 0.16, 0, 0, 0],
+  }),
+  battle: Object.freeze({
+    tempo: 0.62,
+    bass: [36, 36, 41, 36, 43, 41, 34, 34],
+    lead: [60, 63, 67, 63, 70, 67, 65, 63],
+    drum: [1, 0.4, 0.7, 0.4, 1, 0.4, 0.8, 0.5],
+  }),
 });
 
 const midiFrequency = (note) => 440 * (2 ** ((note - 69) / 12));
@@ -21,6 +36,7 @@ export class AudioDirector {
     this.musicTimer = null;
     this.scene = 'title';
     this.step = 0;
+    this.effectVoice = 0;
     this.settings = this.loadSettings();
   }
 
@@ -56,8 +72,8 @@ export class AudioDirector {
   applyVolumes() {
     if (!this.context) return;
     const at = this.context.currentTime;
-    this.musicGain.gain.setTargetAtTime(this.settings.musicMuted ? 0 : 0.12, at, 0.04);
-    this.sfxGain.gain.setTargetAtTime(this.settings.sfxMuted ? 0 : 0.22, at, 0.02);
+    this.musicGain.gain.setTargetAtTime(this.settings.musicMuted ? 0 : 0.11, at, 0.04);
+    this.sfxGain.gain.setTargetAtTime(this.settings.sfxMuted ? 0 : 0.2, at, 0.02);
   }
 
   setMusicMuted(muted) {
@@ -92,10 +108,19 @@ export class AudioDirector {
     const track = MUSIC[this.scene];
     const index = this.step % track.bass.length;
     const duration = MUSIC_STEP_MS * track.tempo / 1000;
-    this.tone(track.bass[index], duration * 0.82, 'triangle', 0.34, this.musicGain);
-    if (index % 2 === 0) this.tone(track.lead[index], duration * 1.7, 'sine', 0.16, this.musicGain, duration * 0.05);
-    if (this.scene === 'battle' && index % 2 === 0) this.noise(0.035, 0.045, this.musicGain);
+    this.tone(track.bass[index], duration * 0.9, 'triangle', this.scene === 'deployment' ? 0.2 : 0.34, this.musicGain);
+    if (index % 2 === 0) {
+      this.tone(track.lead[index], duration * (this.scene === 'deployment' ? 2.4 : 1.65), 'sine', this.scene === 'deployment' ? 0.07 : 0.15, this.musicGain, duration * 0.05);
+    }
+    const drum = track.drum[index];
+    if (drum > 0) this.playDrum(drum, this.scene === 'deployment' ? 0.035 : 0.1);
     this.step += 1;
+  }
+
+  playDrum(intensity, volume) {
+    const start = this.context.currentTime;
+    this.noise(0.055, volume * intensity, this.musicGain, start);
+    this.tone(47, 0.09, 'sine', volume * 1.5 * intensity, this.musicGain, 0, -14, start);
   }
 
   playEffects(effects) {
@@ -103,49 +128,61 @@ export class AudioDirector {
     const audible = effects.filter((effect) => [EFFECT_TYPE.RANGED, EFFECT_TYPE.MELEE, EFFECT_TYPE.EXPLOSION, EFFECT_TYPE.DEATH, EFFECT_TYPE.HEAL].includes(effect.type));
     if (!audible.length) return;
     const origin = Math.min(...audible.map((effect) => effect.actionStart ?? effect.start ?? 0));
-    let explosionCount = 0;
+    const batchStart = this.context.currentTime + 0.012;
     for (const effect of audible) {
-      if (effect.type === EFFECT_TYPE.EXPLOSION && explosionCount++ >= 4) continue;
-      const delay = clampDelay((effect.start ?? origin) - origin);
-      this.browser.setTimeout(() => this.playEffect(effect), delay);
+      const delay = clampDelay((effect.start ?? origin) - origin) / 1000;
+      const voice = this.effectVoice++;
+      this.playEffect(effect, batchStart + delay, voice);
     }
   }
 
-  playEffect(effect) {
+  playEffect(effect, start = this.context?.currentTime ?? 0, voice = 0) {
     if (!this.context || this.settings.sfxMuted) return;
+    const destination = this.createVoiceBus(voice);
+    const detune = ((voice % 7) - 3) * 7;
     switch (effect.type) {
       case EFFECT_TYPE.MELEE:
-        this.noise(0.075, 0.55, this.sfxGain);
-        this.tone(82, 0.09, 'square', 0.18, this.sfxGain);
+        this.noise(0.075, 0.5, destination, start);
+        this.tone(82, 0.09, 'square', 0.17, destination, 0, 0, start, detune);
         break;
       case EFFECT_TYPE.RANGED:
-        this.tone(effect.attackStyle === 'lightning' ? 880 : 520, 0.09, 'sawtooth', 0.18, this.sfxGain, 0, effect.attackStyle === 'lob' ? 180 : 80);
+        this.tone(effect.attackStyle === 'lightning' ? 880 : 520, 0.09, 'sawtooth', 0.17, destination, 0, effect.attackStyle === 'lob' ? 180 : 80, start, detune);
         break;
       case EFFECT_TYPE.EXPLOSION:
-        this.noise(0.22, 0.72 * (effect.intensity || 1), this.sfxGain);
-        this.tone(70, 0.24, 'sine', 0.28, this.sfxGain, 0, -34);
+        this.noise(0.22, 0.62 * (effect.intensity || 1), destination, start);
+        this.tone(70, 0.24, 'sine', 0.24, destination, 0, -34, start, detune);
         break;
       case EFFECT_TYPE.DEATH:
-        this.noise(0.12, 0.35, this.sfxGain);
-        this.tone(190, 0.16, 'triangle', 0.12, this.sfxGain, 0, -100);
+        this.noise(0.12, 0.32, destination, start);
+        this.tone(190, 0.16, 'triangle', 0.11, destination, 0, -100, start, detune);
         break;
       case EFFECT_TYPE.HEAL:
-        this.tone(523, 0.16, 'sine', 0.12, this.sfxGain);
-        this.tone(659, 0.2, 'sine', 0.1, this.sfxGain, 0.08);
+        this.tone(523, 0.16, 'sine', 0.11, destination, 0, 0, start, detune);
+        this.tone(659, 0.2, 'sine', 0.09, destination, 0.08, 0, start, -detune);
         break;
       default:
         break;
     }
   }
 
-  tone(note, duration, type, volume, destination, delay = 0, sweep = 0) {
+  createVoiceBus(voice) {
+    if (!this.context?.createStereoPanner) return this.sfxGain;
+    const panner = this.context.createStereoPanner();
+    const positions = [-0.72, 0.42, -0.24, 0.7, 0.12, -0.48, 0.55, -0.08];
+    panner.pan.value = positions[voice % positions.length];
+    panner.connect(this.sfxGain);
+    return panner;
+  }
+
+  tone(note, duration, type, volume, destination, delay = 0, sweep = 0, at = this.context?.currentTime ?? 0, detune = 0) {
     if (!this.context || note === null || note === undefined) return;
     const frequency = note < 128 ? midiFrequency(note) : note;
-    const start = this.context.currentTime + delay;
+    const start = at + delay;
     const oscillator = this.context.createOscillator();
     const gain = this.context.createGain();
     oscillator.type = type;
     oscillator.frequency.setValueAtTime(frequency, start);
+    oscillator.detune?.setValueAtTime(detune, start);
     if (sweep) oscillator.frequency.exponentialRampToValueAtTime(Math.max(24, frequency + sweep), start + duration);
     gain.gain.setValueAtTime(0.0001, start);
     gain.gain.exponentialRampToValueAtTime(Math.max(0.001, volume), start + 0.012);
@@ -156,7 +193,7 @@ export class AudioDirector {
     oscillator.stop(start + duration + 0.02);
   }
 
-  noise(duration, volume, destination) {
+  noise(duration, volume, destination, at = this.context?.currentTime ?? 0) {
     if (!this.context) return;
     const frameCount = Math.max(1, Math.floor(this.context.sampleRate * duration));
     const buffer = this.context.createBuffer(1, frameCount, this.context.sampleRate);
@@ -164,13 +201,12 @@ export class AudioDirector {
     for (let index = 0; index < frameCount; index += 1) channel[index] = Math.random() * 2 - 1;
     const source = this.context.createBufferSource();
     const gain = this.context.createGain();
-    const start = this.context.currentTime;
     source.buffer = buffer;
-    gain.gain.setValueAtTime(volume, start);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    gain.gain.setValueAtTime(volume, at);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
     source.connect(gain);
     gain.connect(destination);
-    source.start(start);
+    source.start(at);
   }
 
   dispose() {
