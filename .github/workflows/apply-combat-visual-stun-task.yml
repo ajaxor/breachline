@@ -99,15 +99,9 @@ jobs:
           test_path.write_text(tests)
 
           Path('VERSION').write_text('0.31.0\n')
-          workflow = Path('.github/workflows/apply-combat-visual-stun-task.yml')
-          workflow.unlink()
+          Path('.github/workflows/apply-combat-visual-stun-task.yml').unlink()
           PY
-      - name: Validate and update reviewed balance baseline
-        run: |
-          npm test
-          npm run balance
-          npm run balance:accept
-      - name: Commit changes
+      - name: Commit changes for deployment validation
         run: |
           git config user.name "Breach Line task bot"
           git config user.email "actions@users.noreply.github.com"
