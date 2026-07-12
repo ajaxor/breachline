@@ -2,17 +2,28 @@ import { GAME_CONFIG, UNIT_TYPES } from '../data/gameConfig.js';
 import { GameController } from './GameController.js';
 
 export class FlowGameController extends GameController {
+  constructor(model, view, renderer, buildInfo = {}, { audioDirector = null, ...options } = {}) {
+    super(model, view, renderer, buildInfo, options);
+    this.audioDirector = audioDirector;
+  }
+
   initialize() {
     if (this.initialized) return;
     this.initialized = true;
     this.bindEvents();
     this.view.renderBuildInfo(this.buildInfo);
+    this.view.renderAudioSettings(this.audioDirector?.settings);
+    this.audioDirector?.setScene('title');
     this.view.showTitle();
   }
 
   bindEvents() {
     const { elements } = this.view;
-    this.listen(elements.btnStartGame, 'click', () => this.view.openCampaignMenu());
+    this.listen(elements.btnStartGame, 'click', () => { this.audioDirector?.unlock(); this.view.openCampaignMenu(); });
+    this.view.document.querySelectorAll('[data-open-settings]').forEach((button) => this.listen(button, 'click', () => this.view.openSettings()));
+    this.listen(elements.btnSettingsClose, 'click', () => this.view.closeSettings());
+    this.listen(elements.btnMusicMute, 'click', () => this.toggleMusic());
+    this.listen(elements.btnSfxMute, 'click', () => this.toggleSfx());
     this.listen(elements.btnBeginCampaign, 'click', () => this.startCampaign());
     this.listen(elements.btnSandbox, 'click', () => this.startSandbox());
     this.listen(elements.btnCampaignBack, 'click', () => this.view.closeCampaignMenu());
@@ -44,6 +55,20 @@ export class FlowGameController extends GameController {
     });
   }
 
+  toggleMusic() {
+    if (!this.audioDirector) return;
+    this.audioDirector.unlock();
+    this.audioDirector.setMusicMuted(!this.audioDirector.settings.musicMuted);
+    this.view.renderAudioSettings(this.audioDirector.settings);
+  }
+
+  toggleSfx() {
+    if (!this.audioDirector) return;
+    this.audioDirector.unlock();
+    this.audioDirector.setSfxMuted(!this.audioDirector.settings.sfxMuted);
+    this.view.renderAudioSettings(this.audioDirector.settings);
+  }
+
   selectedValue(group) { return group.querySelector('input:checked')?.value; }
 
   campaignSettings() {
@@ -59,6 +84,7 @@ export class FlowGameController extends GameController {
     this.model.beginDrafts(3);
     this.view.closeCampaignMenu();
     this.view.enterGame();
+    this.audioDirector?.setScene('deployment');
     this.activateTab('battle');
     this.refresh();
     this.scheduler.requestAnimationFrame(() => this.renderer.resize(this.model));
@@ -68,9 +94,24 @@ export class FlowGameController extends GameController {
     this.model.configureSandbox(this.campaignSettings());
     this.view.closeCampaignMenu();
     this.view.enterGame();
+    this.audioDirector?.setScene('deployment');
     this.activateTab('battle');
     this.refresh();
     this.scheduler.requestAnimationFrame(() => this.renderer.resize(this.model));
+  }
+
+  startBattle() {
+    if (!this.model.startBattle()) return;
+    this.audioDirector?.unlock();
+    this.audioDirector?.setScene('battle');
+    this.view.closeRoster();
+    this.view.clearBanner();
+    this.clearUnitInspection();
+    this.refresh();
+    this.startAnimationLoop();
+    this.stopTimer();
+    this.scheduler.requestAnimationFrame(() => this.renderer.resize(this.model));
+    this.scheduleBattleTick(0);
   }
 
   generateSandboxDeployment() {
@@ -100,6 +141,7 @@ export class FlowGameController extends GameController {
     this.view.closeRoster();
     this.view.clearBanner();
     this.clearUnitInspection();
+    this.audioDirector?.setScene('title');
     this.view.showTitle();
   }
 
@@ -143,7 +185,7 @@ export class FlowGameController extends GameController {
     const action = button.dataset.resultAction;
     if (action === 'replay') {
       this.view.clearBanner();
-      if (this.model.replayLastBattle()) { this.refresh(); this.startAnimationLoop(); this.scheduleBattleTick(0); }
+      if (this.model.replayLastBattle()) { this.audioDirector?.setScene('battle'); this.refresh(); this.startAnimationLoop(); this.scheduleBattleTick(0); }
       return;
     }
     if (action === 'surrender') { this.requestSurrender(); return; }
@@ -161,16 +203,27 @@ export class FlowGameController extends GameController {
     }
   }
 
+  returnToDeployment(missionIndex) {
+    this.audioDirector?.setScene('deployment');
+    super.returnToDeployment(missionIndex);
+  }
+
   runBattleTick() {
     const effectStart = this.model.effects.length;
     const result = this.model.tick();
     const tickDuration = this.movementDuration();
     this.fitEffectsToTickWindow(effectStart, tickDuration);
+    this.audioDirector?.playEffects(this.model.effects.slice(effectStart));
     this.refresh(false);
     if (result) {
       this.view.showResult(result, { hasNextMission: this.model.selectedMission + 1 < this.model.campaign.length, canRetry: this.model.canRetry, sandbox: this.model.isSandbox });
       return;
     }
     this.scheduleBattleTick(tickDuration);
+  }
+
+  dispose() {
+    this.audioDirector?.dispose();
+    super.dispose();
   }
 }
