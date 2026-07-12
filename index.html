@@ -25,7 +25,7 @@
         <div class="title-kicker"><span class="dot"></span>Autonomous Formation Combat</div>
         <h1>BREACH<br>LINE</h1><div class="title-rule"></div>
         <p>Design the formation. Break the line. Breach the wall.</p>
-        <button class="primary title-start" id="btnStartGame">Enter Command</button>
+        <div class="title-actions"><button class="primary title-start" id="btnStartGame">Enter Command</button><button class="title-settings" data-open-settings>Settings</button></div>
         <div class="build-info" id="buildInfo">Version loading…</div>
       </div>
     </section>
@@ -38,8 +38,8 @@
         </section>
         <section id="screenBattle" class="screen">
           <div class="battle-topbar">
-            <div class="topbar-row" id="deployTopbar"><button class="mini-btn danger" id="btnBack">Surrender</button><div class="budget-mini"><div class="budget-mini-label"><span id="phaseLabel"></span><span id="budgetSpent"></span></div></div><button class="primary mini-btn" id="btnLaunch" disabled>Launch</button></div>
-            <div class="topbar-row" id="resolveTopbar" hidden><button class="mini-btn danger" id="btnSurrender">Surrender</button><span id="playerHpText" hidden></span><span id="enemyHpText" hidden></span><span id="playerHpFill" hidden></span><span id="enemyHpFill" hidden></span></div>
+            <div class="topbar-row" id="deployTopbar"><button class="mini-btn danger" id="btnBack">Surrender</button><div class="budget-mini"><div class="budget-mini-label"><span id="phaseLabel"></span><span id="budgetSpent"></span></div></div><button class="mini-btn audio-menu-btn" data-open-settings aria-label="Open audio settings" title="Audio settings">♫</button><button class="primary mini-btn" id="btnLaunch" disabled>Launch</button></div>
+            <div class="topbar-row" id="resolveTopbar" hidden><button class="mini-btn danger" id="btnSurrender">Surrender</button><span id="playerHpText" hidden></span><span id="enemyHpText" hidden></span><span id="playerHpFill" hidden></span><span id="enemyHpFill" hidden></span><button class="mini-btn audio-menu-btn" data-open-settings aria-label="Open audio settings" title="Audio settings">♫</button></div>
           </div>
           <div class="battle-status-line" id="battleStatus" hidden></div>
           <div class="battle-content">
@@ -61,6 +61,13 @@
           </fieldset>
         </div>
         <div class="campaign-actions"><button class="primary" id="btnBeginCampaign">Start Campaign</button><button id="btnSandbox">Sandbox</button><button id="btnCampaignBack">Back</button></div>
+      </div>
+    </section>
+    <section id="settingsOverlay" class="campaign-overlay settings-overlay" hidden>
+      <div class="campaign-dialog settings-dialog">
+        <div class="draft-kicker">Command Settings</div><h2>Audio</h2>
+        <div class="audio-settings"><button id="btnMusicMute" class="audio-setting" aria-pressed="false"></button><button id="btnSfxMute" class="audio-setting" aria-pressed="false"></button></div>
+        <div class="campaign-actions"><button class="primary" id="btnSettingsClose">Done</button></div>
       </div>
     </section>
     <section id="surrenderOverlay" class="campaign-overlay surrender-overlay" hidden>
