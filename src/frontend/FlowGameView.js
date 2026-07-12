@@ -1,7 +1,7 @@
 import { MODE } from '../data/gameConfig.js';
 import { GameView } from './GameView.js';
 
-const FLOW_IDS = ['campaignOverlay', 'campaignDifficulty', 'btnBeginCampaign', 'btnSandbox', 'btnCampaignBack', 'btnReinforce', 'btnDraftBack', 'btnSandboxGenerate'];
+const FLOW_IDS = ['campaignOverlay', 'campaignDifficulty', 'btnBeginCampaign', 'btnSandbox', 'btnCampaignBack', 'btnReinforce', 'btnDraftBack', 'btnSandboxGenerate', 'settingsOverlay', 'btnSettingsClose', 'btnMusicMute', 'btnSfxMute'];
 const DIFFICULTY_LABELS = new Map([[0.8, 'RECRUIT'], [1, 'STANDARD'], [1.25, 'VETERAN'], [1.5, 'BRUTAL']]);
 
 export class FlowGameView extends GameView {
@@ -18,6 +18,7 @@ export class FlowGameView extends GameView {
     this.elements.screenTitle.hidden = false;
     this.elements.gameShell.hidden = true;
     this.closeCampaignMenu();
+    this.closeSettings();
     this.closeDraft();
   }
 
@@ -30,6 +31,32 @@ export class FlowGameView extends GameView {
   closeCampaignMenu() {
     this.elements.campaignOverlay.classList.remove('open');
     this.elements.campaignOverlay.hidden = true;
+  }
+
+  openSettings() {
+    this.overlays.open(this.elements.settingsOverlay, { close: () => this.closeSettings(), initialFocus: () => this.elements.btnMusicMute });
+  }
+
+  closeSettings() {
+    if (this.overlays.active?.element === this.elements.settingsOverlay) this.overlays.close();
+    else {
+      this.elements.settingsOverlay.classList.remove('open');
+      this.elements.settingsOverlay.hidden = true;
+    }
+  }
+
+  renderAudioSettings(settings = {}) {
+    this.renderMuteButton(this.elements.btnMusicMute, 'Music', Boolean(settings.musicMuted));
+    this.renderMuteButton(this.elements.btnSfxMute, 'Sound Effects', Boolean(settings.sfxMuted));
+  }
+
+  renderMuteButton(button, label, muted) {
+    button.classList.toggle('muted', muted);
+    button.setAttribute('aria-pressed', String(muted));
+    button.replaceChildren(
+      this.createElement('span', { className: 'audio-setting-label', text: label }),
+      this.createElement('span', { className: 'audio-setting-state', text: muted ? 'MUTED' : 'ON' }),
+    );
   }
 
   renderCampaign(model) {
