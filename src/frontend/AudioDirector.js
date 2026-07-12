@@ -2,6 +2,8 @@ import { EFFECT_TYPE } from '../data/gameTypes.js';
 
 const AUDIO_SETTINGS_KEY = 'breach-line-audio';
 const MUSIC_STEP_MS = 220;
+const EFFECT_BUS_TAIL_SECONDS = 0.5;
+const NOISE_BUFFER_SECONDS = 1;
 
 const MUSIC = Object.freeze({
   title: Object.freeze({
@@ -34,6 +36,8 @@ export class AudioDirector {
     this.musicGain = null;
     this.sfxGain = null;
     this.musicTimer = null;
+    this.cleanupTimers = new Set();
+    this.noiseBuffer = null;
     this.scene = 'title';
     this.step = 0;
     this.effectVoice = 0;
@@ -62,11 +66,20 @@ export class AudioDirector {
       this.sfxGain = this.context.createGain();
       this.musicGain.connect(this.context.destination);
       this.sfxGain.connect(this.context.destination);
+      this.noiseBuffer = this.createNoiseBuffer();
       this.applyVolumes();
       this.restartMusic();
     }
     if (this.context.state === 'suspended') this.context.resume();
     return true;
+  }
+
+  createNoiseBuffer() {
+    const frameCount = Math.max(1, Math.floor(this.context.sampleRate * NOISE_BUFFER_SECONDS));
+    const buffer = this.context.createBuffer(1, frameCount, this.context.sampleRate);
+    const channel = buffer.getChannelData(0);
+    for (let index = 0; index < frameCount; index += 1) channel[index] = Math.random() * 2 - 1;
+    return buffer;
   }
 
   applyVolumes() {
@@ -138,7 +151,7 @@ export class AudioDirector {
 
   playEffect(effect, start = this.context?.currentTime ?? 0, voice = 0) {
     if (!this.context || this.settings.sfxMuted) return;
-    const destination = this.createVoiceBus(voice);
+    const destination = this.createVoiceBus(voice, start);
     const detune = ((voice % 7) - 3) * 7;
     switch (effect.type) {
       case EFFECT_TYPE.MELEE:
@@ -165,12 +178,40 @@ export class AudioDirector {
     }
   }
 
-  createVoiceBus(voice) {
+  playUiSound(cue = 'tap') {
+    if (!this.unlock() || this.settings.sfxMuted) return;
+    const start = this.context.currentTime + 0.006;
+    switch (cue) {
+      case 'select':
+        this.tone(520, 0.045, 'triangle', 0.07, this.sfxGain, 0, 45, start);
+        this.tone(690, 0.05, 'sine', 0.045, this.sfxGain, 0.035, 0, start);
+        break;
+      case 'place':
+        this.tone(165, 0.055, 'square', 0.055, this.sfxGain, 0, -25, start);
+        this.noise(0.025, 0.035, this.sfxGain, start);
+        break;
+      case 'launch':
+        this.tone(110, 0.12, 'triangle', 0.08, this.sfxGain, 0, 110, start);
+        this.tone(220, 0.14, 'square', 0.05, this.sfxGain, 0.065, 110, start);
+        break;
+      default:
+        this.tone(430, 0.032, 'triangle', 0.045, this.sfxGain, 0, -35, start);
+        break;
+    }
+  }
+
+  createVoiceBus(voice, start) {
     if (!this.context?.createStereoPanner) return this.sfxGain;
     const panner = this.context.createStereoPanner();
     const positions = [-0.72, 0.42, -0.24, 0.7, 0.12, -0.48, 0.55, -0.08];
     panner.pan.value = positions[voice % positions.length];
     panner.connect(this.sfxGain);
+    const delayMs = Math.max(0, ((start + EFFECT_BUS_TAIL_SECONDS) - this.context.currentTime) * 1000);
+    const timer = this.browser.setTimeout(() => {
+      this.cleanupTimers.delete(timer);
+      try { panner.disconnect(); } catch { /* Already disconnected. */ }
+    }, delayMs);
+    this.cleanupTimers.add(timer);
     return panner;
   }
 
@@ -189,29 +230,37 @@ export class AudioDirector {
     gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
     oscillator.connect(gain);
     gain.connect(destination);
+    oscillator.onended = () => {
+      try { oscillator.disconnect(); } catch { /* Already disconnected. */ }
+      try { gain.disconnect(); } catch { /* Already disconnected. */ }
+    };
     oscillator.start(start);
     oscillator.stop(start + duration + 0.02);
   }
 
   noise(duration, volume, destination, at = this.context?.currentTime ?? 0) {
-    if (!this.context) return;
-    const frameCount = Math.max(1, Math.floor(this.context.sampleRate * duration));
-    const buffer = this.context.createBuffer(1, frameCount, this.context.sampleRate);
-    const channel = buffer.getChannelData(0);
-    for (let index = 0; index < frameCount; index += 1) channel[index] = Math.random() * 2 - 1;
+    if (!this.context || !this.noiseBuffer) return;
     const source = this.context.createBufferSource();
     const gain = this.context.createGain();
-    source.buffer = buffer;
-    gain.gain.setValueAtTime(volume, at);
+    source.buffer = this.noiseBuffer;
+    gain.gain.setValueAtTime(Math.max(0.0001, volume), at);
     gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
     source.connect(gain);
     gain.connect(destination);
-    source.start(at);
+    source.onended = () => {
+      try { source.disconnect(); } catch { /* Already disconnected. */ }
+      try { gain.disconnect(); } catch { /* Already disconnected. */ }
+    };
+    source.start(at, Math.random() * Math.max(0, NOISE_BUFFER_SECONDS - duration));
+    source.stop(at + duration + 0.005);
   }
 
   dispose() {
     if (this.musicTimer !== null) this.browser.clearInterval(this.musicTimer);
     this.musicTimer = null;
+    for (const timer of this.cleanupTimers) this.browser.clearTimeout(timer);
+    this.cleanupTimers.clear();
+    this.noiseBuffer = null;
     this.context?.close?.();
     this.context = null;
   }
