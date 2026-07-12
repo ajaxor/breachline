@@ -54,29 +54,24 @@ test('hostile-only additions preserve their intended niches', () => {
   assert.equal(hasUnitTag(UNIT_TYPES.mine, UNIT_TAG.AOE), true);
   assert.equal(UNIT_TYPES.hangar.production.type, 'midge');
   assert.equal(UNIT_TYPES.teslaCoil.role, UNIT_ROLE.STRUCTURE);
+  assert.equal(hasUnitTag(UNIT_TYPES.teslaCoil, UNIT_TAG.STUN), true);
   assert.equal(hasUnitTag(UNIT_TYPES.teslaCoil, UNIT_TAG.SALVO), true);
   assert.equal(hasUnitTag(UNIT_TYPES.teslaCoil, UNIT_TAG.ANTI_AIR), true);
   assert.equal(UNIT_TYPES.teslaCoil.animation.attack, ATTACK_ANIMATION.LIGHTNING);
 });
 
-test('continuous stun fields cannot refresh a unit past two stunned turns', () => {
+test('stun salvo attacks apply a two-turn stun to every hit target', () => {
   const resolver = new CombatActionResolver();
-  const disruptor = createBattleUnit({ id: 1, team: TEAM.ENEMY, type: 'disruptor', row: 3, column: 6 });
-  const target = createBattleUnit({ id: 2, team: TEAM.PLAYER, type: 'grunt', row: 3, column: 6 });
-  const units = [disruptor, target];
+  const disruptor = createBattleUnit({ id: 1, team: TEAM.PLAYER, type: 'disruptor', row: 3, column: 3 });
+  const first = createBattleUnit({ id: 2, team: TEAM.ENEMY, type: 'grunt', row: 3, column: 5 });
+  const second = createBattleUnit({ id: 3, team: TEAM.ENEMY, type: 'grunt', row: 4, column: 4 });
+  const units = [disruptor, first, second];
+  const model = combatModel(units);
 
-  resolver.applyStunFields(units);
-  assert.equal(target.stunTurnsRemaining, 2);
-  resolver.ageStuns(units);
-  resolver.applyStunFields(units);
-  assert.equal(target.stunTurnsRemaining, 1);
-  resolver.ageStuns(units);
-  resolver.applyStunFields(units);
-  assert.equal(resolver.isStunned(target), false);
+  resolver.processQueue(model, units, 0, 100);
 
-  target.column = 4;
-  resolver.applyStunFields(units);
-  target.column = 6;
-  resolver.applyStunFields(units);
-  assert.equal(target.stunTurnsRemaining, 2);
+  assert.equal(first.hp, first.maxHp - UNIT_TYPES.disruptor.attack);
+  assert.equal(second.hp, second.maxHp - UNIT_TYPES.disruptor.attack);
+  assert.equal(first.stunTurnsRemaining, 1);
+  assert.equal(second.stunTurnsRemaining, 1);
 });
