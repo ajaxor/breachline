@@ -3,7 +3,6 @@ import { EFFECT_TYPE } from '../data/gameTypes.js';
 const AUDIO_SETTINGS_KEY = 'breach-line-audio';
 const MUSIC_STEP_MS = 220;
 const NOISE_BUFFER_SECONDS = 1;
-const EFFECT_BATCH_SPREAD_SECONDS = 0.18;
 const VOICE_PAN_POSITIONS = Object.freeze([-0.72, 0.42, -0.24, 0.7, 0.12, -0.48, 0.55, -0.08]);
 
 const MUSIC = Object.freeze({
@@ -154,14 +153,11 @@ export class AudioDirector {
 
     const starts = audible.map((effect) => effect.start).filter(Number.isFinite);
     const origin = starts.length ? Math.min(...starts) : 0;
-    const latest = starts.length ? Math.max(...starts) : origin;
-    const animationSpan = Math.max(1, latest - origin);
-    const batchSpread = Math.min(EFFECT_BATCH_SPREAD_SECONDS, animationSpan / 1000);
     const batchStart = this.context.currentTime + 0.008;
 
     for (const effect of audible) {
-      const position = Number.isFinite(effect.start) ? (effect.start - origin) / animationSpan : 0;
-      const start = batchStart + (Math.max(0, Math.min(1, position)) * batchSpread);
+      const delay = Number.isFinite(effect.start) ? Math.max(0, effect.start - origin) / 1000 : 0;
+      const start = batchStart + delay;
       const voice = this.effectVoice++;
       this.playEffect(effect, start, voice);
     }
