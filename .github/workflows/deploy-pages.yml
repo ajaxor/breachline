@@ -82,6 +82,10 @@ jobs:
 
           mkdir -p dist
           cp -R assets dist/assets
+          TITLE_TRACK="$(find . -type f -iname '*.mp3' -not -path './dist/*' -print | sort | head -n 1)"
+          if [[ -n "${TITLE_TRACK}" ]]; then
+            cp "${TITLE_TRACK}" dist/assets/title-theme.mp3
+          fi
           cp -R src "dist/src-${SHORT_SHA}"
           sed "s/__BUILD_ID__/${SHORT_SHA}/g" index.html > dist/index.html
 
