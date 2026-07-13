@@ -55,10 +55,10 @@ export class CombatRangeBattlefieldRenderer extends DeploymentBattlefieldRendere
 
   drawFriendlyEffectZones(formation) {
     super.drawFriendlyEffectZones(formation);
-    for (const unit of formation) {
-      const type = UNIT_TYPES[unit.type];
-      if (type?.role === UNIT_ROLE.RANGED) this.drawRangedRangeZone(unit, type);
-    }
+    const unit = formation.at(-1);
+    if (!unit) return;
+    const type = UNIT_TYPES[unit.type];
+    if (type?.role === UNIT_ROLE.RANGED) this.drawRangedRangeZone(unit, type);
   }
 
   drawRangedRangeZone(unit, type) {
