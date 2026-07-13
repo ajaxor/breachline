@@ -225,11 +225,13 @@ export class FlowGameController extends GameController {
   }
 
   runBattleTick() {
-    const effectStart = this.model.effects.length;
+    const previousEffects = new Set(this.model.effects);
     const result = this.model.tick();
+    const tickEffects = this.model.effects.filter((effect) => !previousEffects.has(effect));
+    const effectStart = this.model.effects.length - tickEffects.length;
     const tickDuration = this.movementDuration();
     this.fitEffectsToTickWindow(effectStart, tickDuration);
-    this.audioDirector?.playEffects(this.model.effects.slice(effectStart));
+    this.audioDirector?.playEffects(tickEffects);
     this.refresh(false);
     if (result) {
       this.view.showResult(result, { hasNextMission: this.model.selectedMission + 1 < this.model.campaign.length, canRetry: this.model.canRetry, sandbox: this.model.isSandbox });
