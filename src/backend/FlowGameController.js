@@ -185,7 +185,11 @@ export class FlowGameController extends GameController {
     if (enemy) {
       const key = `${cell.row}:${cell.column}`;
       if (this.inspectedEnemyCell === key) this.clearUnitInspection();
-      else { this.inspectedEnemyCell = key; this.view.showUnitInspector(UNIT_TYPES[enemy.type], 'Hostile unit', 'enemy'); }
+      else {
+        this.inspectedEnemyCell = key;
+        this.renderer.setInspectedEnemyCell?.(cell);
+        this.view.showUnitInspector(UNIT_TYPES[enemy.type], 'Hostile unit', 'enemy');
+      }
       return;
     }
     this.clearUnitInspection();
@@ -193,6 +197,11 @@ export class FlowGameController extends GameController {
       this.audioDirector?.playUiSound('place');
       this.refresh();
     }
+  }
+
+  clearUnitInspection() {
+    super.clearUnitInspection();
+    this.renderer.setInspectedEnemyCell?.(null);
   }
 
   handleResultAction(event) {
@@ -234,6 +243,7 @@ export class FlowGameController extends GameController {
     this.audioDirector?.playEffects(tickEffects);
     this.refresh(false);
     if (result) {
+      this.audioDirector?.playBattleResult(Boolean(result.playerWon));
       this.view.showResult(result, { hasNextMission: this.model.selectedMission + 1 < this.model.campaign.length, canRetry: this.model.canRetry, sandbox: this.model.isSandbox });
       return;
     }
