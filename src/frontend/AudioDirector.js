@@ -4,6 +4,13 @@ const AUDIO_SETTINGS_KEY = 'breach-line-audio';
 const MUSIC_STEP_MS = 220;
 const NOISE_BUFFER_SECONDS = 1;
 const VOICE_PAN_POSITIONS = Object.freeze([-0.72, 0.42, -0.24, 0.7, 0.12, -0.48, 0.55, -0.08]);
+const AUDIBLE_EFFECT_TYPES = new Set([
+  EFFECT_TYPE.RANGED,
+  EFFECT_TYPE.MELEE,
+  EFFECT_TYPE.EXPLOSION,
+  EFFECT_TYPE.DEATH,
+  EFFECT_TYPE.HEAL,
+]);
 
 const MUSIC = Object.freeze({
   title: Object.freeze({
@@ -27,6 +34,30 @@ const MUSIC = Object.freeze({
 });
 
 const midiFrequency = (note) => 440 * (2 ** ((note - 69) / 12));
+const cueKey = (effect) => effect.type === EFFECT_TYPE.RANGED
+  ? `${effect.type}:${effect.attackStyle ?? 'default'}`
+  : effect.type;
+
+export function coalesceAudibleEffects(effects) {
+  const cues = new Map();
+  for (const effect of effects) {
+    if (!AUDIBLE_EFFECT_TYPES.has(effect.type)) continue;
+    const key = cueKey(effect);
+    const current = cues.get(key);
+    if (!current) {
+      cues.set(key, { ...effect });
+      continue;
+    }
+
+    const currentStart = Number.isFinite(current.start) ? current.start : Infinity;
+    const candidateStart = Number.isFinite(effect.start) ? effect.start : Infinity;
+    if (candidateStart < currentStart) current.start = effect.start;
+    if (effect.type === EFFECT_TYPE.EXPLOSION) {
+      current.intensity = Math.max(current.intensity || 1, effect.intensity || 1);
+    }
+  }
+  return [...cues.values()].sort((left, right) => (left.start ?? 0) - (right.start ?? 0));
+}
 
 export class AudioDirector {
   constructor(browser = window) {
@@ -148,7 +179,7 @@ export class AudioDirector {
 
   playEffects(effects) {
     if (!this.unlock() || this.settings.sfxMuted || !effects.length) return;
-    const audible = effects.filter((effect) => [EFFECT_TYPE.RANGED, EFFECT_TYPE.MELEE, EFFECT_TYPE.EXPLOSION, EFFECT_TYPE.DEATH, EFFECT_TYPE.HEAL].includes(effect.type));
+    const audible = coalesceAudibleEffects(effects);
     if (!audible.length) return;
 
     const starts = audible.map((effect) => effect.start).filter(Number.isFinite);
