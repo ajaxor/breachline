@@ -3,7 +3,6 @@ import { EFFECT_TYPE } from '../data/gameTypes.js';
 const AUDIO_SETTINGS_KEY = 'breach-line-audio';
 const MUSIC_STEP_MS = 220;
 const NOISE_BUFFER_SECONDS = 1;
-const VOICE_PAN_POSITIONS = Object.freeze([-0.72, 0.42, -0.24, 0.7, 0.12, -0.48, 0.55, -0.08]);
 const AUDIBLE_EFFECT_TYPES = new Set([
   EFFECT_TYPE.RANGED,
   EFFECT_TYPE.MELEE,
@@ -34,30 +33,6 @@ const MUSIC = Object.freeze({
 });
 
 const midiFrequency = (note) => 440 * (2 ** ((note - 69) / 12));
-const cueKey = (effect) => effect.type === EFFECT_TYPE.RANGED
-  ? `${effect.type}:${effect.attackStyle ?? 'default'}`
-  : effect.type;
-
-export function coalesceAudibleEffects(effects) {
-  const cues = new Map();
-  for (const effect of effects) {
-    if (!AUDIBLE_EFFECT_TYPES.has(effect.type)) continue;
-    const key = cueKey(effect);
-    const current = cues.get(key);
-    if (!current) {
-      cues.set(key, { ...effect });
-      continue;
-    }
-
-    const currentStart = Number.isFinite(current.start) ? current.start : Infinity;
-    const candidateStart = Number.isFinite(effect.start) ? effect.start : Infinity;
-    if (candidateStart < currentStart) current.start = effect.start;
-    if (effect.type === EFFECT_TYPE.EXPLOSION) {
-      current.intensity = Math.max(current.intensity || 1, effect.intensity || 1);
-    }
-  }
-  return [...cues.values()].sort((left, right) => (left.start ?? 0) - (right.start ?? 0));
-}
 
 export class AudioDirector {
   constructor(browser = window) {
@@ -65,7 +40,6 @@ export class AudioDirector {
     this.context = null;
     this.musicGain = null;
     this.sfxGain = null;
-    this.voiceBuses = [];
     this.musicTimer = null;
     this.noiseBuffer = null;
     this.scene = 'title';
@@ -96,23 +70,12 @@ export class AudioDirector {
       this.sfxGain = this.context.createGain();
       this.musicGain.connect(this.context.destination);
       this.sfxGain.connect(this.context.destination);
-      this.voiceBuses = this.createVoiceBuses();
       this.noiseBuffer = this.createNoiseBuffer();
       this.applyVolumes();
       this.restartMusic();
     }
     if (this.context.state === 'suspended') this.context.resume();
     return true;
-  }
-
-  createVoiceBuses() {
-    if (!this.context?.createStereoPanner) return [this.sfxGain];
-    return VOICE_PAN_POSITIONS.map((position) => {
-      const panner = this.context.createStereoPanner();
-      panner.pan.value = position;
-      panner.connect(this.sfxGain);
-      return panner;
-    });
   }
 
   createNoiseBuffer() {
@@ -179,7 +142,7 @@ export class AudioDirector {
 
   playEffects(effects) {
     if (!this.unlock() || this.settings.sfxMuted || !effects.length) return;
-    const audible = coalesceAudibleEffects(effects);
+    const audible = effects.filter((effect) => AUDIBLE_EFFECT_TYPES.has(effect.type));
     if (!audible.length) return;
 
     const starts = audible.map((effect) => effect.start).filter(Number.isFinite);
@@ -196,27 +159,26 @@ export class AudioDirector {
 
   playEffect(effect, start = this.context?.currentTime ?? 0, voice = 0) {
     if (!this.context || this.settings.sfxMuted) return;
-    const destination = this.voiceBuses[voice % this.voiceBuses.length] ?? this.sfxGain;
     const detune = ((voice % 7) - 3) * 7;
     switch (effect.type) {
       case EFFECT_TYPE.MELEE:
-        this.noise(0.075, 0.5, destination, start);
-        this.tone(82, 0.09, 'square', 0.17, destination, 0, 0, start, detune);
+        this.noise(0.075, 0.5, this.sfxGain, start);
+        this.tone(82, 0.09, 'square', 0.17, this.sfxGain, 0, 0, start, detune);
         break;
       case EFFECT_TYPE.RANGED:
-        this.tone(effect.attackStyle === 'lightning' ? 880 : 520, 0.09, 'sawtooth', 0.17, destination, 0, effect.attackStyle === 'lob' ? 180 : 80, start, detune);
+        this.tone(effect.attackStyle === 'lightning' ? 880 : 520, 0.09, 'sawtooth', 0.17, this.sfxGain, 0, effect.attackStyle === 'lob' ? 180 : 80, start, detune);
         break;
       case EFFECT_TYPE.EXPLOSION:
-        this.noise(0.22, 0.62 * (effect.intensity || 1), destination, start);
-        this.tone(70, 0.24, 'sine', 0.24, destination, 0, -34, start, detune);
+        this.noise(0.22, 0.62 * (effect.intensity || 1), this.sfxGain, start);
+        this.tone(70, 0.24, 'sine', 0.24, this.sfxGain, 0, -34, start, detune);
         break;
       case EFFECT_TYPE.DEATH:
-        this.noise(0.12, 0.32, destination, start);
-        this.tone(190, 0.16, 'triangle', 0.11, destination, 0, -100, start, detune);
+        this.noise(0.12, 0.32, this.sfxGain, start);
+        this.tone(190, 0.16, 'triangle', 0.11, this.sfxGain, 0, -100, start, detune);
         break;
       case EFFECT_TYPE.HEAL:
-        this.tone(523, 0.16, 'sine', 0.11, destination, 0, 0, start, detune);
-        this.tone(659, 0.2, 'sine', 0.09, destination, 0.08, 0, start, -detune);
+        this.tone(523, 0.16, 'sine', 0.11, this.sfxGain, 0, 0, start, detune);
+        this.tone(659, 0.2, 'sine', 0.09, this.sfxGain, 0.08, 0, start, -detune);
         break;
       default:
         break;
@@ -288,11 +250,6 @@ export class AudioDirector {
   dispose() {
     if (this.musicTimer !== null) this.browser.clearInterval(this.musicTimer);
     this.musicTimer = null;
-    for (const bus of this.voiceBuses) {
-      if (bus === this.sfxGain) continue;
-      try { bus.disconnect(); } catch { /* Already disconnected. */ }
-    }
-    this.voiceBuses = [];
     this.noiseBuffer = null;
     this.context?.close?.();
     this.context = null;
