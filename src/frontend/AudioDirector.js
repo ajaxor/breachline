@@ -1,8 +1,10 @@
 import { ATTACK_ANIMATION, EFFECT_TYPE } from '../data/gameTypes.js';
 
 const AUDIO_SETTINGS_KEY = 'breach-line-audio';
-const MUSIC_STEP_MS = 220;
+const MUSIC_STEP_MS = 190;
 const NOISE_BUFFER_SECONDS = 1;
+const SIMULTANEOUS_EFFECT_WINDOW_MS = 24;
+const MAX_SIMULTANEOUS_EFFECTS = 4;
 const AUDIBLE_EFFECT_TYPES = new Set([
   EFFECT_TYPE.RANGED,
   EFFECT_TYPE.MELEE,
@@ -10,29 +12,63 @@ const AUDIBLE_EFFECT_TYPES = new Set([
   EFFECT_TYPE.DEATH,
   EFFECT_TYPE.HEAL,
 ]);
+const EFFECT_PRIORITY = Object.freeze({
+  [EFFECT_TYPE.EXPLOSION]: 5,
+  [EFFECT_TYPE.RANGED]: 4,
+  [EFFECT_TYPE.MELEE]: 3,
+  [EFFECT_TYPE.HEAL]: 2,
+  [EFFECT_TYPE.DEATH]: 1,
+});
 
+const repeat = (pattern, times) => Array.from({ length: times }, () => pattern).flat();
 const MUSIC = Object.freeze({
   title: Object.freeze({
-    tempo: 0.92,
-    bass: [38, 38, 43, 38, 41, 41, 45, 43],
-    lead: [62, null, 65, 67, 62, null, 69, 67],
-    drum: [1, 0, 0.45, 0, 0.8, 0, 0.45, 0],
+    tempo: 1.05,
+    bass: [...repeat([38, null, 38, null, 43, null, 41, null], 2), ...repeat([36, null, 36, null, 41, null, 43, null], 2), ...repeat([34, null, 38, null, 41, null, 45, null], 2), ...repeat([36, null, 43, null, 41, null, 38, null], 2)],
+    lead: [62, null, 65, 67, null, 69, 67, null, 62, 65, null, 70, 69, null, 65, null, 60, null, 63, 65, null, 67, 70, null, 72, 70, null, 67, 65, null, 63, null, 58, null, 62, 65, null, 69, 67, null, 70, null, 69, 65, null, 62, 64, null, 60, 63, null, 67, 70, null, 67, null, 65, null, 63, 62, null, 58, 60, null],
+    arp: repeat([74, 77, 81, 77, 72, 77, 79, 77, 70, 74, 77, 74, 72, 75, 79, 75], 4),
+    drum: repeat([0.8, 0, 0.18, 0, 0.48, 0, 0.2, 0, 0.72, 0, 0.15, 0, 0.52, 0, 0.28, 0], 4),
   }),
   deployment: Object.freeze({
-    tempo: 1.45,
-    bass: [41, null, null, null, 44, null, null, null],
-    lead: [60, null, 63, null, 65, null, 63, null],
-    drum: [0, 0, 0, 0, 0.16, 0, 0, 0],
+    tempo: 1.35,
+    bass: [...repeat([41, null, null, null, 44, null, null, null], 2), ...repeat([39, null, null, null, 46, null, null, null], 2), ...repeat([41, null, 48, null, 44, null, null, null], 2), ...repeat([39, null, 43, null, 46, null, 44, null], 2)],
+    lead: [60, null, null, 63, null, 65, null, null, 67, null, 65, null, 63, null, null, null, 58, null, 62, null, null, 65, null, 67, null, 70, null, 67, null, 65, null, null, 60, null, 63, null, 65, null, 68, null, 67, null, null, 65, 63, null, 60, null, 58, null, 62, 65, null, 67, null, 70, 68, null, 67, null, 65, 63, null, null],
+    arp: repeat([72, null, 75, null, 79, null, 75, null, 70, null, 74, null, 77, null, 74, null], 4),
+    drum: repeat([0, 0, 0, 0, 0.14, 0, 0, 0, 0, 0, 0.08, 0, 0.18, 0, 0, 0], 4),
   }),
   battle: Object.freeze({
-    tempo: 0.62,
-    bass: [36, 36, 41, 36, 43, 41, 34, 34],
-    lead: [60, 63, 67, 63, 70, 67, 65, 63],
-    drum: [1, 0.4, 0.7, 0.4, 1, 0.4, 0.8, 0.5],
+    tempo: 0.72,
+    bass: [...repeat([36, 36, 43, 36, 41, 36, 34, 34], 2), ...repeat([36, 36, 46, 43, 41, 41, 34, 39], 2), ...repeat([33, 33, 40, 33, 43, 40, 36, 36], 2), ...repeat([34, 34, 41, 46, 43, 41, 39, 36], 2)],
+    lead: [60, 63, 67, null, 63, 70, 67, null, 65, 63, 60, null, 58, 60, 63, null, 60, 63, 70, 67, null, 72, 70, 67, 65, null, 68, 67, 63, 65, null, 63, 57, 60, 64, null, 67, 64, 60, null, 69, 67, 64, 60, null, 62, 64, null, 58, 62, 65, 70, null, 67, 65, 62, 63, 67, null, 70, 67, 65, 63, null],
+    arp: repeat([72, 75, 79, 82, 75, 79, 84, 79, 70, 75, 79, 82, 74, 77, 81, 84], 4),
+    drum: repeat([1, 0.18, 0.48, 0.18, 0.82, 0.22, 0.58, 0.28, 1, 0.2, 0.55, 0.24, 0.88, 0.25, 0.68, 0.38], 4),
   }),
 });
 
 const midiFrequency = (note) => 440 * (2 ** ((note - 69) / 12));
+const effectStart = (effect) => Number.isFinite(effect.start) ? effect.start : 0;
+
+export function limitSimultaneousEffects(effects, maxVoices = MAX_SIMULTANEOUS_EFFECTS, windowMs = SIMULTANEOUS_EFFECT_WINDOW_MS) {
+  const audible = effects.filter((effect) => AUDIBLE_EFFECT_TYPES.has(effect.type));
+  const ordered = audible.map((effect, index) => ({ effect, index })).sort((left, right) => effectStart(left.effect) - effectStart(right.effect) || left.index - right.index);
+  const result = [];
+  for (let cursor = 0; cursor < ordered.length;) {
+    const groupStart = effectStart(ordered[cursor].effect);
+    let end = cursor + 1;
+    while (end < ordered.length && effectStart(ordered[end].effect) - groupStart <= windowMs) end += 1;
+    const group = ordered.slice(cursor, end);
+    if (group.length <= maxVoices) result.push(...group);
+    else {
+      const selected = [...group]
+        .sort((left, right) => (EFFECT_PRIORITY[right.effect.type] || 0) - (EFFECT_PRIORITY[left.effect.type] || 0) || left.index - right.index)
+        .slice(0, maxVoices)
+        .sort((left, right) => left.index - right.index);
+      result.push(...selected);
+    }
+    cursor = end;
+  }
+  return result.map(({ effect }) => effect);
+}
 
 export class AudioDirector {
   constructor(browser = window) {
@@ -52,14 +88,10 @@ export class AudioDirector {
     try {
       const saved = JSON.parse(this.browser.localStorage?.getItem(AUDIO_SETTINGS_KEY) || '{}');
       return { musicMuted: Boolean(saved.musicMuted), sfxMuted: Boolean(saved.sfxMuted) };
-    } catch {
-      return { musicMuted: false, sfxMuted: false };
-    }
+    } catch { return { musicMuted: false, sfxMuted: false }; }
   }
 
-  saveSettings() {
-    try { this.browser.localStorage?.setItem(AUDIO_SETTINGS_KEY, JSON.stringify(this.settings)); } catch { /* Storage is optional. */ }
-  }
+  saveSettings() { try { this.browser.localStorage?.setItem(AUDIO_SETTINGS_KEY, JSON.stringify(this.settings)); } catch { /* Storage is optional. */ } }
 
   unlock() {
     const AudioContext = this.browser.AudioContext || this.browser.webkitAudioContext;
@@ -89,21 +121,12 @@ export class AudioDirector {
   applyVolumes() {
     if (!this.context) return;
     const at = this.context.currentTime;
-    this.musicGain.gain.setTargetAtTime(this.settings.musicMuted ? 0 : 0.11, at, 0.04);
-    this.sfxGain.gain.setTargetAtTime(this.settings.sfxMuted ? 0 : 0.2, at, 0.02);
+    this.musicGain.gain.setTargetAtTime(this.settings.musicMuted ? 0 : 0.1, at, 0.04);
+    this.sfxGain.gain.setTargetAtTime(this.settings.sfxMuted ? 0 : 0.18, at, 0.02);
   }
 
-  setMusicMuted(muted) {
-    this.settings.musicMuted = Boolean(muted);
-    this.saveSettings();
-    this.applyVolumes();
-  }
-
-  setSfxMuted(muted) {
-    this.settings.sfxMuted = Boolean(muted);
-    this.saveSettings();
-    this.applyVolumes();
-  }
+  setMusicMuted(muted) { this.settings.musicMuted = Boolean(muted); this.saveSettings(); this.applyVolumes(); }
+  setSfxMuted(muted) { this.settings.sfxMuted = Boolean(muted); this.saveSettings(); this.applyVolumes(); }
 
   setScene(scene) {
     if (!MUSIC[scene] || this.scene === scene) return;
@@ -125,35 +148,33 @@ export class AudioDirector {
     const track = MUSIC[this.scene];
     const index = this.step % track.bass.length;
     const duration = MUSIC_STEP_MS * track.tempo / 1000;
-    this.tone(track.bass[index], duration * 0.9, 'triangle', this.scene === 'deployment' ? 0.2 : 0.34, this.musicGain);
-    if (index % 2 === 0) {
-      this.tone(track.lead[index], duration * (this.scene === 'deployment' ? 2.4 : 1.65), 'sine', this.scene === 'deployment' ? 0.07 : 0.15, this.musicGain, duration * 0.05);
-    }
+    const bass = track.bass[index];
+    const lead = track.lead[index];
+    const arp = track.arp[index];
+    if (bass !== null) this.synthTone(bass, duration * 1.8, this.scene === 'battle' ? 0.13 : 0.1, this.musicGain, { type: 'sawtooth', cutoff: 430, resonance: 4 });
+    if (lead !== null) this.synthTone(lead, duration * 2.2, this.scene === 'deployment' ? 0.045 : 0.07, this.musicGain, { type: 'sawtooth', cutoff: 1250, detune: 6 });
+    if (arp !== null) this.synthTone(arp, duration * 0.7, this.scene === 'battle' ? 0.035 : 0.025, this.musicGain, { type: 'square', cutoff: 2200, detune: -4 });
     const drum = track.drum[index];
-    if (drum > 0) this.playDrum(drum, this.scene === 'deployment' ? 0.035 : 0.1);
+    if (drum > 0) this.playDrum(drum, this.scene === 'deployment' ? 0.025 : 0.07);
     this.step += 1;
   }
 
   playDrum(intensity, volume) {
     const start = this.context.currentTime;
-    this.noise(0.055, volume * intensity, this.musicGain, start);
-    this.tone(47, 0.09, 'sine', volume * 1.5 * intensity, this.musicGain, 0, -14, start);
+    this.filteredNoise(0.05, volume * intensity, this.musicGain, start, 900);
+    this.tone(47, 0.1, 'sine', volume * 1.5 * intensity, this.musicGain, 0, -18, start);
   }
 
   playEffects(effects) {
     if (!this.unlock() || this.settings.sfxMuted || !effects.length) return;
-    const audible = effects.filter((effect) => AUDIBLE_EFFECT_TYPES.has(effect.type));
+    const audible = limitSimultaneousEffects(effects);
     if (!audible.length) return;
-
     const starts = audible.map((effect) => effect.start).filter(Number.isFinite);
     const origin = starts.length ? Math.min(...starts) : 0;
     const batchStart = this.context.currentTime + 0.008;
-
     for (const effect of audible) {
       const delay = Number.isFinite(effect.start) ? Math.max(0, effect.start - origin) / 1000 : 0;
-      const start = batchStart + delay;
-      const voice = this.effectVoice++;
-      this.playEffect(effect, start, voice);
+      this.playEffect(effect, batchStart + delay, this.effectVoice++);
     }
   }
 
@@ -162,54 +183,54 @@ export class AudioDirector {
     const detune = ((voice % 7) - 3) * 7;
     switch (effect.type) {
       case EFFECT_TYPE.MELEE:
-        this.noise(0.055, 0.44, this.sfxGain, start);
-        this.tone(92, 0.08, 'square', 0.16, this.sfxGain, 0, -12, start, detune);
-        this.tone(138, 0.06, 'triangle', 0.08, this.sfxGain, 0.025, -35, start, -detune);
+        this.filteredNoise(0.045, 0.3, this.sfxGain, start, 1400);
+        this.tone(110, 0.065, 'square', 0.12, this.sfxGain, 0, -45, start, detune);
         break;
-      case EFFECT_TYPE.RANGED:
-        this.playRangedAttack(effect.attackStyle, start, detune);
-        break;
-      case EFFECT_TYPE.EXPLOSION:
-        this.noise(0.22, 0.62 * (effect.intensity || 1), this.sfxGain, start);
-        this.tone(70, 0.24, 'sine', 0.24, this.sfxGain, 0, -34, start, detune);
-        break;
+      case EFFECT_TYPE.RANGED: this.playRangedAttack(effect.attackStyle, start, detune); break;
+      case EFFECT_TYPE.EXPLOSION: this.playExplosion(start, effect.intensity || 1, detune); break;
       case EFFECT_TYPE.DEATH:
-        this.noise(0.12, 0.32, this.sfxGain, start);
-        this.tone(190, 0.16, 'triangle', 0.11, this.sfxGain, 0, -100, start, detune);
+        this.filteredNoise(0.075, 0.2, this.sfxGain, start, 1800);
+        this.tone(310, 0.11, 'square', 0.07, this.sfxGain, 0, -210, start, detune);
         break;
       case EFFECT_TYPE.HEAL:
-        this.tone(523, 0.16, 'sine', 0.11, this.sfxGain, 0, 0, start, detune);
-        this.tone(659, 0.2, 'sine', 0.09, this.sfxGain, 0.08, 0, start, -detune);
+        this.tone(660, 0.09, 'square', 0.065, this.sfxGain, 0, 180, start, detune);
+        this.tone(990, 0.12, 'sine', 0.05, this.sfxGain, 0.055, -80, start, -detune);
         break;
-      default:
-        break;
+      default: break;
     }
+  }
+
+  playExplosion(start, intensity, detune) {
+    const strength = Math.min(1.35, Math.max(0.65, intensity));
+    this.filteredNoise(0.3, 0.42 * strength, this.sfxGain, start, 700);
+    this.filteredNoise(0.1, 0.2 * strength, this.sfxGain, start + 0.025, 2600);
+    this.tone(92, 0.24, 'sawtooth', 0.15 * strength, this.sfxGain, 0, -58, start, detune);
+    this.tone(54, 0.32, 'square', 0.09 * strength, this.sfxGain, 0.018, -22, start, -detune);
   }
 
   playRangedAttack(attackStyle, start, detune) {
     switch (attackStyle) {
       case ATTACK_ANIMATION.LIGHTNING:
-        this.noise(0.035, 0.18, this.sfxGain, start);
-        this.tone(1180, 0.11, 'sawtooth', 0.14, this.sfxGain, 0, -620, start, detune);
-        this.tone(720, 0.075, 'square', 0.08, this.sfxGain, 0.025, 280, start, -detune);
+        this.filteredNoise(0.025, 0.12, this.sfxGain, start, 3200);
+        this.tone(1480, 0.085, 'square', 0.12, this.sfxGain, 0, -920, start, detune);
+        this.tone(690, 0.06, 'sawtooth', 0.07, this.sfxGain, 0.018, 420, start, -detune);
         break;
       case ATTACK_ANIMATION.MISSILE:
-        this.noise(0.09, 0.16, this.sfxGain, start);
-        this.tone(145, 0.18, 'sawtooth', 0.14, this.sfxGain, 0, 460, start, detune);
-        this.tone(92, 0.08, 'square', 0.07, this.sfxGain, 0.045, -25, start, -detune);
+        this.filteredNoise(0.08, 0.1, this.sfxGain, start, 1800);
+        this.tone(130, 0.16, 'square', 0.1, this.sfxGain, 0, 680, start, detune);
+        this.tone(620, 0.07, 'sawtooth', 0.06, this.sfxGain, 0.08, -300, start, -detune);
         break;
       case ATTACK_ANIMATION.LOB:
-        this.tone(180, 0.07, 'square', 0.13, this.sfxGain, 0, -45, start, detune);
-        this.noise(0.045, 0.1, this.sfxGain, start + 0.015);
-        this.tone(420, 0.16, 'sine', 0.07, this.sfxGain, 0.035, -170, start, -detune);
+        this.tone(240, 0.07, 'square', 0.1, this.sfxGain, 0, 360, start, detune);
+        this.tone(680, 0.09, 'sawtooth', 0.05, this.sfxGain, 0.035, -420, start, -detune);
         break;
       case ATTACK_ANIMATION.LASER:
-        this.tone(760, 0.09, 'sawtooth', 0.16, this.sfxGain, 0, 260, start, detune);
-        this.tone(380, 0.055, 'square', 0.06, this.sfxGain, 0.018, 130, start, -detune);
+        this.tone(980, 0.075, 'square', 0.13, this.sfxGain, 0, 520, start, detune);
+        this.tone(490, 0.05, 'sawtooth', 0.055, this.sfxGain, 0.014, 280, start, -detune);
         break;
       default:
-        this.noise(0.028, 0.09, this.sfxGain, start);
-        this.tone(520, 0.07, 'square', 0.15, this.sfxGain, 0, 70, start, detune);
+        this.tone(720, 0.065, 'square', 0.12, this.sfxGain, 0, 340, start, detune);
+        this.tone(360, 0.045, 'sawtooth', 0.045, this.sfxGain, 0.016, 190, start, -detune);
         break;
     }
   }
@@ -218,15 +239,15 @@ export class AudioDirector {
     if (!this.unlock() || this.settings.musicMuted) return;
     const start = this.context.currentTime + 0.02;
     if (playerWon) {
-      this.tone(60, 0.22, 'triangle', 0.13, this.musicGain, 0, 0, start);
-      this.tone(64, 0.25, 'triangle', 0.13, this.musicGain, 0.11, 0, start);
-      this.tone(67, 0.34, 'sine', 0.16, this.musicGain, 0.22, 0, start);
-      this.tone(72, 0.46, 'sine', 0.12, this.musicGain, 0.34, 0, start);
+      this.synthTone(60, 0.28, 0.1, this.musicGain, { at: start, type: 'sawtooth', cutoff: 1200 });
+      this.synthTone(64, 0.32, 0.09, this.musicGain, { at: start + 0.11, type: 'square', cutoff: 1700 });
+      this.synthTone(67, 0.4, 0.11, this.musicGain, { at: start + 0.22, type: 'sawtooth', cutoff: 2100 });
+      this.synthTone(72, 0.55, 0.09, this.musicGain, { at: start + 0.34, type: 'square', cutoff: 2500 });
       return;
     }
-    this.tone(48, 0.28, 'triangle', 0.14, this.musicGain, 0, -55, start);
-    this.tone(45, 0.34, 'sawtooth', 0.1, this.musicGain, 0.14, -70, start);
-    this.tone(41, 0.52, 'sine', 0.15, this.musicGain, 0.29, -45, start);
+    this.synthTone(48, 0.3, 0.1, this.musicGain, { at: start, type: 'sawtooth', cutoff: 800, sweep: -45 });
+    this.synthTone(45, 0.38, 0.08, this.musicGain, { at: start + 0.14, type: 'square', cutoff: 650, sweep: -55 });
+    this.synthTone(41, 0.58, 0.1, this.musicGain, { at: start + 0.29, type: 'sawtooth', cutoff: 500, sweep: -35 });
   }
 
   playUiSound(cue = 'tap') {
@@ -234,21 +255,61 @@ export class AudioDirector {
     const start = this.context.currentTime + 0.006;
     switch (cue) {
       case 'select':
-        this.tone(520, 0.045, 'triangle', 0.07, this.sfxGain, 0, 45, start);
-        this.tone(690, 0.05, 'sine', 0.045, this.sfxGain, 0.035, 0, start);
+        this.tone(620, 0.04, 'square', 0.055, this.sfxGain, 0, 140, start);
+        this.tone(880, 0.045, 'square', 0.035, this.sfxGain, 0.03, -60, start);
         break;
       case 'place':
-        this.tone(165, 0.055, 'square', 0.055, this.sfxGain, 0, -25, start);
-        this.noise(0.025, 0.035, this.sfxGain, start);
+        this.tone(190, 0.05, 'square', 0.05, this.sfxGain, 0, -60, start);
+        this.filteredNoise(0.02, 0.025, this.sfxGain, start, 1500);
         break;
       case 'launch':
-        this.tone(110, 0.12, 'triangle', 0.08, this.sfxGain, 0, 110, start);
-        this.tone(220, 0.14, 'square', 0.05, this.sfxGain, 0.065, 110, start);
+        this.tone(130, 0.1, 'sawtooth', 0.065, this.sfxGain, 0, 480, start);
+        this.tone(420, 0.12, 'square', 0.045, this.sfxGain, 0.06, 420, start);
         break;
-      default:
-        this.tone(430, 0.032, 'triangle', 0.045, this.sfxGain, 0, -35, start);
-        break;
+      default: this.tone(540, 0.028, 'square', 0.04, this.sfxGain, 0, 120, start); break;
     }
+  }
+
+  synthTone(note, duration, volume, destination, { type = 'sawtooth', cutoff = 1400, resonance = 2, detune = 0, sweep = 0, at = this.context?.currentTime ?? 0 } = {}) {
+    if (!this.context || note === null || note === undefined) return;
+    const frequency = note < 128 ? midiFrequency(note) : note;
+    const oscillator = this.context.createOscillator();
+    const companion = this.context.createOscillator();
+    const filter = this.context.createBiquadFilter();
+    const gain = this.context.createGain();
+    oscillator.type = type;
+    companion.type = type === 'square' ? 'sawtooth' : 'square';
+    oscillator.frequency.setValueAtTime(frequency, at);
+    companion.frequency.setValueAtTime(frequency, at);
+    oscillator.detune.setValueAtTime(detune - 7, at);
+    companion.detune.setValueAtTime(detune + 7, at);
+    if (sweep) {
+      oscillator.frequency.exponentialRampToValueAtTime(Math.max(24, frequency + sweep), at + duration);
+      companion.frequency.exponentialRampToValueAtTime(Math.max(24, frequency + sweep), at + duration);
+    }
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(Math.max(80, cutoff * 0.65), at);
+    filter.frequency.exponentialRampToValueAtTime(Math.max(100, cutoff), at + Math.min(0.08, duration * 0.35));
+    filter.frequency.exponentialRampToValueAtTime(Math.max(80, cutoff * 0.5), at + duration);
+    filter.Q.value = resonance;
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.001, volume), at + 0.018);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
+    oscillator.connect(filter);
+    companion.connect(filter);
+    filter.connect(gain);
+    gain.connect(destination);
+    const cleanup = () => {
+      try { oscillator.disconnect(); } catch { /* Already disconnected. */ }
+      try { companion.disconnect(); } catch { /* Already disconnected. */ }
+      try { filter.disconnect(); } catch { /* Already disconnected. */ }
+      try { gain.disconnect(); } catch { /* Already disconnected. */ }
+    };
+    oscillator.onended = cleanup;
+    oscillator.start(at);
+    companion.start(at);
+    oscillator.stop(at + duration + 0.02);
+    companion.stop(at + duration + 0.02);
   }
 
   tone(note, duration, type, volume, destination, delay = 0, sweep = 0, at = this.context?.currentTime ?? 0, detune = 0) {
@@ -262,34 +323,35 @@ export class AudioDirector {
     oscillator.detune?.setValueAtTime(detune, start);
     if (sweep) oscillator.frequency.exponentialRampToValueAtTime(Math.max(24, frequency + sweep), start + duration);
     gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.001, volume), start + 0.012);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.001, volume), start + 0.008);
     gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
     oscillator.connect(gain);
     gain.connect(destination);
-    oscillator.onended = () => {
-      try { oscillator.disconnect(); } catch { /* Already disconnected. */ }
-      try { gain.disconnect(); } catch { /* Already disconnected. */ }
-    };
+    oscillator.onended = () => { try { oscillator.disconnect(); } catch { /* Already disconnected. */ } try { gain.disconnect(); } catch { /* Already disconnected. */ } };
     oscillator.start(start);
     oscillator.stop(start + duration + 0.02);
   }
 
-  noise(duration, volume, destination, at = this.context?.currentTime ?? 0) {
+  filteredNoise(duration, volume, destination, at = this.context?.currentTime ?? 0, cutoff = 1200) {
     if (!this.context || !this.noiseBuffer) return;
     const source = this.context.createBufferSource();
+    const filter = this.context.createBiquadFilter();
     const gain = this.context.createGain();
     source.buffer = this.noiseBuffer;
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(cutoff, at);
+    filter.frequency.exponentialRampToValueAtTime(Math.max(90, cutoff * 0.35), at + duration);
     gain.gain.setValueAtTime(Math.max(0.0001, volume), at);
     gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
-    source.connect(gain);
+    source.connect(filter);
+    filter.connect(gain);
     gain.connect(destination);
-    source.onended = () => {
-      try { source.disconnect(); } catch { /* Already disconnected. */ }
-      try { gain.disconnect(); } catch { /* Already disconnected. */ }
-    };
+    source.onended = () => { try { source.disconnect(); } catch { /* Already disconnected. */ } try { filter.disconnect(); } catch { /* Already disconnected. */ } try { gain.disconnect(); } catch { /* Already disconnected. */ } };
     source.start(at, Math.random() * Math.max(0, NOISE_BUFFER_SECONDS - duration));
     source.stop(at + duration + 0.005);
   }
+
+  noise(duration, volume, destination, at = this.context?.currentTime ?? 0) { this.filteredNoise(duration, volume, destination, at, 8000); }
 
   dispose() {
     if (this.musicTimer !== null) this.browser.clearInterval(this.musicTimer);
