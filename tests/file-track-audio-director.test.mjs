@@ -28,7 +28,7 @@ test('file soundtrack keeps its playhead while deployment ducks the title track'
 
   director.setScene('deployment');
 
-  assert.equal(track.src, './assets/title-theme.mp3');
+  assert.equal(track.src, './assets/audio/breach-line-title.mp3');
   assert.equal(track.currentTime, 19.5);
   assert.equal(track.volume, 0.08);
   assert.equal(track.playCount, 0);
