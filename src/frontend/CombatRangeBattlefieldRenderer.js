@@ -1,4 +1,4 @@
-import { GAME_CONFIG, TEAM, UNIT_ROLE, UNIT_TYPES } from '../data/gameConfig.js';
+import { GAME_CONFIG, TEAM, UNIT_ROLE, UNIT_TAG, UNIT_TYPES } from '../data/gameConfig.js';
 import { ATTACK_ANIMATION } from '../data/gameTypes.js';
 import { DeploymentBattlefieldRenderer } from './DeploymentBattlefieldRenderer.js';
 import { drawUnitGraphic } from './UnitGraphics.js';
@@ -9,6 +9,16 @@ const RANGE_STYLE = Object.freeze({
 });
 
 export class CombatRangeBattlefieldRenderer extends DeploymentBattlefieldRenderer {
+  constructor(...args) {
+    super(...args);
+    this.inspectedEnemyCell = null;
+  }
+
+  setInspectedEnemyCell(cell) {
+    this.inspectedEnemyCell = cell ? { row: cell.row, column: cell.column } : null;
+    if (this.model) this.render(this.model);
+  }
+
   drawProjectile(effect, progress, color) {
     if (effect.attackStyle === ATTACK_ANIMATION.LIGHTNING) {
       this.drawLightning(effect, progress, color);
@@ -55,23 +65,39 @@ export class CombatRangeBattlefieldRenderer extends DeploymentBattlefieldRendere
 
   drawFriendlyEffectZones(formation) {
     super.drawFriendlyEffectZones(formation);
+
     const unit = formation.at(-1);
-    if (!unit) return;
-    const type = UNIT_TYPES[unit.type];
-    if (type?.role === UNIT_ROLE.RANGED) this.drawRangedRangeZone(unit, type);
+    if (unit) {
+      const type = UNIT_TYPES[unit.type];
+      if (type?.role === UNIT_ROLE.RANGED) this.drawRangedRangeZone(unit, type);
+    }
+
+    const inspected = this.inspectedEnemyCell;
+    if (!inspected) return;
+    const enemy = this.model?.mission?.enemyFormation?.find(
+      (candidate) => candidate.row === inspected.row && candidate.column === inspected.column,
+    );
+    const enemyType = enemy ? UNIT_TYPES[enemy.type] : null;
+    if (enemyType?.role === UNIT_ROLE.RANGED) this.drawRangedRangeZone({ ...enemy, team: TEAM.ENEMY }, enemyType);
   }
 
   drawRangedRangeZone(unit, type) {
     const ctx = this.context;
     const cell = this.cellSize;
     const graphic = type.graphic ?? type.shape;
+    const canSwivel = type.tags.includes(UNIT_TAG.SWIVEL);
     ctx.save();
     ctx.fillStyle = RANGE_STYLE.fill;
     ctx.strokeStyle = RANGE_STYLE.stroke;
     ctx.lineWidth = Math.max(1, cell * 0.025);
     for (let row = 0; row < GAME_CONFIG.rows; row += 1) {
       for (let column = 0; column < GAME_CONFIG.columns; column += 1) {
-        if (Math.abs(row - unit.row) + Math.abs(column - unit.column) > type.range) continue;
+        const rowDistance = Math.abs(row - unit.row);
+        const columnDistance = Math.abs(column - unit.column);
+        const inRange = canSwivel
+          ? rowDistance + columnDistance <= type.range
+          : row === unit.row && columnDistance <= type.range;
+        if (!inRange) continue;
         const inset = Math.max(1, cell * 0.06);
         const x = column * cell + inset;
         const y = row * cell + inset;
