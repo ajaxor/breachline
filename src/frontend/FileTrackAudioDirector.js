@@ -1,6 +1,6 @@
 import { AudioDirector } from './AudioDirector.js';
 
-const TITLE_TRACK_SRC = './assets/title-theme.mp3';
+const TITLE_TRACK_SRC = './assets/audio/breach-line-title.mp3';
 const TRACK_VOLUME = Object.freeze({
   title: 0.38,
   deployment: 0.08,
