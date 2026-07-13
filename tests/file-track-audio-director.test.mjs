@@ -24,6 +24,13 @@ class FakeAudio {
   }
 }
 
+function activateAudio(director) {
+  const gain = { setTargetAtTime() {} };
+  director.context = { currentTime: 0 };
+  director.musicGain = { gain };
+  director.sfxGain = { gain };
+}
+
 test('file soundtrack keeps its playhead while deployment ducks the title track', () => {
   const director = new FileTrackAudioDirector({ Audio: FakeAudio, clearInterval() {} });
   const track = director.musicElement;
@@ -36,7 +43,7 @@ test('file soundtrack keeps its playhead while deployment ducks the title track'
   assert.equal(track.volume, 0.04);
   assert.equal(track.playCount, 0);
 
-  director.context = {};
+  activateAudio(director);
   director.restartMusic();
   assert.equal(track.currentTime, 19.5);
   assert.equal(track.playCount, 1);
@@ -49,7 +56,7 @@ test('file soundtrack keeps its playhead while deployment ducks the title track'
 test('music mute pauses the file track and unmute resumes the same playhead', () => {
   const director = new FileTrackAudioDirector({ Audio: FakeAudio, clearInterval() {} });
   const track = director.musicElement;
-  director.context = {};
+  activateAudio(director);
   track.currentTime = 27.25;
   director.restartMusic();
 
@@ -69,7 +76,7 @@ test('music mute pauses the file track and unmute resumes the same playhead', ()
 test('battle scene keeps the title track silent even when music is unmuted', () => {
   const director = new FileTrackAudioDirector({ Audio: FakeAudio, clearInterval() {} });
   const track = director.musicElement;
-  director.context = {};
+  activateAudio(director);
 
   director.setScene('battle');
   director.setMusicMuted(true);
