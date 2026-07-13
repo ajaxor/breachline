@@ -11,6 +11,7 @@ class FakeAudio {
     this.preload = '';
     this.volume = 0;
     this.playCount = 0;
+    this.pauseCount = 0;
   }
 
   play() {
@@ -18,7 +19,9 @@ class FakeAudio {
     return Promise.resolve();
   }
 
-  pause() {}
+  pause() {
+    this.pauseCount += 1;
+  }
 }
 
 test('file soundtrack keeps its playhead while deployment ducks the title track', () => {
@@ -30,7 +33,7 @@ test('file soundtrack keeps its playhead while deployment ducks the title track'
 
   assert.equal(track.src, './assets/audio/breach-line-title.mp3');
   assert.equal(track.currentTime, 19.5);
-  assert.equal(track.volume, 0.08);
+  assert.equal(track.volume, 0.04);
   assert.equal(track.playCount, 0);
 
   director.context = {};
@@ -40,5 +43,38 @@ test('file soundtrack keeps its playhead while deployment ducks the title track'
 
   director.setScene('title');
   assert.equal(track.currentTime, 19.5);
-  assert.equal(track.volume, 0.38);
+  assert.equal(track.volume, 0.2);
+});
+
+test('music mute pauses the file track and unmute resumes the same playhead', () => {
+  const director = new FileTrackAudioDirector({ Audio: FakeAudio, clearInterval() {} });
+  const track = director.musicElement;
+  director.context = {};
+  track.currentTime = 27.25;
+  director.restartMusic();
+
+  director.setMusicMuted(true);
+
+  assert.equal(track.currentTime, 27.25);
+  assert.equal(track.volume, 0);
+  assert.equal(track.pauseCount, 1);
+
+  director.setMusicMuted(false);
+
+  assert.equal(track.currentTime, 27.25);
+  assert.equal(track.volume, 0.2);
+  assert.equal(track.playCount, 2);
+});
+
+test('battle scene keeps the title track silent even when music is unmuted', () => {
+  const director = new FileTrackAudioDirector({ Audio: FakeAudio, clearInterval() {} });
+  const track = director.musicElement;
+  director.context = {};
+
+  director.setScene('battle');
+  director.setMusicMuted(true);
+  director.setMusicMuted(false);
+
+  assert.equal(track.volume, 0);
+  assert.equal(track.playCount, 0);
 });
