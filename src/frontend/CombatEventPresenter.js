@@ -127,7 +127,7 @@ function addBreachCollapseEffects(model, result, at, duration) {
 
 export class CombatEventPresenter {
   constructor() { this.sequenceTickAt = null; this.sequenceIndex = -1; this.currentActionAt = 0; }
-  actionTime(event) { const at = event.at ?? 0; if (this.sequenceTickAt !== at) { this.sequenceTickAt = at; this.sequenceIndex = -1; this.currentActionAt = at; } const isAttack = event.type === COMBAT_EVENT.UNIT_ATTACKED || event.type === COMBAT_EVENT.UNIT_DODGED; const attacker = event.attacker ?? event.source; const isMelee = isAttack && attackAnimationFor(UNIT_TYPES[attacker.type]) === ATTACK_ANIMATION.MELEE; if (isMelee) return at; if (isAttack || event.type === COMBAT_EVENT.UNIT_HEALED) { this.sequenceIndex += 1; this.currentActionAt = at + this.sequenceIndex * ATTACK_STAGGER_MS; } return this.currentActionAt; }
+  actionTime(event) { const at = event.at ?? 0; if (this.sequenceTickAt !== at) { this.sequenceTickAt = at; this.sequenceIndex = -1; this.currentActionAt = at; } const isAttack = event.type === COMBAT_EVENT.UNIT_ATTACKED || event.type === COMBAT_EVENT.UNIT_DODGED; if (isAttack || event.type === COMBAT_EVENT.UNIT_HEALED) { this.sequenceIndex += 1; this.currentActionAt = at + this.sequenceIndex * ATTACK_STAGGER_MS; } return this.currentActionAt; }
   present(model, event) {
     const duration = Math.max(110, Math.min(480, GAME_CONFIG.tickIntervalMs * 0.85)); const at = this.actionTime(event);
     switch (event.type) {
