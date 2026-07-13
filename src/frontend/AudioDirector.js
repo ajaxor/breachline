@@ -5,6 +5,7 @@ const MUSIC_STEP_MS = 190;
 const NOISE_BUFFER_SECONDS = 1;
 const SIMULTANEOUS_EFFECT_WINDOW_MS = 24;
 const MAX_SIMULTANEOUS_EFFECTS = 4;
+const SILENT_MUSIC_SCENES = new Set(['battle']);
 const AUDIBLE_EFFECT_TYPES = new Set([
   EFFECT_TYPE.RANGED,
   EFFECT_TYPE.MELEE,
@@ -26,8 +27,9 @@ const MUSIC = Object.freeze({
     tempo: 1.05,
     bass: [...repeat([38, null, 38, null, 43, null, 41, null], 2), ...repeat([36, null, 36, null, 41, null, 43, null], 2), ...repeat([34, null, 38, null, 41, null, 45, null], 2), ...repeat([36, null, 43, null, 41, null, 38, null], 2)],
     lead: [62, null, 65, 67, null, 69, 67, null, 62, 65, null, 70, 69, null, 65, null, 60, null, 63, 65, null, 67, 70, null, 72, 70, null, 67, 65, null, 63, null, 58, null, 62, 65, null, 69, 67, null, 70, null, 69, 65, null, 62, 64, null, 60, 63, null, 67, 70, null, 67, null, 65, null, 63, 62, null, 58, 60, null],
+    counter: [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 72, null, 70, null, 67, null, 69, null, 70, null, 72, null, 74, 72, null, null, null, null, null, null, null, null, null, null, 69, null, 67, null, 65, 67, null, null, 74, null, 72, 70, null, 67, null, 69, 70, null, 67, null, 65, null, 62, null],
     arp: repeat([74, 77, 81, 77, 72, 77, 79, 77, 70, 74, 77, 74, 72, 75, 79, 75], 4),
-    drum: repeat([0.8, 0, 0.18, 0, 0.48, 0, 0.2, 0, 0.72, 0, 0.15, 0, 0.52, 0, 0.28, 0], 4),
+    drum: [1, 0, 0.28, 0.18, 0.68, 0, 0.38, 0.16, 0.92, 0.12, 0.28, 0.18, 0.72, 0, 0.48, 0.24, 1, 0.18, 0.42, 0.2, 0.76, 0.12, 0.34, 0.2, 0.96, 0.16, 0.38, 0.2, 0.82, 0.18, 0.56, 0.34, 1, 0, 0.32, 0.2, 0.7, 0.14, 0.42, 0.22, 0.94, 0.18, 0.34, 0.24, 0.8, 0.16, 0.5, 0.3, 1, 0.2, 0.46, 0.26, 0.84, 0.18, 0.4, 0.28, 1, 0.22, 0.54, 0.3, 0.9, 0.24, 0.64, 0.42],
   }),
   deployment: Object.freeze({
     tempo: 1.35,
@@ -35,13 +37,6 @@ const MUSIC = Object.freeze({
     lead: [60, null, null, 63, null, 65, null, null, 67, null, 65, null, 63, null, null, null, 58, null, 62, null, null, 65, null, 67, null, 70, null, 67, null, 65, null, null, 60, null, 63, null, 65, null, 68, null, 67, null, null, 65, 63, null, 60, null, 58, null, 62, 65, null, 67, null, 70, 68, null, 67, null, 65, 63, null, null],
     arp: repeat([72, null, 75, null, 79, null, 75, null, 70, null, 74, null, 77, null, 74, null], 4),
     drum: repeat([0, 0, 0, 0, 0.14, 0, 0, 0, 0, 0, 0.08, 0, 0.18, 0, 0, 0], 4),
-  }),
-  battle: Object.freeze({
-    tempo: 0.72,
-    bass: [...repeat([36, 36, 43, 36, 41, 36, 34, 34], 2), ...repeat([36, 36, 46, 43, 41, 41, 34, 39], 2), ...repeat([33, 33, 40, 33, 43, 40, 36, 36], 2), ...repeat([34, 34, 41, 46, 43, 41, 39, 36], 2)],
-    lead: [60, 63, 67, null, 63, 70, 67, null, 65, 63, 60, null, 58, 60, 63, null, 60, 63, 70, 67, null, 72, 70, 67, 65, null, 68, 67, 63, 65, null, 63, 57, 60, 64, null, 67, 64, 60, null, 69, 67, 64, 60, null, 62, 64, null, 58, 62, 65, 70, null, 67, 65, 62, 63, 67, null, 70, 67, 65, 63, null],
-    arp: repeat([72, 75, 79, 82, 75, 79, 84, 79, 70, 75, 79, 82, 74, 77, 81, 84], 4),
-    drum: repeat([1, 0.18, 0.48, 0.18, 0.82, 0.22, 0.58, 0.28, 1, 0.2, 0.55, 0.24, 0.88, 0.25, 0.68, 0.38], 4),
   }),
 });
 
@@ -129,9 +124,11 @@ export class AudioDirector {
   setSfxMuted(muted) { this.settings.sfxMuted = Boolean(muted); this.saveSettings(); this.applyVolumes(); }
 
   setScene(scene) {
-    if (!MUSIC[scene] || this.scene === scene) return;
+    if (!MUSIC[scene] && !SILENT_MUSIC_SCENES.has(scene)) return;
+    const changed = this.scene !== scene;
     this.scene = scene;
-    this.restartMusic();
+    if (changed) this.restartMusic();
+    if (scene === 'battle') this.playBattleStart();
   }
 
   restartMusic() {
@@ -139,30 +136,48 @@ export class AudioDirector {
     this.musicTimer = null;
     this.step = 0;
     if (!this.context) return;
+    const track = MUSIC[this.scene];
+    if (!track) return;
     this.playMusicStep();
-    this.musicTimer = this.browser.setInterval(() => this.playMusicStep(), MUSIC_STEP_MS * MUSIC[this.scene].tempo);
+    this.musicTimer = this.browser.setInterval(() => this.playMusicStep(), MUSIC_STEP_MS * track.tempo);
   }
 
   playMusicStep() {
-    if (!this.context || this.settings.musicMuted) { this.step += 1; return; }
     const track = MUSIC[this.scene];
+    if (!this.context || !track) return;
+    if (this.settings.musicMuted) { this.step += 1; return; }
     const index = this.step % track.bass.length;
     const duration = MUSIC_STEP_MS * track.tempo / 1000;
     const bass = track.bass[index];
     const lead = track.lead[index];
+    const counter = track.counter?.[index];
     const arp = track.arp[index];
-    if (bass !== null) this.synthTone(bass, duration * 1.8, this.scene === 'battle' ? 0.13 : 0.1, this.musicGain, { type: 'sawtooth', cutoff: 430, resonance: 4 });
+    if (bass !== null) this.synthTone(bass, duration * 1.8, 0.1, this.musicGain, { type: 'sawtooth', cutoff: 430, resonance: 4 });
     if (lead !== null) this.synthTone(lead, duration * 2.2, this.scene === 'deployment' ? 0.045 : 0.07, this.musicGain, { type: 'sawtooth', cutoff: 1250, detune: 6 });
-    if (arp !== null) this.synthTone(arp, duration * 0.7, this.scene === 'battle' ? 0.035 : 0.025, this.musicGain, { type: 'square', cutoff: 2200, detune: -4 });
+    if (counter !== null && counter !== undefined) this.synthTone(counter, duration * 1.55, 0.052, this.musicGain, { type: 'square', cutoff: 1750, resonance: 3, detune: -8 });
+    if (arp !== null) this.synthTone(arp, duration * 0.7, 0.025, this.musicGain, { type: 'square', cutoff: 2200, detune: -4 });
     const drum = track.drum[index];
-    if (drum > 0) this.playDrum(drum, this.scene === 'deployment' ? 0.025 : 0.07);
+    if (drum > 0) this.playDrum(drum, this.scene === 'title' ? 0.082 : 0.025, this.scene === 'title');
     this.step += 1;
   }
 
-  playDrum(intensity, volume) {
+  playDrum(intensity, volume, martial = false) {
     const start = this.context.currentTime;
-    this.filteredNoise(0.05, volume * intensity, this.musicGain, start, 900);
-    this.tone(47, 0.1, 'sine', volume * 1.5 * intensity, this.musicGain, 0, -18, start);
+    this.filteredNoise(martial ? 0.07 : 0.05, volume * intensity, this.musicGain, start, martial ? 1450 : 900);
+    this.tone(martial ? 43 : 47, martial ? 0.14 : 0.1, 'sine', volume * 1.5 * intensity, this.musicGain, 0, -18, start);
+    if (martial && intensity >= 0.65) this.tone(72, 0.055, 'square', volume * 0.42 * intensity, this.musicGain, 0.012, -220, start);
+  }
+
+  playBattleStart() {
+    if (!this.unlock() || this.settings.musicMuted) return;
+    const start = this.context.currentTime + 0.025;
+    this.filteredNoise(0.11, 0.085, this.musicGain, start, 1700);
+    this.tone(43, 0.18, 'sine', 0.13, this.musicGain, 0, -20, start);
+    this.synthTone(50, 0.34, 0.105, this.musicGain, { at: start, type: 'sawtooth', cutoff: 900, resonance: 4 });
+    this.synthTone(57, 0.28, 0.095, this.musicGain, { at: start + 0.13, type: 'square', cutoff: 1450, resonance: 3 });
+    this.synthTone(62, 0.42, 0.11, this.musicGain, { at: start + 0.27, type: 'sawtooth', cutoff: 2100, resonance: 4 });
+    this.filteredNoise(0.08, 0.065, this.musicGain, start + 0.27, 2100);
+    this.tone(38, 0.24, 'sine', 0.12, this.musicGain, 0.27, -16, start);
   }
 
   playEffects(effects) {
