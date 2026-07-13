@@ -1,4 +1,4 @@
-import { EFFECT_TYPE } from '../data/gameTypes.js';
+import { ATTACK_ANIMATION, EFFECT_TYPE } from '../data/gameTypes.js';
 
 const AUDIO_SETTINGS_KEY = 'breach-line-audio';
 const MUSIC_STEP_MS = 220;
@@ -162,11 +162,12 @@ export class AudioDirector {
     const detune = ((voice % 7) - 3) * 7;
     switch (effect.type) {
       case EFFECT_TYPE.MELEE:
-        this.noise(0.075, 0.5, this.sfxGain, start);
-        this.tone(82, 0.09, 'square', 0.17, this.sfxGain, 0, 0, start, detune);
+        this.noise(0.055, 0.44, this.sfxGain, start);
+        this.tone(92, 0.08, 'square', 0.16, this.sfxGain, 0, -12, start, detune);
+        this.tone(138, 0.06, 'triangle', 0.08, this.sfxGain, 0.025, -35, start, -detune);
         break;
       case EFFECT_TYPE.RANGED:
-        this.tone(effect.attackStyle === 'lightning' ? 880 : 520, 0.09, 'sawtooth', 0.17, this.sfxGain, 0, effect.attackStyle === 'lob' ? 180 : 80, start, detune);
+        this.playRangedAttack(effect.attackStyle, start, detune);
         break;
       case EFFECT_TYPE.EXPLOSION:
         this.noise(0.22, 0.62 * (effect.intensity || 1), this.sfxGain, start);
@@ -183,6 +184,49 @@ export class AudioDirector {
       default:
         break;
     }
+  }
+
+  playRangedAttack(attackStyle, start, detune) {
+    switch (attackStyle) {
+      case ATTACK_ANIMATION.LIGHTNING:
+        this.noise(0.035, 0.18, this.sfxGain, start);
+        this.tone(1180, 0.11, 'sawtooth', 0.14, this.sfxGain, 0, -620, start, detune);
+        this.tone(720, 0.075, 'square', 0.08, this.sfxGain, 0.025, 280, start, -detune);
+        break;
+      case ATTACK_ANIMATION.MISSILE:
+        this.noise(0.09, 0.16, this.sfxGain, start);
+        this.tone(145, 0.18, 'sawtooth', 0.14, this.sfxGain, 0, 460, start, detune);
+        this.tone(92, 0.08, 'square', 0.07, this.sfxGain, 0.045, -25, start, -detune);
+        break;
+      case ATTACK_ANIMATION.LOB:
+        this.tone(180, 0.07, 'square', 0.13, this.sfxGain, 0, -45, start, detune);
+        this.noise(0.045, 0.1, this.sfxGain, start + 0.015);
+        this.tone(420, 0.16, 'sine', 0.07, this.sfxGain, 0.035, -170, start, -detune);
+        break;
+      case ATTACK_ANIMATION.LASER:
+        this.tone(760, 0.09, 'sawtooth', 0.16, this.sfxGain, 0, 260, start, detune);
+        this.tone(380, 0.055, 'square', 0.06, this.sfxGain, 0.018, 130, start, -detune);
+        break;
+      default:
+        this.noise(0.028, 0.09, this.sfxGain, start);
+        this.tone(520, 0.07, 'square', 0.15, this.sfxGain, 0, 70, start, detune);
+        break;
+    }
+  }
+
+  playBattleResult(playerWon) {
+    if (!this.unlock() || this.settings.musicMuted) return;
+    const start = this.context.currentTime + 0.02;
+    if (playerWon) {
+      this.tone(60, 0.22, 'triangle', 0.13, this.musicGain, 0, 0, start);
+      this.tone(64, 0.25, 'triangle', 0.13, this.musicGain, 0.11, 0, start);
+      this.tone(67, 0.34, 'sine', 0.16, this.musicGain, 0.22, 0, start);
+      this.tone(72, 0.46, 'sine', 0.12, this.musicGain, 0.34, 0, start);
+      return;
+    }
+    this.tone(48, 0.28, 'triangle', 0.14, this.musicGain, 0, -55, start);
+    this.tone(45, 0.34, 'sawtooth', 0.1, this.musicGain, 0.14, -70, start);
+    this.tone(41, 0.52, 'sine', 0.15, this.musicGain, 0.29, -45, start);
   }
 
   playUiSound(cue = 'tap') {
