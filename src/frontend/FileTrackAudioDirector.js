@@ -19,6 +19,8 @@ export class FileTrackAudioDirector extends AudioDirector {
     this.musicElement = this.createMusicElement();
     this.trackSource = null;
     this.trackGain = null;
+    this.applyTrackVolume();
+    this.playTrack();
   }
 
   loadMusicVolume() {
@@ -131,7 +133,7 @@ export class FileTrackAudioDirector extends AudioDirector {
   }
 
   playTrack() {
-    if (!this.context || !this.musicElement || this.settings.musicMuted || (TRACK_VOLUME[this.scene] ?? 0) <= 0) return;
+    if (!this.musicElement || this.settings.musicMuted || (TRACK_VOLUME[this.scene] ?? 0) <= 0) return;
     const playback = this.musicElement.play?.();
     playback?.catch?.(() => { /* Browser autoplay policy may defer playback until the next user gesture. */ });
   }
