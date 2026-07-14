@@ -31,8 +31,21 @@ function activateAudio(director) {
   director.sfxGain = { gain };
 }
 
+function fakeBrowser(savedSettings = null) {
+  const writes = [];
+  return {
+    Audio: FakeAudio,
+    clearInterval() {},
+    localStorage: {
+      getItem() { return savedSettings === null ? null : JSON.stringify(savedSettings); },
+      setItem(key, value) { writes.push([key, value]); },
+    },
+    writes,
+  };
+}
+
 test('file soundtrack keeps its playhead while deployment ducks the title track', () => {
-  const director = new FileTrackAudioDirector({ Audio: FakeAudio, clearInterval() {} });
+  const director = new FileTrackAudioDirector(fakeBrowser());
   const track = director.musicElement;
   track.currentTime = 19.5;
 
@@ -40,7 +53,7 @@ test('file soundtrack keeps its playhead while deployment ducks the title track'
 
   assert.equal(track.src, './assets/audio/breach-line-title.mp3');
   assert.equal(track.currentTime, 19.5);
-  assert.equal(track.volume, 0.04);
+  assert.equal(track.volume, 0.01);
   assert.equal(track.playCount, 0);
 
   activateAudio(director);
@@ -50,11 +63,39 @@ test('file soundtrack keeps its playhead while deployment ducks the title track'
 
   director.setScene('title');
   assert.equal(track.currentTime, 19.5);
-  assert.equal(track.volume, 0.2);
+  assert.equal(track.volume, 0.05);
+});
+
+test('music volume scales the real file track live and persists the selected level', () => {
+  const browser = fakeBrowser();
+  const director = new FileTrackAudioDirector(browser);
+  const track = director.musicElement;
+  activateAudio(director);
+
+  director.setMusicVolume(0.1);
+  assert.equal(track.volume, 0.02);
+  assert.equal(director.settings.musicVolume, 0.1);
+  assert.equal(JSON.parse(browser.writes.at(-1)[1]).musicVolume, 0.1);
+
+  director.setScene('deployment');
+  assert.equal(track.volume, 0.004);
+
+  director.setMusicVolume(2);
+  assert.equal(director.settings.musicVolume, 1);
+  assert.equal(track.volume, 0.04);
+});
+
+test('saved music volume is restored for the title track', () => {
+  const director = new FileTrackAudioDirector(fakeBrowser({ musicMuted: false, sfxMuted: false, musicVolume: 0.4 }));
+  assert.equal(director.settings.musicVolume, 0.4);
+  assert.equal(director.musicElement.volume, 0);
+
+  director.applyTrackVolume();
+  assert.equal(director.musicElement.volume, 0.08);
 });
 
 test('music mute pauses the file track and unmute resumes the same playhead', () => {
-  const director = new FileTrackAudioDirector({ Audio: FakeAudio, clearInterval() {} });
+  const director = new FileTrackAudioDirector(fakeBrowser());
   const track = director.musicElement;
   activateAudio(director);
   track.currentTime = 27.25;
@@ -69,12 +110,12 @@ test('music mute pauses the file track and unmute resumes the same playhead', ()
   director.setMusicMuted(false);
 
   assert.equal(track.currentTime, 27.25);
-  assert.equal(track.volume, 0.2);
+  assert.equal(track.volume, 0.05);
   assert.equal(track.playCount, 2);
 });
 
 test('battle scene keeps the title track silent even when music is unmuted', () => {
-  const director = new FileTrackAudioDirector({ Audio: FakeAudio, clearInterval() {} });
+  const director = new FileTrackAudioDirector(fakeBrowser());
   const track = director.musicElement;
   activateAudio(director);
 
