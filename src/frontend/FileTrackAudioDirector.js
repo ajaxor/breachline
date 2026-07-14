@@ -1,15 +1,19 @@
 import { AudioDirector } from './AudioDirector.js';
 
 const TITLE_TRACK_SRC = './assets/audio/breach-line-title.mp3';
+const DEFAULT_MUSIC_VOLUME = 0.25;
 const TRACK_VOLUME = Object.freeze({
   title: 0.2,
   deployment: 0.04,
   battle: 0,
 });
 
+const clampVolume = (volume) => Math.min(1, Math.max(0, Number.isFinite(Number(volume)) ? Number(volume) : DEFAULT_MUSIC_VOLUME));
+
 export class FileTrackAudioDirector extends AudioDirector {
   constructor(browser = window) {
     super(browser);
+    this.settings.musicVolume = clampVolume(this.settings.musicVolume);
     this.musicElement = this.createMusicElement();
   }
 
@@ -25,12 +29,23 @@ export class FileTrackAudioDirector extends AudioDirector {
 
   applyVolumes() {
     super.applyVolumes();
+    if (this.context && this.musicGain) {
+      const at = this.context.currentTime;
+      this.musicGain.gain.setTargetAtTime(this.settings.musicMuted ? 0 : 0.1 * this.settings.musicVolume, at, 0.04);
+    }
     this.applyTrackVolume();
   }
 
   applyTrackVolume() {
     if (!this.musicElement) return;
-    this.musicElement.volume = this.settings.musicMuted ? 0 : (TRACK_VOLUME[this.scene] ?? 0);
+    const sceneVolume = TRACK_VOLUME[this.scene] ?? 0;
+    this.musicElement.volume = this.settings.musicMuted ? 0 : sceneVolume * this.settings.musicVolume;
+  }
+
+  setMusicVolume(volume) {
+    this.settings.musicVolume = clampVolume(volume);
+    this.saveSettings();
+    this.applyVolumes();
   }
 
   setMusicMuted(muted) {
