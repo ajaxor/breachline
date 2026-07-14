@@ -44,6 +44,10 @@ function fakeBrowser(savedSettings = null) {
   };
 }
 
+function assertClose(actual, expected) {
+  assert.ok(Math.abs(actual - expected) < 1e-10, `Expected ${actual} to be close to ${expected}`);
+}
+
 test('file soundtrack keeps its playhead while deployment ducks the title track', () => {
   const director = new FileTrackAudioDirector(fakeBrowser());
   const track = director.musicElement;
@@ -53,7 +57,7 @@ test('file soundtrack keeps its playhead while deployment ducks the title track'
 
   assert.equal(track.src, './assets/audio/breach-line-title.mp3');
   assert.equal(track.currentTime, 19.5);
-  assert.equal(track.volume, 0.01);
+  assertClose(track.volume, 0.01);
   assert.equal(track.playCount, 0);
 
   activateAudio(director);
@@ -63,7 +67,7 @@ test('file soundtrack keeps its playhead while deployment ducks the title track'
 
   director.setScene('title');
   assert.equal(track.currentTime, 19.5);
-  assert.equal(track.volume, 0.05);
+  assertClose(track.volume, 0.05);
 });
 
 test('music volume scales the real file track live and persists the selected level', () => {
@@ -73,16 +77,16 @@ test('music volume scales the real file track live and persists the selected lev
   activateAudio(director);
 
   director.setMusicVolume(0.1);
-  assert.equal(track.volume, 0.02);
+  assertClose(track.volume, 0.02);
   assert.equal(director.settings.musicVolume, 0.1);
   assert.equal(JSON.parse(browser.writes.at(-1)[1]).musicVolume, 0.1);
 
   director.setScene('deployment');
-  assert.equal(track.volume, 0.004);
+  assertClose(track.volume, 0.004);
 
   director.setMusicVolume(2);
   assert.equal(director.settings.musicVolume, 1);
-  assert.equal(track.volume, 0.04);
+  assertClose(track.volume, 0.04);
 });
 
 test('saved music volume is restored for the title track', () => {
@@ -91,7 +95,7 @@ test('saved music volume is restored for the title track', () => {
   assert.equal(director.musicElement.volume, 0);
 
   director.applyTrackVolume();
-  assert.equal(director.musicElement.volume, 0.08);
+  assertClose(director.musicElement.volume, 0.08);
 });
 
 test('music mute pauses the file track and unmute resumes the same playhead', () => {
@@ -110,7 +114,7 @@ test('music mute pauses the file track and unmute resumes the same playhead', ()
   director.setMusicMuted(false);
 
   assert.equal(track.currentTime, 27.25);
-  assert.equal(track.volume, 0.05);
+  assertClose(track.volume, 0.05);
   assert.equal(track.playCount, 2);
 });
 
