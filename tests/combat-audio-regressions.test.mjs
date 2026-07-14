@@ -70,8 +70,10 @@ test('range overlays include armed structures and non-swivel side lanes', () => 
 test('file music volume drives the Web Audio track gain when available', () => {
   const director = new FileTrackAudioDirector(fakeAudioBrowser());
   let appliedVolume = null;
+  const gain = { setTargetAtTime() {} };
   director.context = { currentTime: 7 };
-  director.musicGain = { gain: { setTargetAtTime() {} } };
+  director.musicGain = { gain };
+  director.sfxGain = { gain };
   director.trackGain = { gain: { setTargetAtTime(value) { appliedVolume = value; } } };
 
   director.setMusicVolume(0.5);
