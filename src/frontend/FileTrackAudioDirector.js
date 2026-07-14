@@ -103,21 +103,19 @@ export class FileTrackAudioDirector extends AudioDirector {
       super.playEffect(effect, start, voice);
       return;
     }
-    const detune = ((voice % 7) - 3) * 7;
-    this.playBassExplosion(start, 0.92, detune, 0.42);
+    this.playNoiseExplosion(start, 0.92, 0.42);
   }
 
-  playExplosion(start, intensity, detune) {
+  playExplosion(start, intensity) {
     const strength = Math.min(1.35, Math.max(0.65, intensity));
-    this.playBassExplosion(start, strength, detune, 0.5);
+    this.playNoiseExplosion(start, strength, 0.5);
   }
 
-  playBassExplosion(start, strength, detune, tailDuration) {
-    this.filteredNoise(tailDuration, 0.5 * strength, this.sfxGain, start, 520);
-    this.filteredNoise(0.16, 0.22 * strength, this.sfxGain, start + 0.018, 900);
-    this.tone(46, 0.38, 'sawtooth', 0.18 * strength, this.sfxGain, 0, -22, start, detune);
-    this.tone(34, tailDuration, 'sine', 0.2 * strength, this.sfxGain, 0.012, -8, start, -detune);
-    this.tone(120, 0.08, 'square', 0.045 * strength, this.sfxGain, 0.008, -72, start, detune);
+  playNoiseExplosion(start, strength, tailDuration) {
+    this.filteredNoise(tailDuration, 0.58 * strength, this.sfxGain, start, 280);
+    this.filteredNoise(Math.min(0.28, tailDuration), 0.38 * strength, this.sfxGain, start + 0.006, 620);
+    this.filteredNoise(0.095, 0.24 * strength, this.sfxGain, start + 0.012, 1450);
+    this.filteredNoise(0.035, 0.16 * strength, this.sfxGain, start + 0.004, 3200);
   }
 
   playTrack() {
