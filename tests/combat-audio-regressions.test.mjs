@@ -16,9 +16,10 @@ class FakeAudio {
     this.volume = 0;
     this.loop = false;
     this.preload = '';
+    this.playCount = 0;
   }
 
-  play() { return Promise.resolve(); }
+  play() { this.playCount += 1; return Promise.resolve(); }
   pause() {}
 }
 
@@ -59,6 +60,34 @@ test('a reloading unit holds position while a target remains in range', () => {
   assert.equal(archer.reloadTurnsRemaining, 1);
 });
 
+test('Dozer pushes every contiguous unit in the target lane', () => {
+  const model = new GameModel({ random: () => 0, now: () => 0 });
+  model.setupBattle({
+    playerFormation: [formationUnit('dozer', 2, 1)],
+    enemyFormation: [formationUnit('grunt', 2, 2), formationUnit('grunt', 2, 3), formationUnit('grunt', 2, 4)],
+  });
+  const dozer = model.units.find((unit) => unit.type === 'dozer');
+
+  model.processUnit(dozer, 0, 100);
+
+  assert.equal(dozer.column, 2);
+  assert.deepEqual(model.units.filter((unit) => unit.team === TEAM.ENEMY).map((unit) => unit.column), [3, 4, 5]);
+});
+
+test('Dozer leaves the entire line in place when a chain push would leave the board', () => {
+  const model = new GameModel({ random: () => 0, now: () => 0 });
+  model.setupBattle({
+    playerFormation: [formationUnit('dozer', 2, 10)],
+    enemyFormation: [formationUnit('grunt', 2, 11), formationUnit('grunt', 2, 12), formationUnit('grunt', 2, 13)],
+  });
+  const dozer = model.units.find((unit) => unit.type === 'dozer');
+
+  model.processUnit(dozer, 0, 100);
+
+  assert.equal(dozer.column, 10);
+  assert.deepEqual(model.units.filter((unit) => unit.team === TEAM.ENEMY).map((unit) => unit.column), [11, 12, 13]);
+});
+
 test('range overlays include armed structures and non-swivel side lanes', () => {
   const renderer = Object.create(CombatRangeBattlefieldRenderer.prototype);
   const sniper = { type: 'sniper', team: TEAM.ENEMY, row: 3, column: 8 };
@@ -86,6 +115,17 @@ test('friendly formation range overlays are explicitly oriented toward the enemy
 test('sniper pays a premium for its five-cell range', () => {
   assert.equal(UNIT_TYPES.sniper.range, 5);
   assert.equal(UNIT_TYPES.sniper.cost, 38);
+});
+
+test('Stormwing uses low damage to offset its airborne anti-air stun salvo', () => {
+  assert.equal(UNIT_TYPES.stormwing.attack, 3);
+});
+
+test('title track playback is requested as soon as the audio director is created', () => {
+  const director = new FileTrackAudioDirector(fakeAudioBrowser());
+
+  assert.equal(director.musicElement.playCount, 1);
+  assert.equal(director.musicElement.volume, 0.05);
 });
 
 test('file music volume drives the Web Audio track gain when available', () => {
