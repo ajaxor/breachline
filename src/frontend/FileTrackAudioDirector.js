@@ -1,5 +1,6 @@
 import { AudioDirector } from './AudioDirector.js';
 
+const AUDIO_SETTINGS_KEY = 'breach-line-audio';
 const TITLE_TRACK_SRC = './assets/audio/breach-line-title.mp3';
 const DEFAULT_MUSIC_VOLUME = 0.25;
 const TRACK_VOLUME = Object.freeze({
@@ -13,8 +14,17 @@ const clampVolume = (volume) => Math.min(1, Math.max(0, Number.isFinite(Number(v
 export class FileTrackAudioDirector extends AudioDirector {
   constructor(browser = window) {
     super(browser);
-    this.settings.musicVolume = clampVolume(this.settings.musicVolume);
+    this.settings.musicVolume = this.loadMusicVolume();
     this.musicElement = this.createMusicElement();
+  }
+
+  loadMusicVolume() {
+    try {
+      const saved = JSON.parse(this.browser.localStorage?.getItem(AUDIO_SETTINGS_KEY) || '{}');
+      return clampVolume(saved.musicVolume);
+    } catch {
+      return DEFAULT_MUSIC_VOLUME;
+    }
   }
 
   createMusicElement() {
