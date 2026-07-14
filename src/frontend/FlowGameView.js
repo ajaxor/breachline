@@ -1,7 +1,7 @@
 import { MODE } from '../data/gameConfig.js';
 import { GameView } from './GameView.js';
 
-const FLOW_IDS = ['campaignOverlay', 'campaignDifficulty', 'btnBeginCampaign', 'btnSandbox', 'btnCampaignBack', 'btnReinforce', 'btnDraftBack', 'btnSandboxGenerate', 'settingsOverlay', 'btnSettingsClose', 'btnMusicMute', 'btnSfxMute'];
+const FLOW_IDS = ['campaignOverlay', 'campaignDifficulty', 'btnBeginCampaign', 'btnSandbox', 'btnCampaignBack', 'btnReinforce', 'btnDraftBack', 'btnSandboxGenerate', 'settingsOverlay', 'btnSettingsClose', 'btnMusicMute', 'musicVolume', 'musicVolumeValue', 'btnSfxMute'];
 const DIFFICULTY_LABELS = new Map([[0.8, 'RECRUIT'], [1, 'STANDARD'], [1.25, 'VETERAN'], [1.5, 'BRUTAL']]);
 
 export class FlowGameView extends GameView {
@@ -48,6 +48,10 @@ export class FlowGameView extends GameView {
   renderAudioSettings(settings = {}) {
     this.renderMuteButton(this.elements.btnMusicMute, 'Music', Boolean(settings.musicMuted));
     this.renderMuteButton(this.elements.btnSfxMute, 'Sound Effects', Boolean(settings.sfxMuted));
+    const musicVolume = Number.isFinite(Number(settings.musicVolume)) ? Math.min(1, Math.max(0, Number(settings.musicVolume))) : 0.25;
+    const percent = Math.round(musicVolume * 100);
+    this.elements.musicVolume.value = String(percent);
+    this.elements.musicVolumeValue.textContent = `${percent}%`;
   }
 
   renderMuteButton(button, label, muted) {
