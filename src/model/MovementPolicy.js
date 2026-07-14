@@ -28,7 +28,10 @@ export class MovementPolicy {
   movementBlocker(unit, occupants) {
     const type = UNIT_TYPES[unit.type];
     if (!hasUnitTag(type, UNIT_TAG.FLYING)) return occupants[0] ?? null;
-    return occupants.find((occupant) => hasUnitTag(occupant.type, UNIT_TAG.FLYING)) ?? null;
+    return occupants.find((occupant) => {
+      if (!hasUnitTag(occupant.type, UNIT_TAG.FLYING)) return false;
+      return occupant.team !== unit.team || !occupant.willMoveThisTick;
+    }) ?? null;
   }
 
   blockerAhead(model, unit) {
