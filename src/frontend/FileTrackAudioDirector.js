@@ -104,10 +104,20 @@ export class FileTrackAudioDirector extends AudioDirector {
       return;
     }
     const detune = ((voice % 7) - 3) * 7;
-    this.filteredNoise(0.18, 0.28, this.sfxGain, start, 850);
-    this.filteredNoise(0.055, 0.14, this.sfxGain, start + 0.018, 3600);
-    this.tone(82, 0.2, 'sawtooth', 0.12, this.sfxGain, 0, -46, start, detune);
-    this.tone(360, 0.075, 'square', 0.055, this.sfxGain, 0.012, -210, start, -detune);
+    this.playBassExplosion(start, 0.92, detune, 0.42);
+  }
+
+  playExplosion(start, intensity, detune) {
+    const strength = Math.min(1.35, Math.max(0.65, intensity));
+    this.playBassExplosion(start, strength, detune, 0.5);
+  }
+
+  playBassExplosion(start, strength, detune, tailDuration) {
+    this.filteredNoise(tailDuration, 0.5 * strength, this.sfxGain, start, 520);
+    this.filteredNoise(0.16, 0.22 * strength, this.sfxGain, start + 0.018, 900);
+    this.tone(46, 0.38, 'sawtooth', 0.18 * strength, this.sfxGain, 0, -22, start, detune);
+    this.tone(34, tailDuration, 'sine', 0.2 * strength, this.sfxGain, 0.012, -8, start, -detune);
+    this.tone(120, 0.08, 'square', 0.045 * strength, this.sfxGain, 0.008, -72, start, detune);
   }
 
   playTrack() {
