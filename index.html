@@ -66,7 +66,11 @@
     <section id="settingsOverlay" class="campaign-overlay settings-overlay" hidden>
       <div class="campaign-dialog settings-dialog">
         <div class="draft-kicker">Command Settings</div><h2>Audio</h2>
-        <div class="audio-settings"><button id="btnMusicMute" class="audio-setting" aria-pressed="false"></button><button id="btnSfxMute" class="audio-setting" aria-pressed="false"></button></div>
+        <div class="audio-settings">
+          <button id="btnMusicMute" class="audio-setting" aria-pressed="false"></button>
+          <label class="audio-volume-setting" for="musicVolume"><span class="audio-setting-label">Music Volume</span><span class="audio-volume-value" id="musicVolumeValue">25%</span><input id="musicVolume" type="range" min="0" max="100" step="1" value="25" aria-label="Music volume"></label>
+          <button id="btnSfxMute" class="audio-setting" aria-pressed="false"></button>
+        </div>
         <div class="campaign-actions"><button class="primary" id="btnSettingsClose">Done</button></div>
       </div>
     </section>
