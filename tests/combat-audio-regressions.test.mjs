@@ -67,6 +67,11 @@ test('range overlays include armed structures and non-swivel side lanes', () => 
   assert.equal(renderer.isCellInAttackRange(sniper, UNIT_TYPES.sniper, 3, 5), true);
 });
 
+test('sniper pays a premium for its five-cell range', () => {
+  assert.equal(UNIT_TYPES.sniper.range, 5);
+  assert.equal(UNIT_TYPES.sniper.cost, 38);
+});
+
 test('file music volume drives the Web Audio track gain when available', () => {
   const director = new FileTrackAudioDirector(fakeAudioBrowser());
   let appliedVolume = null;
@@ -80,4 +85,19 @@ test('file music volume drives the Web Audio track gain when available', () => {
 
   assert.equal(director.musicElement.volume, 1);
   assert.equal(appliedVolume, 0.1);
+});
+
+test('explosion synthesis is dominated by low noise and bass voices', () => {
+  const director = new FileTrackAudioDirector(fakeAudioBrowser());
+  const noises = [];
+  const tones = [];
+  director.sfxGain = {};
+  director.filteredNoise = (duration, volume, destination, at, cutoff) => noises.push({ duration, cutoff });
+  director.tone = (note, duration, type, volume, destination, delay, sweep) => tones.push({ note, duration, type, sweep });
+
+  director.playExplosion(2, 1, 0);
+
+  assert.deepEqual(noises.map((noise) => noise.cutoff), [520, 900]);
+  assert.deepEqual(tones.map((tone) => tone.note), [46, 34, 120]);
+  assert.ok(tones.filter((tone) => tone.note < 60).every((tone) => tone.duration >= 0.38));
 });
