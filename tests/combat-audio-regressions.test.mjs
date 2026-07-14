@@ -87,17 +87,17 @@ test('file music volume drives the Web Audio track gain when available', () => {
   assert.equal(appliedVolume, 0.1);
 });
 
-test('explosion synthesis is dominated by low noise and bass voices', () => {
+test('explosion synthesis uses layered noise with no tonal oscillators', () => {
   const director = new FileTrackAudioDirector(fakeAudioBrowser());
   const noises = [];
   const tones = [];
   director.sfxGain = {};
   director.filteredNoise = (duration, volume, destination, at, cutoff) => noises.push({ duration, cutoff });
-  director.tone = (note, duration, type, volume, destination, delay, sweep) => tones.push({ note, duration, type, sweep });
+  director.tone = (...args) => tones.push(args);
 
   director.playExplosion(2, 1, 0);
 
-  assert.deepEqual(noises.map((noise) => noise.cutoff), [520, 900]);
-  assert.deepEqual(tones.map((tone) => tone.note), [46, 34, 120]);
-  assert.ok(tones.filter((tone) => tone.note < 60).every((tone) => tone.duration >= 0.38));
+  assert.deepEqual(noises.map((noise) => noise.cutoff), [280, 620, 1450, 3200]);
+  assert.equal(tones.length, 0);
+  assert.ok(noises[0].duration >= 0.5);
 });
