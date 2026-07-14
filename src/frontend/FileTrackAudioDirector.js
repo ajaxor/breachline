@@ -1,3 +1,4 @@
+import { EFFECT_TYPE } from '../data/gameTypes.js';
 import { AudioDirector } from './AudioDirector.js';
 
 const AUDIO_SETTINGS_KEY = 'breach-line-audio';
@@ -88,6 +89,25 @@ export class FileTrackAudioDirector extends AudioDirector {
     }
     this.applyTrackVolume();
     this.playTrack();
+  }
+
+  playEffects(effects) {
+    const emphasizedDeaths = effects.map((effect) => effect.type === EFFECT_TYPE.DEATH
+      ? { ...effect, type: EFFECT_TYPE.EXPLOSION, deathExplosion: true }
+      : effect);
+    super.playEffects(emphasizedDeaths);
+  }
+
+  playEffect(effect, start = this.context?.currentTime ?? 0, voice = 0) {
+    if (!effect.deathExplosion) {
+      super.playEffect(effect, start, voice);
+      return;
+    }
+    const detune = ((voice % 7) - 3) * 7;
+    this.filteredNoise(0.18, 0.28, this.sfxGain, start, 850);
+    this.filteredNoise(0.055, 0.14, this.sfxGain, start + 0.018, 3600);
+    this.tone(82, 0.2, 'sawtooth', 0.12, this.sfxGain, 0, -46, start, detune);
+    this.tone(360, 0.075, 'square', 0.055, this.sfxGain, 0.012, -210, start, -detune);
   }
 
   playTrack() {
