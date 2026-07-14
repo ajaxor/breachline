@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { TEAM, UNIT_TYPES } from '../src/data/gameConfig.js';
+import { ATTACK_ANIMATION, EFFECT_TYPE } from '../src/data/gameTypes.js';
 import { CombatRangeBattlefieldRenderer } from '../src/frontend/CombatRangeBattlefieldRenderer.js';
 import { FileTrackAudioDirector } from '../src/frontend/FileTrackAudioDirector.js';
 import { GameModel } from '../src/model/GameModel.js';
@@ -87,7 +88,23 @@ test('file music volume drives the Web Audio track gain when available', () => {
   assert.equal(appliedVolume, 0.1);
 });
 
-test('explosion synthesis uses layered noise with no tonal oscillators', () => {
+test('melee attacks reuse the short arcade noise burst without tonal oscillators', () => {
+  const director = new FileTrackAudioDirector(fakeAudioBrowser());
+  const noises = [];
+  const tones = [];
+  director.context = { currentTime: 0 };
+  director.sfxGain = {};
+  director.filteredNoise = (duration, volume, destination, at, cutoff) => noises.push({ duration, cutoff });
+  director.tone = (...args) => tones.push(args);
+
+  director.playEffect({ type: EFFECT_TYPE.MELEE }, 2, 0);
+
+  assert.deepEqual(noises.map((noise) => noise.cutoff), [280, 620, 1450, 3200]);
+  assert.equal(tones.length, 0);
+  assert.equal(noises[0].duration, 0.42);
+});
+
+test('unit death explosion is deeper and longer than the melee noise burst', () => {
   const director = new FileTrackAudioDirector(fakeAudioBrowser());
   const noises = [];
   const tones = [];
@@ -95,9 +112,27 @@ test('explosion synthesis uses layered noise with no tonal oscillators', () => {
   director.filteredNoise = (duration, volume, destination, at, cutoff) => noises.push({ duration, cutoff });
   director.tone = (...args) => tones.push(args);
 
-  director.playExplosion(2, 1, 0);
+  director.playDeathExplosion(2, 1);
 
-  assert.deepEqual(noises.map((noise) => noise.cutoff), [280, 620, 1450, 3200]);
+  assert.deepEqual(noises.map((noise) => noise.cutoff), [150, 260, 480, 900, 2200]);
   assert.equal(tones.length, 0);
-  assert.ok(noises[0].duration >= 0.5);
+  assert.ok(noises[0].duration >= 0.9);
+  assert.ok(noises[0].cutoff < 280);
+});
+
+test('laser attack synthesis uses lower sweeping voices and a noise edge', () => {
+  const director = new FileTrackAudioDirector(fakeAudioBrowser());
+  const noises = [];
+  const tones = [];
+  director.sfxGain = {};
+  director.filteredNoise = (duration, volume, destination, at, cutoff) => noises.push({ duration, cutoff });
+  director.tone = (note, duration, type, volume, destination, delay, sweep) => tones.push({ note, duration, type, sweep });
+
+  director.playRangedAttack(ATTACK_ANIMATION.LASER, 2, 0);
+
+  assert.deepEqual(tones.map((tone) => tone.note), [340, 190]);
+  assert.ok(tones.every((tone) => tone.note < 400));
+  assert.ok(tones.some((tone) => tone.sweep < 0));
+  assert.ok(tones.some((tone) => tone.sweep > 0));
+  assert.deepEqual(noises.map((noise) => noise.cutoff), [1200]);
 });
