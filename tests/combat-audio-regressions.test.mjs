@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { FlowGameController } from '../src/backend/FlowGameController.js';
 import { TEAM, UNIT_TYPES } from '../src/data/gameConfig.js';
 import { ATTACK_ANIMATION, EFFECT_TYPE } from '../src/data/gameTypes.js';
 import { CombatRangeBattlefieldRenderer } from '../src/frontend/CombatRangeBattlefieldRenderer.js';
@@ -68,6 +69,20 @@ test('range overlays include armed structures and non-swivel side lanes', () => 
   assert.equal(renderer.isCellInAttackRange(sniper, UNIT_TYPES.sniper, 3, 5), true);
 });
 
+test('friendly formation range overlays are explicitly oriented toward the enemy wall', () => {
+  const renderer = Object.create(CombatRangeBattlefieldRenderer.prototype);
+  renderer.inspectedEnemyCell = null;
+  renderer.model = null;
+  renderer.canShowAttackRange = () => true;
+  renderer.drawRangedRangeZone = (unit) => { renderer.drawnUnit = unit; };
+
+  CombatRangeBattlefieldRenderer.prototype.drawFriendlyEffectZones.call(renderer, [formationUnit('sniper', 3, 2)]);
+
+  assert.equal(renderer.drawnUnit.team, TEAM.PLAYER);
+  assert.equal(renderer.isCellInAttackRange(renderer.drawnUnit, UNIT_TYPES.sniper, 3, 5), true);
+  assert.equal(renderer.isCellInAttackRange(renderer.drawnUnit, UNIT_TYPES.sniper, 3, 1), false);
+});
+
 test('sniper pays a premium for its five-cell range', () => {
   assert.equal(UNIT_TYPES.sniper.range, 5);
   assert.equal(UNIT_TYPES.sniper.cost, 38);
@@ -86,6 +101,38 @@ test('file music volume drives the Web Audio track gain when available', () => {
 
   assert.equal(director.musicElement.volume, 1);
   assert.equal(appliedVolume, 0.1);
+});
+
+test('the first pointer interaction unlocks title music without requiring a button click', () => {
+  const controller = Object.create(FlowGameController.prototype);
+  const document = { querySelectorAll: () => [] };
+  const element = {};
+  const listeners = [];
+  let unlocks = 0;
+  controller.view = { document, elements: new Proxy({}, { get: () => element }) };
+  controller.browser = {};
+  controller.audioDirector = { unlock() { unlocks += 1; } };
+  controller.listen = (target, type, handler) => listeners.push({ target, type, handler });
+
+  controller.bindEvents();
+  listeners.find((listener) => listener.target === document && listener.type === 'pointerdown').handler();
+
+  assert.equal(unlocks, 1);
+});
+
+test('surrendering from a battle loss result returns directly to title', () => {
+  const controller = Object.create(FlowGameController.prototype);
+  let surrendered = 0;
+  let confirmationRequests = 0;
+  controller.surrenderCampaign = () => { surrendered += 1; };
+  controller.requestSurrender = () => { confirmationRequests += 1; };
+
+  controller.handleResultAction({
+    target: { closest: () => ({ dataset: { resultAction: 'surrender' } }) },
+  });
+
+  assert.equal(surrendered, 1);
+  assert.equal(confirmationRequests, 0);
 });
 
 test('melee attacks reuse the short arcade noise burst without tonal oscillators', () => {
