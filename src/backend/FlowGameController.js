@@ -24,6 +24,7 @@ export class FlowGameController extends GameController {
     this.view.document.querySelectorAll('[data-open-settings]').forEach((button) => this.listen(button, 'click', () => this.view.openSettings()));
     this.listen(elements.btnSettingsClose, 'click', () => this.view.closeSettings());
     this.listen(elements.btnMusicMute, 'click', () => this.toggleMusic());
+    this.listen(elements.musicVolume, 'input', () => this.setMusicVolume(elements.musicVolume.value));
     this.listen(elements.btnSfxMute, 'click', () => this.toggleSfx());
     this.listen(elements.btnBeginCampaign, 'click', () => this.startCampaign());
     this.listen(elements.btnSandbox, 'click', () => this.startSandbox());
@@ -69,6 +70,13 @@ export class FlowGameController extends GameController {
     if (!this.audioDirector) return;
     this.audioDirector.unlock();
     this.audioDirector.setMusicMuted(!this.audioDirector.settings.musicMuted);
+    this.view.renderAudioSettings(this.audioDirector.settings);
+  }
+
+  setMusicVolume(percent) {
+    if (!this.audioDirector?.setMusicVolume) return;
+    this.audioDirector.unlock();
+    this.audioDirector.setMusicVolume(Number(percent) / 100);
     this.view.renderAudioSettings(this.audioDirector.settings);
   }
 
