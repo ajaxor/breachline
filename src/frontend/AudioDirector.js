@@ -27,7 +27,7 @@ const MUSIC = Object.freeze({
     tempo: 1.05,
     bass: [...repeat([38, null, 38, null, 43, null, 41, null], 2), ...repeat([36, null, 36, null, 41, null, 43, null], 2), ...repeat([34, null, 38, null, 41, null, 45, null], 2), ...repeat([36, null, 43, null, 41, null, 38, null], 2)],
     lead: [62, null, 65, 67, null, 69, 67, null, 62, 65, null, 70, 69, null, 65, null, 60, null, 63, 65, null, 67, 70, null, 72, 70, null, 67, 65, null, 63, null, 58, null, 62, 65, null, 69, 67, null, 70, null, 69, 65, null, 62, 64, null, 60, 63, null, 67, 70, null, 67, null, 65, null, 63, 62, null, 58, 60, null],
-    counter: [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 72, null, 70, null, 67, null, 69, null, 70, null, 72, null, 74, 72, null, null, null, null, null, null, null, null, null, null, 69, null, 67, null, 65, 67, null, null, 74, null, 72, 70, null, 67, null, 69, 70, null, 67, null, 65, null, 62, null],
+    counter: [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 72, null, 70, null, 67, null, 69, null, 70, null, 72, null, 74, 72, null, null, null, null, null, null, null, null, null, null, null, 69, null, 67, null, 65, 67, null, null, 74, null, 72, 70, null, 67, null, 69, 70, null, 67, null, 65, null, 62, null],
     arp: repeat([74, 77, 81, 77, 72, 77, 79, 77, 70, 74, 77, 74, 72, 75, 79, 75], 4),
     drum: [1, 0, 0.28, 0.18, 0.68, 0, 0.38, 0.16, 0.92, 0.12, 0.28, 0.18, 0.72, 0, 0.48, 0.24, 1, 0.18, 0.42, 0.2, 0.76, 0.12, 0.34, 0.2, 0.96, 0.16, 0.38, 0.2, 0.82, 0.18, 0.56, 0.34, 1, 0, 0.32, 0.2, 0.7, 0.14, 0.42, 0.22, 0.94, 0.18, 0.34, 0.24, 0.8, 0.16, 0.5, 0.3, 1, 0.2, 0.46, 0.26, 0.84, 0.18, 0.4, 0.28, 1, 0.22, 0.54, 0.3, 0.9, 0.24, 0.64, 0.42],
   }),
@@ -240,8 +240,9 @@ export class AudioDirector {
         this.tone(680, 0.09, 'sawtooth', 0.05, this.sfxGain, 0.035, -420, start, -detune);
         break;
       case ATTACK_ANIMATION.LASER:
-        this.tone(980, 0.075, 'square', 0.13, this.sfxGain, 0, 520, start, detune);
-        this.tone(490, 0.05, 'sawtooth', 0.055, this.sfxGain, 0.014, 280, start, -detune);
+        this.filteredNoise(0.035, 0.045, this.sfxGain, start, 1200);
+        this.tone(340, 0.14, 'sawtooth', 0.13, this.sfxGain, 0, -230, start, detune);
+        this.tone(190, 0.12, 'square', 0.075, this.sfxGain, 0.012, 160, start, -detune);
         break;
       default:
         this.tone(720, 0.065, 'square', 0.12, this.sfxGain, 0, 340, start, detune);
@@ -328,26 +329,10 @@ export class AudioDirector {
   }
 
   tone(note, duration, type, volume, destination, delay = 0, sweep = 0, at = this.context?.currentTime ?? 0, detune = 0) {
-    if (!this.context || note === null || note === undefined) return;
-    const frequency = note < 128 ? midiFrequency(note) : note;
-    const start = at + delay;
-    const oscillator = this.context.createOscillator();
-    const gain = this.context.createGain();
-    oscillator.type = type;
-    oscillator.frequency.setValueAtTime(frequency, start);
-    oscillator.detune?.setValueAtTime(detune, start);
-    if (sweep) oscillator.frequency.exponentialRampToValueAtTime(Math.max(24, frequency + sweep), start + duration);
-    gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.001, volume), start + 0.008);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-    oscillator.connect(gain);
-    gain.connect(destination);
-    oscillator.onended = () => { try { oscillator.disconnect(); } catch { /* Already disconnected. */ } try { gain.disconnect(); } catch { /* Already disconnected. */ } };
-    oscillator.start(start);
-    oscillator.stop(start + duration + 0.02);
+    this.synthTone(note, duration, volume, destination, { type, sweep, at: at + delay, detune });
   }
 
-  filteredNoise(duration, volume, destination, at = this.context?.currentTime ?? 0, cutoff = 1200) {
+  filteredNoise(duration, volume, destination, at, cutoff = 1800) {
     if (!this.context || !this.noiseBuffer) return;
     const source = this.context.createBufferSource();
     const filter = this.context.createBiquadFilter();
@@ -356,23 +341,29 @@ export class AudioDirector {
     filter.type = 'lowpass';
     filter.frequency.setValueAtTime(cutoff, at);
     filter.frequency.exponentialRampToValueAtTime(Math.max(90, cutoff * 0.35), at + duration);
-    gain.gain.setValueAtTime(Math.max(0.0001, volume), at);
+    gain.gain.setValueAtTime(Math.max(0.001, volume), at);
     gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
     source.connect(filter);
     filter.connect(gain);
     gain.connect(destination);
-    source.onended = () => { try { source.disconnect(); } catch { /* Already disconnected. */ } try { filter.disconnect(); } catch { /* Already disconnected. */ } try { gain.disconnect(); } catch { /* Already disconnected. */ } };
-    source.start(at, Math.random() * Math.max(0, NOISE_BUFFER_SECONDS - duration));
-    source.stop(at + duration + 0.005);
+    source.start(at);
+    source.stop(at + duration + 0.01);
+    source.onended = () => {
+      try { source.disconnect(); } catch { /* Already disconnected. */ }
+      try { filter.disconnect(); } catch { /* Already disconnected. */ }
+      try { gain.disconnect(); } catch { /* Already disconnected. */ }
+    };
   }
-
-  noise(duration, volume, destination, at = this.context?.currentTime ?? 0) { this.filteredNoise(duration, volume, destination, at, 8000); }
 
   dispose() {
     if (this.musicTimer !== null) this.browser.clearInterval(this.musicTimer);
     this.musicTimer = null;
-    this.noiseBuffer = null;
+    try { this.musicGain?.disconnect?.(); } catch { /* Already disconnected. */ }
+    try { this.sfxGain?.disconnect?.(); } catch { /* Already disconnected. */ }
     this.context?.close?.();
     this.context = null;
+    this.musicGain = null;
+    this.sfxGain = null;
+    this.noiseBuffer = null;
   }
 }
