@@ -1,4 +1,4 @@
-import { GAME_CONFIG, TEAM, UNIT_ROLE, UNIT_TAG, UNIT_TYPES } from '../data/gameConfig.js';
+import { GAME_CONFIG, TEAM, UNIT_TAG, UNIT_TYPES } from '../data/gameConfig.js';
 import { ATTACK_ANIMATION } from '../data/gameTypes.js';
 import { DeploymentBattlefieldRenderer } from './DeploymentBattlefieldRenderer.js';
 import { drawUnitGraphic } from './UnitGraphics.js';
@@ -63,13 +63,17 @@ export class CombatRangeBattlefieldRenderer extends DeploymentBattlefieldRendere
     ctx.restore();
   }
 
+  canShowAttackRange(type) {
+    return Boolean(type && type.attack > 0 && type.range > 0);
+  }
+
   drawFriendlyEffectZones(formation) {
     super.drawFriendlyEffectZones(formation);
 
     const unit = formation.at(-1);
     if (unit) {
       const type = UNIT_TYPES[unit.type];
-      if (type?.role === UNIT_ROLE.RANGED) this.drawRangedRangeZone(unit, type);
+      if (this.canShowAttackRange(type)) this.drawRangedRangeZone(unit, type);
     }
 
     const inspected = this.inspectedEnemyCell;
@@ -78,26 +82,32 @@ export class CombatRangeBattlefieldRenderer extends DeploymentBattlefieldRendere
       (candidate) => candidate.row === inspected.row && candidate.column === inspected.column,
     );
     const enemyType = enemy ? UNIT_TYPES[enemy.type] : null;
-    if (enemyType?.role === UNIT_ROLE.RANGED) this.drawRangedRangeZone({ ...enemy, team: TEAM.ENEMY }, enemyType);
+    if (this.canShowAttackRange(enemyType)) this.drawRangedRangeZone({ ...enemy, team: TEAM.ENEMY }, enemyType);
+  }
+
+  isCellInAttackRange(unit, type, row, column) {
+    const rowDistance = Math.abs(row - unit.row);
+    const columnDistance = Math.abs(column - unit.column);
+    const direction = unit.team === TEAM.PLAYER ? 1 : -1;
+    const forwardDistance = (column - unit.column) * direction;
+    if (forwardDistance < 0) return false;
+    if (type.tags.includes(UNIT_TAG.SWIVEL)) return Math.max(rowDistance, columnDistance) <= type.range;
+    const inForwardLane = row === unit.row && forwardDistance <= type.range;
+    const inSideLane = column === unit.column && rowDistance <= type.range;
+    return inForwardLane || inSideLane;
   }
 
   drawRangedRangeZone(unit, type) {
     const ctx = this.context;
     const cell = this.cellSize;
     const graphic = type.graphic ?? type.shape;
-    const canSwivel = type.tags.includes(UNIT_TAG.SWIVEL);
     ctx.save();
     ctx.fillStyle = RANGE_STYLE.fill;
     ctx.strokeStyle = RANGE_STYLE.stroke;
     ctx.lineWidth = Math.max(1, cell * 0.025);
     for (let row = 0; row < GAME_CONFIG.rows; row += 1) {
       for (let column = 0; column < GAME_CONFIG.columns; column += 1) {
-        const rowDistance = Math.abs(row - unit.row);
-        const columnDistance = Math.abs(column - unit.column);
-        const inRange = canSwivel
-          ? rowDistance + columnDistance <= type.range
-          : row === unit.row && columnDistance <= type.range;
-        if (!inRange) continue;
+        if (!this.isCellInAttackRange(unit, type, row, column)) continue;
         const inset = Math.max(1, cell * 0.06);
         const x = column * cell + inset;
         const y = row * cell + inset;
