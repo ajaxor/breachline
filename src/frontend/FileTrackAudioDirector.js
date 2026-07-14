@@ -16,6 +16,8 @@ export class FileTrackAudioDirector extends AudioDirector {
     super(browser);
     this.settings.musicVolume = this.loadMusicVolume();
     this.musicElement = this.createMusicElement();
+    this.trackSource = null;
+    this.trackGain = null;
   }
 
   loadMusicVolume() {
@@ -37,6 +39,18 @@ export class FileTrackAudioDirector extends AudioDirector {
     return element;
   }
 
+  unlock() {
+    const unlocked = super.unlock();
+    if (!unlocked || !this.context || !this.musicElement || this.trackSource || !this.context.createMediaElementSource) return unlocked;
+    this.trackSource = this.context.createMediaElementSource(this.musicElement);
+    this.trackGain = this.context.createGain();
+    this.trackSource.connect(this.trackGain);
+    this.trackGain.connect(this.context.destination);
+    this.applyTrackVolume();
+    this.playTrack();
+    return unlocked;
+  }
+
   applyVolumes() {
     super.applyVolumes();
     if (this.context && this.musicGain) {
@@ -49,7 +63,13 @@ export class FileTrackAudioDirector extends AudioDirector {
   applyTrackVolume() {
     if (!this.musicElement) return;
     const sceneVolume = TRACK_VOLUME[this.scene] ?? 0;
-    this.musicElement.volume = this.settings.musicMuted ? 0 : sceneVolume * this.settings.musicVolume;
+    const volume = this.settings.musicMuted ? 0 : sceneVolume * this.settings.musicVolume;
+    if (this.trackGain && this.context) {
+      this.musicElement.volume = 1;
+      this.trackGain.gain.setTargetAtTime(volume, this.context.currentTime, 0.025);
+      return;
+    }
+    this.musicElement.volume = volume;
   }
 
   setMusicVolume(volume) {
@@ -62,7 +82,7 @@ export class FileTrackAudioDirector extends AudioDirector {
     super.setMusicMuted(muted);
     if (!this.musicElement) return;
     if (this.settings.musicMuted) {
-      this.musicElement.volume = 0;
+      this.applyTrackVolume();
       this.musicElement.pause?.();
       return;
     }
@@ -85,6 +105,10 @@ export class FileTrackAudioDirector extends AudioDirector {
 
   dispose() {
     this.musicElement?.pause?.();
+    try { this.trackSource?.disconnect?.(); } catch { /* Already disconnected. */ }
+    try { this.trackGain?.disconnect?.(); } catch { /* Already disconnected. */ }
+    this.trackSource = null;
+    this.trackGain = null;
     this.musicElement = null;
     super.dispose();
   }
