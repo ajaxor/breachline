@@ -99,23 +99,35 @@ export class FileTrackAudioDirector extends AudioDirector {
   }
 
   playEffect(effect, start = this.context?.currentTime ?? 0, voice = 0) {
-    if (!effect.deathExplosion) {
-      super.playEffect(effect, start, voice);
+    if (effect.deathExplosion) {
+      this.playDeathExplosion(start, 0.96);
       return;
     }
-    this.playNoiseExplosion(start, 0.92, 0.42);
+    if (effect.type === EFFECT_TYPE.MELEE) {
+      this.playArcadeNoiseBurst(start, 0.78, 0.42);
+      return;
+    }
+    super.playEffect(effect, start, voice);
   }
 
   playExplosion(start, intensity) {
     const strength = Math.min(1.35, Math.max(0.65, intensity));
-    this.playNoiseExplosion(start, strength, 0.5);
+    this.playDeathExplosion(start, strength);
   }
 
-  playNoiseExplosion(start, strength, tailDuration) {
+  playArcadeNoiseBurst(start, strength, tailDuration) {
     this.filteredNoise(tailDuration, 0.58 * strength, this.sfxGain, start, 280);
     this.filteredNoise(Math.min(0.28, tailDuration), 0.38 * strength, this.sfxGain, start + 0.006, 620);
     this.filteredNoise(0.095, 0.24 * strength, this.sfxGain, start + 0.012, 1450);
     this.filteredNoise(0.035, 0.16 * strength, this.sfxGain, start + 0.004, 3200);
+  }
+
+  playDeathExplosion(start, strength) {
+    this.filteredNoise(0.92, 0.68 * strength, this.sfxGain, start, 150);
+    this.filteredNoise(0.72, 0.54 * strength, this.sfxGain, start + 0.012, 260);
+    this.filteredNoise(0.46, 0.38 * strength, this.sfxGain, start + 0.022, 480);
+    this.filteredNoise(0.2, 0.24 * strength, this.sfxGain, start + 0.01, 900);
+    this.filteredNoise(0.055, 0.13 * strength, this.sfxGain, start + 0.004, 2200);
   }
 
   playTrack() {
