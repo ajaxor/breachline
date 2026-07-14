@@ -8,6 +8,11 @@ function draftModel(randomValue = 0.3) {
   return model;
 }
 
+function assertUniqueDraftUnits(choices) {
+  const offeredUnitKeys = choices.flatMap((choice) => choice.units).map((unit) => unit.key);
+  assert.equal(new Set(offeredUnitKeys).size, offeredUnitKeys.length);
+}
+
 test('mission one draft choices are single tech-one units', () => {
   const model = draftModel(0);
   model.currentDraftMissionIndex = 0;
@@ -16,6 +21,7 @@ test('mission one draft choices are single tech-one units', () => {
   assert.equal(choices.length, 3);
   assert.equal(choices.every((choice) => !choice.isPair), true);
   assert.equal(choices.flatMap((choice) => choice.units).every((unit) => unit.techLevel === 1), true);
+  assertUniqueDraftUnits(choices);
 });
 
 test('pair offerings are not selected by a moderate pair roll', () => {
@@ -25,4 +31,5 @@ test('pair offerings are not selected by a moderate pair roll', () => {
 
   assert.equal(choices.length, 3);
   assert.equal(choices.every((choice) => !choice.isPair), true);
+  assertUniqueDraftUnits(choices);
 });
