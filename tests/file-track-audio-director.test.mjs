@@ -48,9 +48,10 @@ function assertClose(actual, expected) {
   assert.ok(Math.abs(actual - expected) < 1e-10, `Expected ${actual} to be close to ${expected}`);
 }
 
-test('file soundtrack keeps its playhead while deployment ducks the title track', () => {
+test('file soundtrack starts on load and keeps its playhead while deployment ducks the title track', () => {
   const director = new FileTrackAudioDirector(fakeBrowser());
   const track = director.musicElement;
+  assert.equal(track.playCount, 1);
   track.currentTime = 19.5;
 
   director.setScene('deployment');
@@ -58,12 +59,12 @@ test('file soundtrack keeps its playhead while deployment ducks the title track'
   assert.equal(track.src, './assets/audio/breach-line-title.mp3');
   assert.equal(track.currentTime, 19.5);
   assertClose(track.volume, 0.01);
-  assert.equal(track.playCount, 0);
+  assert.equal(track.playCount, 2);
 
   activateAudio(director);
   director.restartMusic();
   assert.equal(track.currentTime, 19.5);
-  assert.equal(track.playCount, 1);
+  assert.equal(track.playCount, 3);
 
   director.setScene('title');
   assert.equal(track.currentTime, 19.5);
@@ -89,13 +90,11 @@ test('music volume scales the real file track live and persists the selected lev
   assertClose(track.volume, 0.04);
 });
 
-test('saved music volume is restored for the title track', () => {
+test('saved music volume is restored for the title track on load', () => {
   const director = new FileTrackAudioDirector(fakeBrowser({ musicMuted: false, sfxMuted: false, musicVolume: 0.4 }));
   assert.equal(director.settings.musicVolume, 0.4);
-  assert.equal(director.musicElement.volume, 0);
-
-  director.applyTrackVolume();
   assertClose(director.musicElement.volume, 0.08);
+  assert.equal(director.musicElement.playCount, 1);
 });
 
 test('music mute pauses the file track and unmute resumes the same playhead', () => {
@@ -115,7 +114,7 @@ test('music mute pauses the file track and unmute resumes the same playhead', ()
 
   assert.equal(track.currentTime, 27.25);
   assertClose(track.volume, 0.05);
-  assert.equal(track.playCount, 2);
+  assert.equal(track.playCount, 3);
 });
 
 test('battle scene keeps the title track silent even when music is unmuted', () => {
@@ -128,5 +127,5 @@ test('battle scene keeps the title track silent even when music is unmuted', () 
   director.setMusicMuted(false);
 
   assert.equal(track.volume, 0);
-  assert.equal(track.playCount, 0);
+  assert.equal(track.playCount, 1);
 });
