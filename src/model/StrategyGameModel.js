@@ -160,8 +160,7 @@ export class StrategyGameModel extends GameModel {
       const roles = types.map((type) => type.role);
       const repeatedRoles = roles.length - new Set(roles).size;
       const usedRoleCount = roles.filter((role) => usedRoles.has(role)).length;
-      const usedUnitCount = types.filter((type) => usedUnitKeys.has(type.key)).length;
-      return usedRoleCount * 8 + repeatedRoles * 3 + usedUnitCount;
+      return usedRoleCount * 8 + repeatedRoles * 3;
     };
 
     const weightedDraftScore = (types) => {
@@ -169,17 +168,21 @@ export class StrategyGameModel extends GameModel {
       return techWeight / (1 + rolePenalty(types) * 2);
     };
 
+    const unusedTypes = (pool) => pool.filter((type) => !usedUnitKeys.has(type.key));
+
     const bestSingle = () => {
-      const candidates = this.shuffle(singlePool.length ? singlePool : preferredPool);
+      const availableSinglePool = unusedTypes(singlePool.length ? singlePool : preferredPool);
+      const candidates = this.shuffle(availableSinglePool);
       return this.weightedChoice(candidates, (type) => weightedDraftScore([type]));
     };
 
     const bestPair = () => {
+      const availablePairPool = unusedTypes(pairPool);
       const pairs = [];
-      for (let firstIndex = 0; firstIndex < pairPool.length; firstIndex += 1) {
-        for (let secondIndex = firstIndex + 1; secondIndex < pairPool.length; secondIndex += 1) {
-          const first = pairPool[firstIndex];
-          const second = pairPool[secondIndex];
+      for (let firstIndex = 0; firstIndex < availablePairPool.length; firstIndex += 1) {
+        for (let secondIndex = firstIndex + 1; secondIndex < availablePairPool.length; secondIndex += 1) {
+          const first = availablePairPool[firstIndex];
+          const second = availablePairPool[secondIndex];
           if (isSupportPair(first, second)) continue;
           pairs.push([first, second]);
         }
@@ -188,7 +191,10 @@ export class StrategyGameModel extends GameModel {
     };
 
     for (let index = 0; index < 3; index += 1) {
-      const shouldPair = pairPool.length >= 2 && (this.random() < PAIR_OFFER_CHANCE || singlePool.length === 0);
+      const remainingChoiceCount = 3 - choices.length;
+      const availablePairUnitCount = unusedTypes(pairPool).length;
+      const canPairWithoutStarvingChoices = availablePairUnitCount >= remainingChoiceCount + 1;
+      const shouldPair = canPairWithoutStarvingChoices && (this.random() < PAIR_OFFER_CHANCE || singlePool.length === 0);
       if (shouldPair) {
         const pair = bestPair();
         if (pair) { addChoice(this.createPairDraft(pair[0], pair[1])); continue; }
@@ -198,7 +204,7 @@ export class StrategyGameModel extends GameModel {
       if (single) addChoice(this.createSingleDraft(single));
     }
 
-    while (choices.length < 3 && pairPool.length >= 2) {
+    while (choices.length < 3 && unusedTypes(pairPool).length >= 2) {
       const pair = bestPair();
       if (!pair) break;
       addChoice(this.createPairDraft(pair[0], pair[1]));
