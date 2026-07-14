@@ -19,6 +19,8 @@ export class FlowGameController extends GameController {
 
   bindEvents() {
     const { elements } = this.view;
+    this.listen(this.view.document, 'pointerdown', () => this.audioDirector?.unlock());
+    this.listen(this.view.document, 'keydown', () => this.audioDirector?.unlock());
     this.listen(this.view.document, 'click', (event) => this.handleUiSound(event));
     this.listen(elements.btnStartGame, 'click', () => { this.audioDirector?.unlock(); this.view.openCampaignMenu(); });
     this.view.document.querySelectorAll('[data-open-settings]').forEach((button) => this.listen(button, 'click', () => this.view.openSettings()));
@@ -221,7 +223,7 @@ export class FlowGameController extends GameController {
       if (this.model.replayLastBattle()) { this.audioDirector?.setScene('battle'); this.refresh(); this.startAnimationLoop(); this.scheduleBattleTick(0); }
       return;
     }
-    if (action === 'surrender') { this.requestSurrender(); return; }
+    if (action === 'surrender') { this.surrenderCampaign(); return; }
     if (action === 'retry') {
       if (this.model.canRetry) this.returnToDeployment(this.model.selectedMission);
       return;
