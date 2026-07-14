@@ -73,7 +73,7 @@ export class CombatRangeBattlefieldRenderer extends DeploymentBattlefieldRendere
     const unit = formation.at(-1);
     if (unit) {
       const type = UNIT_TYPES[unit.type];
-      if (this.canShowAttackRange(type)) this.drawRangedRangeZone(unit, type);
+      if (this.canShowAttackRange(type)) this.drawRangedRangeZone({ ...unit, team: TEAM.PLAYER }, type);
     }
 
     const inspected = this.inspectedEnemyCell;
