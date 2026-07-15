@@ -52,6 +52,8 @@ export class FileTrackAudioDirector extends AudioDirector {
     this.trackSource = null;
     this.trackGain = null;
     this.soundBankBuffers = new Map();
+    this.soundBankFiles = new Map();
+    this.soundBankFetchPromise = this.fetchSoundBanks();
     this.soundBankLoadPromise = null;
     this.activeEffectSources = new Set();
     this.applyTrackVolume();
@@ -77,6 +79,19 @@ export class FileTrackAudioDirector extends AudioDirector {
     return element;
   }
 
+  fetchSoundBanks() {
+    if (!this.browser.fetch) return Promise.resolve();
+    const loads = Object.entries(SOUND_BANKS).flatMap(([bankName, bank]) => bank.sources.map(async (sourcePath) => {
+      const response = await this.browser.fetch(sourcePath);
+      if (!response.ok) throw new Error(`Unable to load sound effect: ${sourcePath}`);
+      const encoded = await response.arrayBuffer();
+      const variations = this.soundBankFiles.get(bankName) || [];
+      variations.push({ sourcePath, encoded });
+      this.soundBankFiles.set(bankName, variations);
+    }));
+    return Promise.allSettled(loads);
+  }
+
   unlock() {
     const unlocked = super.unlock();
     if (!unlocked || !this.context) return unlocked;
@@ -92,17 +107,16 @@ export class FileTrackAudioDirector extends AudioDirector {
   }
 
   loadSoundBanks() {
-    if (this.soundBankLoadPromise || !this.context?.decodeAudioData || !this.browser.fetch) return this.soundBankLoadPromise;
-    const loads = Object.entries(SOUND_BANKS).flatMap(([bankName, bank]) => bank.sources.map(async (sourcePath) => {
-      const response = await this.browser.fetch(sourcePath);
-      if (!response.ok) throw new Error(`Unable to load sound effect: ${sourcePath}`);
-      const encoded = await response.arrayBuffer();
-      const buffer = await this.context.decodeAudioData(encoded);
-      const variations = this.soundBankBuffers.get(bankName) || [];
-      variations.push({ sourcePath, buffer });
-      this.soundBankBuffers.set(bankName, variations);
-    }));
-    this.soundBankLoadPromise = Promise.allSettled(loads);
+    if (this.soundBankLoadPromise || !this.context?.decodeAudioData) return this.soundBankLoadPromise;
+    this.soundBankLoadPromise = this.soundBankFetchPromise.then(async () => {
+      const decodes = [...this.soundBankFiles.entries()].flatMap(([bankName, variations]) => variations.map(async ({ sourcePath, encoded }) => {
+        const buffer = await this.context.decodeAudioData(encoded.slice(0));
+        const decoded = this.soundBankBuffers.get(bankName) || [];
+        decoded.push({ sourcePath, buffer });
+        this.soundBankBuffers.set(bankName, decoded);
+      }));
+      await Promise.allSettled(decodes);
+    });
     return this.soundBankLoadPromise;
   }
 
@@ -237,6 +251,7 @@ export class FileTrackAudioDirector extends AudioDirector {
     }
     this.activeEffectSources.clear();
     this.soundBankBuffers.clear();
+    this.soundBankFiles.clear();
     this.trackSource = null;
     this.trackGain = null;
     this.musicElement = null;
