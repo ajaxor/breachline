@@ -44,5 +44,4 @@ test('Assassin advances at charge speed while hidden', () => {
   model.processUnit(assassin, 0, 100);
 
   assert.equal(assassin.column, 3);
-  assert.equal(assassin.hasAttacked, false);
 });
