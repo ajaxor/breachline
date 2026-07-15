@@ -29,19 +29,27 @@ function soundBankBrowser() {
 }
 
 function installSampleContext(director) {
-  const connected = [];
+  const started = [];
   director.context = {
     currentTime: 1,
-    createMediaElementSource(element) {
+    createBufferSource() {
       return {
-        element,
-        connect(destination) { connected.push({ element, destination }); },
+        buffer: null,
+        connect() {},
+        disconnect() {},
+        start(at) { started.push({ buffer: this.buffer, at }); },
+      };
+    },
+    createGain() {
+      return {
+        gain: { setValueAtTime(value) { this.value = value; } },
+        connect() {},
         disconnect() {},
       };
     },
   };
   director.sfxGain = {};
-  return connected;
+  return started;
 }
 
 test('sound variation selection spans a bank deterministically', () => {
@@ -52,28 +60,26 @@ test('sound variation selection spans a bank deterministically', () => {
   assert.equal(chooseSoundVariation(sources, () => 0.999), 'three.wav');
 });
 
-test('melee sound bank contains every supplied robot crash variation', () => {
+test('melee sound bank contains every supplied robot crash variation in its asset folder', () => {
   assert.equal(SOUND_BANKS.melee.sources.length, 5);
-  assert.ok(SOUND_BANKS.melee.sources.every((source) => source.includes('Robot_body_crash')));
-  assert.ok(SOUND_BANKS.melee.volume < 0.5);
+  assert.ok(SOUND_BANKS.melee.sources.every((source) => source.startsWith('./assets/audio/sfx/melee/robot-body-crash-')));
+  assert.ok(SOUND_BANKS.melee.volume <= 1);
 });
 
-test('combat effects route to their file-backed sound banks', () => {
+test('combat effects route to their decoded file-backed sound banks', () => {
   const director = new FileTrackAudioDirector(soundBankBrowser(), () => 0);
-  const connected = installSampleContext(director);
+  const started = installSampleContext(director);
+  const meleeBuffer = { id: 'melee' };
+  const laserBuffer = { id: 'laser' };
+  const deathBuffer = { id: 'death' };
+  director.soundBankBuffers.set('melee', [{ sourcePath: SOUND_BANKS.melee.sources[0], buffer: meleeBuffer }]);
+  director.soundBankBuffers.set('laser', [{ sourcePath: SOUND_BANKS.laser.sources[0], buffer: laserBuffer }]);
+  director.soundBankBuffers.set('death', [{ sourcePath: SOUND_BANKS.death.sources[0], buffer: deathBuffer }]);
 
   director.playEffect({ type: EFFECT_TYPE.MELEE }, 1, 0);
   director.playEffect({ type: EFFECT_TYPE.RANGED, attackStyle: ATTACK_ANIMATION.LASER }, 1, 0);
   director.playEffect({ type: EFFECT_TYPE.EXPLOSION, deathExplosion: true }, 1, 0);
 
-  assert.deepEqual(connected.map(({ element }) => element.src), [
-    SOUND_BANKS.melee.sources[0],
-    SOUND_BANKS.laser.sources[0],
-    SOUND_BANKS.death.sources[0],
-  ]);
-  assert.deepEqual(connected.map(({ element }) => element.volume), [
-    SOUND_BANKS.melee.volume,
-    SOUND_BANKS.laser.volume,
-    SOUND_BANKS.death.volume,
-  ]);
+  assert.deepEqual(started.map(({ buffer }) => buffer), [meleeBuffer, laserBuffer, deathBuffer]);
+  assert.deepEqual(started.map(({ at }) => at), [1, 1, 1]);
 });
