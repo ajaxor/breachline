@@ -52,6 +52,12 @@ function installSampleContext(director) {
   return started;
 }
 
+function installBank(director, bankName) {
+  const buffer = { id: bankName };
+  director.soundBankBuffers.set(bankName, [{ sourcePath: SOUND_BANKS[bankName].sources[0], buffer }]);
+  return buffer;
+}
+
 test('sound variation selection spans a bank deterministically', () => {
   const sources = ['one.wav', 'two.wav', 'three.wav'];
 
@@ -60,26 +66,51 @@ test('sound variation selection spans a bank deterministically', () => {
   assert.equal(chooseSoundVariation(sources, () => 0.999), 'three.wav');
 });
 
-test('melee sound bank contains every supplied robot crash variation in its asset folder', () => {
+test('sound banks contain every organized file variation', () => {
   assert.equal(SOUND_BANKS.melee.sources.length, 5);
-  assert.ok(SOUND_BANKS.melee.sources.every((source) => source.startsWith('./assets/audio/sfx/melee/robot-body-crash-')));
-  assert.ok(SOUND_BANKS.melee.volume <= 1);
+  assert.equal(SOUND_BANKS.laser.sources.length, 3);
+  assert.equal(SOUND_BANKS.missile.sources.length, 2);
+  assert.equal(SOUND_BANKS.lob.sources.length, 1);
+  assert.equal(SOUND_BANKS.lightning.sources.length, 3);
+  assert.equal(SOUND_BANKS.explosion.sources.length, 2);
+  assert.equal(SOUND_BANKS.death.sources.length, 1);
+  assert.equal(SOUND_BANKS.uiTap.sources.length, 1);
+  assert.ok(Object.values(SOUND_BANKS).flatMap((bank) => bank.sources).every((source) => source.startsWith('./assets/audio/sfx/')));
+  assert.ok(Object.values(SOUND_BANKS).every((bank) => bank.volume > 0 && bank.volume <= 1));
 });
 
 test('combat effects route to their decoded file-backed sound banks', () => {
   const director = new FileTrackAudioDirector(soundBankBrowser(), () => 0);
   const started = installSampleContext(director);
-  const meleeBuffer = { id: 'melee' };
-  const laserBuffer = { id: 'laser' };
-  const deathBuffer = { id: 'death' };
-  director.soundBankBuffers.set('melee', [{ sourcePath: SOUND_BANKS.melee.sources[0], buffer: meleeBuffer }]);
-  director.soundBankBuffers.set('laser', [{ sourcePath: SOUND_BANKS.laser.sources[0], buffer: laserBuffer }]);
-  director.soundBankBuffers.set('death', [{ sourcePath: SOUND_BANKS.death.sources[0], buffer: deathBuffer }]);
+  const expected = [
+    installBank(director, 'melee'),
+    installBank(director, 'laser'),
+    installBank(director, 'missile'),
+    installBank(director, 'lob'),
+    installBank(director, 'lightning'),
+    installBank(director, 'explosion'),
+    installBank(director, 'death'),
+  ];
 
   director.playEffect({ type: EFFECT_TYPE.MELEE }, 1, 0);
   director.playEffect({ type: EFFECT_TYPE.RANGED, attackStyle: ATTACK_ANIMATION.LASER }, 1, 0);
+  director.playEffect({ type: EFFECT_TYPE.RANGED, attackStyle: ATTACK_ANIMATION.MISSILE }, 1, 0);
+  director.playEffect({ type: EFFECT_TYPE.RANGED, attackStyle: ATTACK_ANIMATION.LOB }, 1, 0);
+  director.playEffect({ type: EFFECT_TYPE.RANGED, attackStyle: ATTACK_ANIMATION.LIGHTNING }, 1, 0);
+  director.playEffect({ type: EFFECT_TYPE.EXPLOSION, intensity: 1 }, 1, 0);
   director.playEffect({ type: EFFECT_TYPE.EXPLOSION, deathExplosion: true }, 1, 0);
 
-  assert.deepEqual(started.map(({ buffer }) => buffer), [meleeBuffer, laserBuffer, deathBuffer]);
-  assert.deepEqual(started.map(({ at }) => at), [1, 1, 1]);
+  assert.deepEqual(started.map(({ buffer }) => buffer), expected);
+  assert.deepEqual(started.map(({ at }) => at), expected.map(() => 1));
+});
+
+test('default UI taps use the decoded button press bank', () => {
+  const director = new FileTrackAudioDirector(soundBankBrowser(), () => 0);
+  const started = installSampleContext(director);
+  const uiBuffer = installBank(director, 'uiTap');
+  director.unlock = () => true;
+
+  director.playUiSound();
+
+  assert.deepEqual(started.map(({ buffer }) => buffer), [uiBuffer]);
 });
