@@ -1,4 +1,4 @@
-import { EFFECT_TYPE } from '../data/gameTypes.js';
+import { ATTACK_ANIMATION, EFFECT_TYPE } from '../data/gameTypes.js';
 import { AudioDirector } from './AudioDirector.js';
 
 const AUDIO_SETTINGS_KEY = 'breach-line-audio';
@@ -10,15 +10,48 @@ const TRACK_VOLUME = Object.freeze({
   battle: 0,
 });
 
+export const SOUND_BANKS = Object.freeze({
+  melee: Object.freeze({
+    volume: 0.42,
+    sources: Object.freeze([
+      './Robot_body_crash_#1-1784147082998.wav',
+      './Robot_body_crash_#2-1784147036635.wav',
+      './Robot_body_crash_#2-1784147101034.wav',
+      './Robot_body_crash_#3-1784147057108.wav',
+      './Robot_body_crash_#3-1784147122041.wav',
+    ]),
+  }),
+  laser: Object.freeze({
+    volume: 0.36,
+    sources: Object.freeze([
+      './Short_zap_#2-1784146465302.wav',
+    ]),
+  }),
+  death: Object.freeze({
+    volume: 0.46,
+    sources: Object.freeze([
+      './Drone_explosion_#2-1784147541368.wav',
+    ]),
+  }),
+});
+
 const clampVolume = (volume) => Math.min(1, Math.max(0, Number.isFinite(Number(volume)) ? Number(volume) : DEFAULT_MUSIC_VOLUME));
 
+export function chooseSoundVariation(sources, random = Math.random) {
+  if (!sources?.length) return null;
+  const index = Math.min(sources.length - 1, Math.floor(Math.max(0, random()) * sources.length));
+  return sources[index];
+}
+
 export class FileTrackAudioDirector extends AudioDirector {
-  constructor(browser = window) {
+  constructor(browser = window, random = Math.random) {
     super(browser);
+    this.random = random;
     this.settings.musicVolume = this.loadMusicVolume();
     this.musicElement = this.createMusicElement();
     this.trackSource = null;
     this.trackGain = null;
+    this.activeEffectSources = new Set();
     this.applyTrackVolume();
     this.playTrack();
   }
@@ -102,14 +135,49 @@ export class FileTrackAudioDirector extends AudioDirector {
 
   playEffect(effect, start = this.context?.currentTime ?? 0, voice = 0) {
     if (effect.deathExplosion) {
-      this.playDeathExplosion(start, 0.96);
+      if (!this.playSoundBank('death', start)) this.playDeathExplosion(start, 0.96);
       return;
     }
     if (effect.type === EFFECT_TYPE.MELEE) {
-      this.playArcadeNoiseBurst(start, 0.78, 0.42);
+      if (!this.playSoundBank('melee', start)) this.playArcadeNoiseBurst(start, 0.78, 0.42);
+      return;
+    }
+    if (effect.type === EFFECT_TYPE.RANGED && effect.attackStyle === ATTACK_ANIMATION.LASER) {
+      if (!this.playSoundBank('laser', start)) super.playEffect(effect, start, voice);
       return;
     }
     super.playEffect(effect, start, voice);
+  }
+
+  playSoundBank(bankName, start = this.context?.currentTime ?? 0) {
+    const bank = SOUND_BANKS[bankName];
+    const Audio = this.browser.Audio;
+    if (!bank || !Audio || !this.context?.createMediaElementSource || !this.sfxGain) return false;
+    const sourcePath = chooseSoundVariation(bank.sources, this.random);
+    if (!sourcePath) return false;
+
+    const element = new Audio(sourcePath);
+    element.preload = 'auto';
+    element.volume = bank.volume;
+    const source = this.context.createMediaElementSource(element);
+    source.connect(this.sfxGain);
+    this.activeEffectSources.add(source);
+
+    const cleanup = () => {
+      try { source.disconnect(); } catch { /* Already disconnected. */ }
+      this.activeEffectSources.delete(source);
+    };
+    element.onended = cleanup;
+    element.onerror = cleanup;
+
+    const play = () => {
+      const playback = element.play?.();
+      playback?.catch?.(cleanup);
+    };
+    const delayMs = Math.max(0, (start - this.context.currentTime) * 1000);
+    if (delayMs > 1 && this.browser.setTimeout) this.browser.setTimeout(play, delayMs);
+    else play();
+    return true;
   }
 
   playExplosion(start, intensity) {
@@ -149,6 +217,10 @@ export class FileTrackAudioDirector extends AudioDirector {
     this.musicElement?.pause?.();
     try { this.trackSource?.disconnect?.(); } catch { /* Already disconnected. */ }
     try { this.trackGain?.disconnect?.(); } catch { /* Already disconnected. */ }
+    for (const source of this.activeEffectSources) {
+      try { source.disconnect(); } catch { /* Already disconnected. */ }
+    }
+    this.activeEffectSources.clear();
     this.trackSource = null;
     this.trackGain = null;
     this.musicElement = null;
