@@ -25,12 +25,48 @@ export const SOUND_BANKS = Object.freeze({
     volume: 0.72,
     sources: Object.freeze([
       './assets/audio/sfx/laser/short-zap-01.wav',
+      './assets/audio/sfx/laser/laser-zap-01.wav',
+      './assets/audio/sfx/laser/laser-zap-02.wav',
+    ]),
+  }),
+  missile: Object.freeze({
+    volume: 0.72,
+    sources: Object.freeze([
+      './assets/audio/sfx/missile/missile-flight-01.wav',
+      './assets/audio/sfx/missile/missile-launch-01.wav',
+    ]),
+  }),
+  lob: Object.freeze({
+    volume: 0.7,
+    sources: Object.freeze([
+      './assets/audio/sfx/lob/artillery-fire-01.wav',
+    ]),
+  }),
+  lightning: Object.freeze({
+    volume: 0.66,
+    sources: Object.freeze([
+      './assets/audio/sfx/lightning/electric-zap-01.wav',
+      './assets/audio/sfx/lightning/electric-zap-02.wav',
+      './assets/audio/sfx/lightning/electric-zap-03.wav',
+    ]),
+  }),
+  explosion: Object.freeze({
+    volume: 0.8,
+    sources: Object.freeze([
+      './assets/audio/sfx/explosion/explosion-01.wav',
+      './assets/audio/sfx/explosion/explosion-02.wav',
     ]),
   }),
   death: Object.freeze({
     volume: 0.9,
     sources: Object.freeze([
       './assets/audio/sfx/death/drone-explosion-01.wav',
+    ]),
+  }),
+  uiTap: Object.freeze({
+    volume: 0.58,
+    sources: Object.freeze([
+      './assets/audio/sfx/ui/button-press-01.wav',
     ]),
   }),
 });
@@ -177,14 +213,26 @@ export class FileTrackAudioDirector extends AudioDirector {
       if (!this.playSoundBank('melee', start)) this.playArcadeNoiseBurst(start, 0.78, 0.42);
       return;
     }
-    if (effect.type === EFFECT_TYPE.RANGED && effect.attackStyle === ATTACK_ANIMATION.LASER) {
-      if (!this.playSoundBank('laser', start)) super.playEffect(effect, start, voice);
+    if (effect.type === EFFECT_TYPE.EXPLOSION) {
+      if (!this.playSoundBank('explosion', start, effect.intensity || 1)) super.playEffect(effect, start, voice);
       return;
+    }
+    if (effect.type === EFFECT_TYPE.RANGED) {
+      const bankName = {
+        [ATTACK_ANIMATION.LASER]: 'laser',
+        [ATTACK_ANIMATION.MISSILE]: 'missile',
+        [ATTACK_ANIMATION.LOB]: 'lob',
+        [ATTACK_ANIMATION.LIGHTNING]: 'lightning',
+      }[effect.attackStyle];
+      if (bankName) {
+        if (!this.playSoundBank(bankName, start)) super.playEffect(effect, start, voice);
+        return;
+      }
     }
     super.playEffect(effect, start, voice);
   }
 
-  playSoundBank(bankName, start = this.context?.currentTime ?? 0) {
+  playSoundBank(bankName, start = this.context?.currentTime ?? 0, volumeScale = 1) {
     const bank = SOUND_BANKS[bankName];
     const variations = this.soundBankBuffers.get(bankName);
     if (!bank || !variations?.length || !this.context?.createBufferSource || !this.context.createGain || !this.sfxGain) return false;
@@ -195,7 +243,7 @@ export class FileTrackAudioDirector extends AudioDirector {
     const gain = this.context.createGain();
     const playbackAt = Math.max(this.context.currentTime, start);
     source.buffer = variation.buffer;
-    gain.gain.setValueAtTime(bank.volume, playbackAt);
+    gain.gain.setValueAtTime(Math.min(1.35, bank.volume * volumeScale), playbackAt);
     source.connect(gain);
     gain.connect(this.sfxGain);
     this.activeEffectSources.add(source);
@@ -207,6 +255,12 @@ export class FileTrackAudioDirector extends AudioDirector {
     };
     source.start(playbackAt);
     return true;
+  }
+
+  playUiSound(cue = 'tap') {
+    if (!this.unlock() || this.settings.sfxMuted) return;
+    if (cue === 'tap' && this.playSoundBank('uiTap', this.context.currentTime + 0.006)) return;
+    super.playUiSound(cue);
   }
 
   playExplosion(start, intensity) {
