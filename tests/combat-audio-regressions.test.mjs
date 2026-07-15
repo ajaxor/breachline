@@ -175,7 +175,53 @@ test('surrendering from a battle loss result returns directly to title', () => {
   assert.equal(confirmationRequests, 0);
 });
 
-test('melee attacks reuse the short arcade noise burst without tonal oscillators', () => {
+test('decoded sound banks use Web Audio buffers and select melee variants randomly', () => {
+  const director = new FileTrackAudioDirector(fakeAudioBrowser(), () => 0.99);
+  let startedAt = null;
+  let selectedBuffer = null;
+  let appliedVolume = null;
+  const source = {
+    connect() {},
+    disconnect() {},
+    start(at) { startedAt = at; selectedBuffer = this.buffer; },
+  };
+  const gain = {
+    gain: { setValueAtTime(value) { appliedVolume = value; } },
+    connect() {},
+    disconnect() {},
+  };
+  director.context = { currentTime: 1, createBufferSource: () => source, createGain: () => gain };
+  director.sfxGain = {};
+  director.soundBankBuffers.set('melee', [
+    { sourcePath: 'first.wav', buffer: { id: 'first' } },
+    { sourcePath: 'second.wav', buffer: { id: 'second' } },
+  ]);
+
+  director.playEffect({ type: EFFECT_TYPE.MELEE }, 2, 0);
+
+  assert.equal(selectedBuffer.id, 'second');
+  assert.equal(startedAt, 2);
+  assert.equal(appliedVolume, 0.8);
+});
+
+test('visual death explosions are silent so the death sound bank owns the cue', () => {
+  const director = new FileTrackAudioDirector(fakeAudioBrowser());
+  const played = [];
+  director.unlock = () => true;
+  director.context = { currentTime: 0 };
+  director.settings.sfxMuted = false;
+  director.playEffect = (effect) => played.push(effect);
+
+  director.playEffects([
+    { type: EFFECT_TYPE.EXPLOSION, start: 0, silentAudio: true },
+    { type: EFFECT_TYPE.DEATH, start: 0 },
+  ]);
+
+  assert.equal(played.length, 1);
+  assert.equal(played[0].deathExplosion, true);
+});
+
+test('melee attacks fall back to the arcade noise burst until samples are decoded', () => {
   const director = new FileTrackAudioDirector(fakeAudioBrowser());
   const noises = [];
   const tones = [];
@@ -191,7 +237,7 @@ test('melee attacks reuse the short arcade noise burst without tonal oscillators
   assert.equal(noises[0].duration, 0.42);
 });
 
-test('unit death explosion is deeper and longer than the melee noise burst', () => {
+test('unit death synthesis remains as a fallback until the death sample is decoded', () => {
   const director = new FileTrackAudioDirector(fakeAudioBrowser());
   const noises = [];
   const tones = [];
@@ -207,7 +253,7 @@ test('unit death explosion is deeper and longer than the melee noise burst', () 
   assert.ok(noises[0].cutoff < 280);
 });
 
-test('laser attack synthesis uses lower sweeping voices and a noise edge', () => {
+test('laser attack synthesis remains as a fallback until the laser sample is decoded', () => {
   const director = new FileTrackAudioDirector(fakeAudioBrowser());
   const noises = [];
   const tones = [];
