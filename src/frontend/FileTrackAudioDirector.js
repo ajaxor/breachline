@@ -94,6 +94,8 @@ export class FileTrackAudioDirector extends AudioDirector {
     this.activeEffectSources = new Set();
     this.applyTrackVolume();
     this.playTrack();
+    this.browser.document?.addEventListener?.('DOMContentLoaded', () => this.playTrack(), { once: true });
+    this.browser.addEventListener?.('load', () => this.playTrack(), { once: true });
   }
 
   loadMusicVolume() {
@@ -111,7 +113,10 @@ export class FileTrackAudioDirector extends AudioDirector {
     const element = new Audio(TITLE_TRACK_SRC);
     element.loop = true;
     element.preload = 'auto';
+    element.autoplay = true;
+    element.playsInline = true;
     element.volume = 0;
+    element.load?.();
     return element;
   }
 
@@ -205,31 +210,50 @@ export class FileTrackAudioDirector extends AudioDirector {
   }
 
   playEffect(effect, start = this.context?.currentTime ?? 0, voice = 0) {
+    const synthFallback = () => AudioDirector.prototype.playEffect.call(this, effect, start, voice);
     if (effect.deathExplosion) {
-      if (!this.playSoundBank('death', start)) this.playDeathExplosion(start, 0.96);
+      this.playConfiguredBank('death', start, 1, () => this.playDeathExplosion(start, 0.96));
       return;
     }
     if (effect.type === EFFECT_TYPE.MELEE) {
-      if (!this.playSoundBank('melee', start)) this.playArcadeNoiseBurst(start, 0.78, 0.42);
+      this.playConfiguredBank('melee', start, 1, () => this.playArcadeNoiseBurst(start, 0.78, 0.42));
       return;
     }
     if (effect.type === EFFECT_TYPE.EXPLOSION) {
-      if (!this.playSoundBank('explosion', start, effect.intensity || 1)) super.playEffect(effect, start, voice);
+      this.playConfiguredBank('explosion', start, effect.intensity || 1, synthFallback);
       return;
     }
     if (effect.type === EFFECT_TYPE.RANGED) {
+      if (effect.attackStyle === ATTACK_ANIMATION.LOB) {
+        this.playConfiguredBank('lob', start, 1, synthFallback);
+        const impactAt = start + Math.max(0, Number(effect.duration) || 0) * 0.52 / 1000;
+        this.playConfiguredBank('explosion', impactAt, 0.72, () => this.playExplosion(impactAt, 0.72));
+        return;
+      }
       const bankName = {
         [ATTACK_ANIMATION.LASER]: 'laser',
         [ATTACK_ANIMATION.MISSILE]: 'missile',
-        [ATTACK_ANIMATION.LOB]: 'lob',
         [ATTACK_ANIMATION.LIGHTNING]: 'lightning',
       }[effect.attackStyle];
       if (bankName) {
-        if (!this.playSoundBank(bankName, start)) super.playEffect(effect, start, voice);
+        this.playConfiguredBank(bankName, start, 1, synthFallback);
         return;
       }
     }
-    super.playEffect(effect, start, voice);
+    synthFallback();
+  }
+
+  playConfiguredBank(bankName, start, volumeScale = 1, fallback = null) {
+    if (this.playSoundBank(bankName, start, volumeScale)) return true;
+    const pending = this.loadSoundBanks();
+    if (!pending) {
+      fallback?.();
+      return false;
+    }
+    pending.then(() => {
+      if (!this.playSoundBank(bankName, start, volumeScale)) fallback?.();
+    });
+    return true;
   }
 
   playSoundBank(bankName, start = this.context?.currentTime ?? 0, volumeScale = 1) {
@@ -259,8 +283,11 @@ export class FileTrackAudioDirector extends AudioDirector {
 
   playUiSound(cue = 'tap') {
     if (!this.unlock() || this.settings.sfxMuted) return;
-    if (cue === 'tap' && this.playSoundBank('uiTap', this.context.currentTime + 0.006)) return;
-    super.playUiSound(cue);
+    if (cue !== 'place') {
+      this.playConfiguredBank('uiTap', this.context.currentTime + 0.006, 1, () => AudioDirector.prototype.playUiSound.call(this, cue));
+      return;
+    }
+    AudioDirector.prototype.playUiSound.call(this, cue);
   }
 
   playExplosion(start, intensity) {
