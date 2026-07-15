@@ -12,25 +12,25 @@ const TRACK_VOLUME = Object.freeze({
 
 export const SOUND_BANKS = Object.freeze({
   melee: Object.freeze({
-    volume: 0.42,
+    volume: 0.8,
     sources: Object.freeze([
-      './Robot_body_crash_#1-1784147082998.wav',
-      './Robot_body_crash_#2-1784147036635.wav',
-      './Robot_body_crash_#2-1784147101034.wav',
-      './Robot_body_crash_#3-1784147057108.wav',
-      './Robot_body_crash_#3-1784147122041.wav',
+      './assets/audio/sfx/melee/robot-body-crash-01.wav',
+      './assets/audio/sfx/melee/robot-body-crash-02.wav',
+      './assets/audio/sfx/melee/robot-body-crash-03.wav',
+      './assets/audio/sfx/melee/robot-body-crash-04.wav',
+      './assets/audio/sfx/melee/robot-body-crash-05.wav',
     ]),
   }),
   laser: Object.freeze({
-    volume: 0.36,
+    volume: 0.72,
     sources: Object.freeze([
-      './Short_zap_#2-1784146465302.wav',
+      './assets/audio/sfx/laser/short-zap-01.wav',
     ]),
   }),
   death: Object.freeze({
-    volume: 0.46,
+    volume: 0.9,
     sources: Object.freeze([
-      './Drone_explosion_#2-1784147541368.wav',
+      './assets/audio/sfx/death/drone-explosion-01.wav',
     ]),
   }),
 });
@@ -51,6 +51,8 @@ export class FileTrackAudioDirector extends AudioDirector {
     this.musicElement = this.createMusicElement();
     this.trackSource = null;
     this.trackGain = null;
+    this.soundBankBuffers = new Map();
+    this.soundBankLoadPromise = null;
     this.activeEffectSources = new Set();
     this.applyTrackVolume();
     this.playTrack();
@@ -77,7 +79,9 @@ export class FileTrackAudioDirector extends AudioDirector {
 
   unlock() {
     const unlocked = super.unlock();
-    if (!unlocked || !this.context || !this.musicElement || this.trackSource || !this.context.createMediaElementSource) return unlocked;
+    if (!unlocked || !this.context) return unlocked;
+    this.loadSoundBanks();
+    if (!this.musicElement || this.trackSource || !this.context.createMediaElementSource) return unlocked;
     this.trackSource = this.context.createMediaElementSource(this.musicElement);
     this.trackGain = this.context.createGain();
     this.trackSource.connect(this.trackGain);
@@ -85,6 +89,21 @@ export class FileTrackAudioDirector extends AudioDirector {
     this.applyTrackVolume();
     this.playTrack();
     return unlocked;
+  }
+
+  loadSoundBanks() {
+    if (this.soundBankLoadPromise || !this.context?.decodeAudioData || !this.browser.fetch) return this.soundBankLoadPromise;
+    const loads = Object.entries(SOUND_BANKS).flatMap(([bankName, bank]) => bank.sources.map(async (sourcePath) => {
+      const response = await this.browser.fetch(sourcePath);
+      if (!response.ok) throw new Error(`Unable to load sound effect: ${sourcePath}`);
+      const encoded = await response.arrayBuffer();
+      const buffer = await this.context.decodeAudioData(encoded);
+      const variations = this.soundBankBuffers.get(bankName) || [];
+      variations.push({ sourcePath, buffer });
+      this.soundBankBuffers.set(bankName, variations);
+    }));
+    this.soundBankLoadPromise = Promise.allSettled(loads);
+    return this.soundBankLoadPromise;
   }
 
   applyVolumes() {
@@ -127,9 +146,11 @@ export class FileTrackAudioDirector extends AudioDirector {
   }
 
   playEffects(effects) {
-    const emphasizedDeaths = effects.map((effect) => effect.type === EFFECT_TYPE.DEATH
-      ? { ...effect, type: EFFECT_TYPE.EXPLOSION, deathExplosion: true }
-      : effect);
+    const emphasizedDeaths = effects
+      .filter((effect) => !effect.silentAudio)
+      .map((effect) => effect.type === EFFECT_TYPE.DEATH
+        ? { ...effect, type: EFFECT_TYPE.EXPLOSION, deathExplosion: true }
+        : effect);
     super.playEffects(emphasizedDeaths);
   }
 
@@ -151,32 +172,26 @@ export class FileTrackAudioDirector extends AudioDirector {
 
   playSoundBank(bankName, start = this.context?.currentTime ?? 0) {
     const bank = SOUND_BANKS[bankName];
-    const Audio = this.browser.Audio;
-    if (!bank || !Audio || !this.context?.createMediaElementSource || !this.sfxGain) return false;
-    const sourcePath = chooseSoundVariation(bank.sources, this.random);
-    if (!sourcePath) return false;
+    const variations = this.soundBankBuffers.get(bankName);
+    if (!bank || !variations?.length || !this.context?.createBufferSource || !this.context.createGain || !this.sfxGain) return false;
+    const variation = chooseSoundVariation(variations, this.random);
+    if (!variation) return false;
 
-    const element = new Audio(sourcePath);
-    element.preload = 'auto';
-    element.volume = bank.volume;
-    const source = this.context.createMediaElementSource(element);
-    source.connect(this.sfxGain);
+    const source = this.context.createBufferSource();
+    const gain = this.context.createGain();
+    const playbackAt = Math.max(this.context.currentTime, start);
+    source.buffer = variation.buffer;
+    gain.gain.setValueAtTime(bank.volume, playbackAt);
+    source.connect(gain);
+    gain.connect(this.sfxGain);
     this.activeEffectSources.add(source);
 
-    const cleanup = () => {
+    source.onended = () => {
       try { source.disconnect(); } catch { /* Already disconnected. */ }
+      try { gain.disconnect(); } catch { /* Already disconnected. */ }
       this.activeEffectSources.delete(source);
     };
-    element.onended = cleanup;
-    element.onerror = cleanup;
-
-    const play = () => {
-      const playback = element.play?.();
-      playback?.catch?.(cleanup);
-    };
-    const delayMs = Math.max(0, (start - this.context.currentTime) * 1000);
-    if (delayMs > 1 && this.browser.setTimeout) this.browser.setTimeout(play, delayMs);
-    else play();
+    source.start(playbackAt);
     return true;
   }
 
@@ -221,6 +236,7 @@ export class FileTrackAudioDirector extends AudioDirector {
       try { source.disconnect(); } catch { /* Already disconnected. */ }
     }
     this.activeEffectSources.clear();
+    this.soundBankBuffers.clear();
     this.trackSource = null;
     this.trackGain = null;
     this.musicElement = null;
