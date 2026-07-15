@@ -28,7 +28,7 @@ function addDeathEffect(model, unit, at, duration, actionStart) {
   const definition = UNIT_TYPES[unit.type];
   model.effects.push({ type: EFFECT_TYPE.DEATH, ...animatedPoint(unit, at), shape: definition.shape, graphic: definition.graphic, deathStyle: definition.animation.death, color: teamColor(unit.team), seed: unit.id * 2.399963229728653, actionStart, start: at, duration: Math.max(duration * 2.1, 760) });
 }
-function addGroundDeathExplosion(model, unit, at, duration) { model.effects.push({ type: EFFECT_TYPE.EXPLOSION, ...animatedPoint(unit, at), start: at, duration: Math.max(duration * 1.55, 560), intensity: 0.9 }); }
+function addGroundDeathExplosion(model, unit, at, duration) { model.effects.push({ type: EFFECT_TYPE.EXPLOSION, ...animatedPoint(unit, at), start: at, duration: Math.max(duration * 1.55, 560), intensity: 0.9, silentAudio: true }); }
 function addHealthLossEffect(model, target, damage, actionStart, impactStart, duration, timelineAt) {
   const effect = {
     type: EFFECT_TYPE.HEALTH_LOSS,
