@@ -18,6 +18,7 @@ class FakeAudio {
   }
 
   pause() {}
+  load() {}
 }
 
 function soundBankBrowser() {
@@ -82,35 +83,48 @@ test('sound banks contain every organized file variation', () => {
 test('combat effects route to their decoded file-backed sound banks', () => {
   const director = new FileTrackAudioDirector(soundBankBrowser(), () => 0);
   const started = installSampleContext(director);
-  const expected = [
-    installBank(director, 'melee'),
-    installBank(director, 'laser'),
-    installBank(director, 'missile'),
-    installBank(director, 'lob'),
-    installBank(director, 'lightning'),
-    installBank(director, 'explosion'),
-    installBank(director, 'death'),
-  ];
+  const melee = installBank(director, 'melee');
+  const laser = installBank(director, 'laser');
+  const missile = installBank(director, 'missile');
+  const lob = installBank(director, 'lob');
+  const lightning = installBank(director, 'lightning');
+  const explosion = installBank(director, 'explosion');
+  const death = installBank(director, 'death');
 
   director.playEffect({ type: EFFECT_TYPE.MELEE }, 1, 0);
   director.playEffect({ type: EFFECT_TYPE.RANGED, attackStyle: ATTACK_ANIMATION.LASER }, 1, 0);
   director.playEffect({ type: EFFECT_TYPE.RANGED, attackStyle: ATTACK_ANIMATION.MISSILE }, 1, 0);
-  director.playEffect({ type: EFFECT_TYPE.RANGED, attackStyle: ATTACK_ANIMATION.LOB }, 1, 0);
+  director.playEffect({ type: EFFECT_TYPE.RANGED, attackStyle: ATTACK_ANIMATION.LOB, duration: 500 }, 1, 0);
   director.playEffect({ type: EFFECT_TYPE.RANGED, attackStyle: ATTACK_ANIMATION.LIGHTNING }, 1, 0);
   director.playEffect({ type: EFFECT_TYPE.EXPLOSION, intensity: 1 }, 1, 0);
   director.playEffect({ type: EFFECT_TYPE.EXPLOSION, deathExplosion: true }, 1, 0);
 
-  assert.deepEqual(started.map(({ buffer }) => buffer), expected);
-  assert.deepEqual(started.map(({ at }) => at), expected.map(() => 1));
+  assert.deepEqual(started.map(({ buffer }) => buffer), [melee, laser, missile, lob, explosion, lightning, explosion, death]);
+  assert.deepEqual(started.map(({ at }) => at), [1, 1, 1, 1, 1.26, 1, 1, 1]);
 });
 
-test('default UI taps use the decoded button press bank', () => {
+test('all button cues use the decoded button press bank while placement keeps its own cue', () => {
   const director = new FileTrackAudioDirector(soundBankBrowser(), () => 0);
   const started = installSampleContext(director);
   const uiBuffer = installBank(director, 'uiTap');
   director.unlock = () => true;
+  let placementFallbacks = 0;
+  director.tone = () => { placementFallbacks += 1; };
+  director.filteredNoise = () => {};
 
-  director.playUiSound();
+  director.playUiSound('tap');
+  director.playUiSound('select');
+  director.playUiSound('launch');
+  director.playUiSound('place');
 
-  assert.deepEqual(started.map(({ buffer }) => buffer), [uiBuffer]);
+  assert.deepEqual(started.map(({ buffer }) => buffer), [uiBuffer, uiBuffer, uiBuffer]);
+  assert.equal(placementFallbacks, 1);
+});
+
+test('title music requests autoplay immediately on construction', () => {
+  const director = new FileTrackAudioDirector(soundBankBrowser(), () => 0);
+
+  assert.equal(director.musicElement.autoplay, true);
+  assert.equal(director.musicElement.playsInline, true);
+  assert.equal(director.musicElement.playCount, 1);
 });
