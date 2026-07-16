@@ -9,6 +9,7 @@ const TRACK_VOLUME = Object.freeze({
   deployment: 0.04,
   battle: 0,
 });
+const TRACK_ACTIVATION_EVENTS = Object.freeze(['pointerdown', 'touchstart', 'keydown']);
 
 export const SOUND_BANKS = Object.freeze({
   melee: Object.freeze({
@@ -64,7 +65,7 @@ export const SOUND_BANKS = Object.freeze({
     ]),
   }),
   uiTap: Object.freeze({
-    volume: 0.58,
+    volume: 0.9,
     sources: Object.freeze([
       './assets/audio/sfx/ui/button-press-01.wav',
     ]),
@@ -87,6 +88,11 @@ export class FileTrackAudioDirector extends AudioDirector {
     this.musicElement = this.createMusicElement();
     this.trackSource = null;
     this.trackGain = null;
+    this.trackActivationArmed = false;
+    this.trackActivationHandler = () => {
+      this.unlock();
+      this.playTrack();
+    };
     this.soundBankBuffers = new Map();
     this.soundBankFiles = new Map();
     this.soundBankFetchPromise = this.fetchSoundBanks();
@@ -310,10 +316,29 @@ export class FileTrackAudioDirector extends AudioDirector {
     this.filteredNoise(0.055, 0.13 * strength, this.sfxGain, start + 0.004, 2200);
   }
 
+  armTrackActivation() {
+    const document = this.browser.document;
+    if (this.trackActivationArmed || !document?.addEventListener) return;
+    this.trackActivationArmed = true;
+    for (const eventName of TRACK_ACTIVATION_EVENTS) {
+      document.addEventListener(eventName, this.trackActivationHandler, { capture: true, passive: true });
+    }
+  }
+
+  disarmTrackActivation() {
+    const document = this.browser.document;
+    if (!this.trackActivationArmed || !document?.removeEventListener) return;
+    for (const eventName of TRACK_ACTIVATION_EVENTS) {
+      document.removeEventListener(eventName, this.trackActivationHandler, { capture: true });
+    }
+    this.trackActivationArmed = false;
+  }
+
   playTrack() {
     if (!this.musicElement || this.settings.musicMuted || (TRACK_VOLUME[this.scene] ?? 0) <= 0) return;
     const playback = this.musicElement.play?.();
-    playback?.catch?.(() => { /* Browser autoplay policy may defer playback until the next user gesture. */ });
+    playback?.then?.(() => this.disarmTrackActivation());
+    playback?.catch?.(() => this.armTrackActivation());
   }
 
   restartMusic() {
@@ -324,6 +349,7 @@ export class FileTrackAudioDirector extends AudioDirector {
   }
 
   dispose() {
+    this.disarmTrackActivation();
     this.musicElement?.pause?.();
     try { this.trackSource?.disconnect?.(); } catch { /* Already disconnected. */ }
     try { this.trackGain?.disconnect?.(); } catch { /* Already disconnected. */ }
