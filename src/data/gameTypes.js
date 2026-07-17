@@ -45,6 +45,7 @@ export const EFFECT_TYPE = Object.freeze({
   MELEE: 'melee',
   EXPLOSION: 'explosion',
   DEATH: 'death',
+  GRID_FADE: 'grid-fade',
 });
 
 export const COMBAT_EVENT = Object.freeze({
