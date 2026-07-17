@@ -12,4 +12,4 @@ Do not add ordinary feature requests, vague cleanup wishes, or speculative rewri
 
 ## Open items
 
-No open items.
+- [ ] Add browser-level coverage for completing a battle and revealing both victory and defeat result overlays. The current startup smoke flow does not exercise the asynchronous post-breach transition, allowing runtime-only errors in the reveal callback to pass CI; extend the browser smoke test with deterministic battle-ending fixtures and assertions for the result overlay and victory-only music scene change.
