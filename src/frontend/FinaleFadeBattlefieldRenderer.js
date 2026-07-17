@@ -1,17 +1,17 @@
-import { GAME_CONFIG, TEAM } from '../data/gameConfig.js';
+import { TEAM } from '../data/gameConfig.js';
 import { EFFECT_TYPE } from '../data/gameTypes.js';
 import { CombatRangeBattlefieldRenderer } from './CombatRangeBattlefieldRenderer.js';
 
 const clamp01 = (value) => Math.max(0, Math.min(1, value));
-const FADE_EDGE_WIDTH = 1.35;
+const FADE_BANDS = 64;
+const FADE_EDGE_WIDTH = 0.1;
 const FADE_COLOR = '#060a0e';
 
 export class FinaleFadeBattlefieldRenderer extends CombatRangeBattlefieldRenderer {
-  drawGrid() {
-    super.drawGrid();
+  render(model) {
+    super.render(model);
     const effect = this.activeGridFade();
-    if (!effect) return;
-    this.drawGridFade(effect);
+    if (effect) this.drawBattlefieldFade(effect);
   }
 
   drawEffect(effect, now) {
@@ -25,22 +25,29 @@ export class FinaleFadeBattlefieldRenderer extends CombatRangeBattlefieldRendere
       && now >= effect.start) ?? null;
   }
 
-  drawGridFade(effect) {
+  drawBattlefieldFade(effect) {
     const now = this.now();
     const progress = clamp01((now - effect.start) / effect.duration);
     const playerLoses = effect.losingTeam === TEAM.PLAYER;
-    const sweep = progress * (GAME_CONFIG.columns + FADE_EDGE_WIDTH);
+    const portrait = Boolean(this.isPortrait);
+    const axisLength = portrait ? this.canvas.height : this.canvas.width;
+    const crossLength = portrait ? this.canvas.width : this.canvas.height;
+    const sweep = progress * (1 + FADE_EDGE_WIDTH);
+    const bandSize = axisLength / FADE_BANDS;
     const ctx = this.context;
-    const height = GAME_CONFIG.rows * this.cellSize;
 
     ctx.save();
     ctx.fillStyle = FADE_COLOR;
-    for (let column = 0; column < GAME_CONFIG.columns; column += 1) {
-      const distance = playerLoses ? column : GAME_CONFIG.columns - 1 - column;
+    for (let index = 0; index < FADE_BANDS; index += 1) {
+      const normalized = (index + 0.5) / FADE_BANDS;
+      const distance = portrait
+        ? (playerLoses ? 1 - normalized : normalized)
+        : (playerLoses ? normalized : 1 - normalized);
       const alpha = clamp01((sweep - distance) / FADE_EDGE_WIDTH);
       if (alpha <= 0) continue;
       ctx.globalAlpha = alpha;
-      ctx.fillRect(column * this.cellSize, 0, this.cellSize + 1, height);
+      if (portrait) ctx.fillRect(0, index * bandSize, crossLength, bandSize + 1);
+      else ctx.fillRect(index * bandSize, 0, bandSize + 1, crossLength);
     }
     ctx.restore();
   }
