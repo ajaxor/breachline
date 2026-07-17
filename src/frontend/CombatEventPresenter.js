@@ -68,6 +68,10 @@ function latestVisualEnd(model, at) {
   }, effectEnd);
 }
 function lineHp(model, team) { return team === TEAM.PLAYER ? model.playerLineHp : model.enemyLineHp; }
+function setLineHp(model, team, hp) {
+  if (team === TEAM.PLAYER) model.playerLineHp = hp;
+  else model.enemyLineHp = hp;
+}
 function addFinalWallDrain(model, losingTeam, start) {
   const hpBefore = Math.max(0, Number(lineHp(model, losingTeam)) || 0);
   if (hpBefore <= 0) return start;
@@ -85,6 +89,7 @@ function addFinalWallDrain(model, losingTeam, start) {
       silentAudio: true,
     });
   }
+  setLineHp(model, losingTeam, 0);
   return start + FINALE_WALL_DRAIN_MS;
 }
 function addFinaleFadeEffect(model, result, at) {
