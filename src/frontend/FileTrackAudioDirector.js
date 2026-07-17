@@ -64,6 +64,12 @@ export const SOUND_BANKS = Object.freeze({
       './assets/audio/sfx/death/drone-explosion-01.wav',
     ]),
   }),
+  breach: Object.freeze({
+    volume: 1,
+    sources: Object.freeze([
+      './assets/audio/sfx/breach/breach-pulse-01.wav',
+    ]),
+  }),
   uiTap: Object.freeze({
     volume: 0.9,
     sources: Object.freeze([
@@ -217,6 +223,10 @@ export class FileTrackAudioDirector extends AudioDirector {
 
   playEffect(effect, start = this.context?.currentTime ?? 0, voice = 0) {
     const synthFallback = () => AudioDirector.prototype.playEffect.call(this, effect, start, voice);
+    if (effect.audioBank) {
+      this.playConfiguredBank(effect.audioBank, start, effect.audioVolume || 1, synthFallback);
+      return;
+    }
     if (effect.deathExplosion) {
       this.playConfiguredBank('death', start, 1, () => this.playDeathExplosion(start, 0.96));
       return;
