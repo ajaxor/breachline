@@ -245,6 +245,19 @@ export class FlowGameController extends GameController {
     super.returnToDeployment(missionIndex);
   }
 
+  revealBattleResult(result) {
+    this.timer = null;
+    this.stopAnimationLoop();
+    this.view.showResult(result, {
+      hasNextMission: this.model.selectedMission + 1 < this.model.campaign.length,
+      canRetry: this.model.canRetry,
+      sandbox: this.model.isSandbox,
+    });
+    if (result.playerWon) {
+      try { this.audioDirector?.setScene('title'); } catch { /* Result UI must not depend on audio. */ }
+    }
+  }
+
   runBattleTick() {
     const previousEffects = new Set(this.model.effects);
     const result = this.model.tick();
@@ -256,13 +269,10 @@ export class FlowGameController extends GameController {
     this.refresh(false);
     if (result) {
       this.stopTimer();
-      this.timer = this.scheduler.setTimeout(() => {
-        this.timer = null;
-        this.renderer.render(this.model);
-        this.stopAnimationLoop();
-        if (result.playerWon) this.audioDirector?.setScene('title');
-        this.view.showResult(result, { hasNextMission: this.model.selectedMission + 1 < this.model.campaign.length, canRetry: this.model.canRetry, sandbox: this.model.isSandbox });
-      }, tickDuration + RESULT_REVEAL_PADDING_MS);
+      this.timer = this.scheduler.setTimeout(
+        () => this.revealBattleResult(result),
+        tickDuration + RESULT_REVEAL_PADDING_MS,
+      );
       return;
     }
     this.scheduleBattleTick(tickDuration);
