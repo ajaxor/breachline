@@ -3,8 +3,9 @@ import { ATTACK_ANIMATION, COMBAT_EVENT, DEATH_ANIMATION, EFFECT_TYPE, LOG_TYPE 
 
 const ATTACK_STAGGER_MS = 180;
 const BATTLE_SPEED = 0.5;
-const FINALE_FADE_DELAY_MS = 220;
+const FINALE_HOLD_MS = 320;
 const FINALE_FADE_DURATION_MS = 1050;
+const FINALE_WALL_DRAIN_MS = 420;
 const clamp01 = (value) => Math.max(0, Math.min(1, value));
 const lerp = (start, end, progress) => start + (end - start) * progress;
 const point = (unit) => ({ row: unit.row, column: unit.column });
@@ -59,12 +60,44 @@ function addHealthLossEffect(model, target, damage, actionStart, impactStart, du
 function latestHealthLoss(model, unitId) { return [...model.effects].reverse().find((effect) => effect.type === EFFECT_TYPE.HEALTH_LOSS && effect.targetId === unitId); }
 function addDetonationEffects(model, unit, at, duration) { for (let rowOffset = -1; rowOffset <= 1; rowOffset += 1) for (let columnOffset = -1; columnOffset <= 1; columnOffset += 1) { const row = unit.row + rowOffset; const column = unit.column + columnOffset; if (row < 0 || row >= GAME_CONFIG.rows || column < 0 || column >= GAME_CONFIG.columns) continue; const distance = Math.hypot(rowOffset, columnOffset); model.effects.push({ type: EFFECT_TYPE.EXPLOSION, row, column, start: at + distance * 35, duration: Math.max(duration * 1.4, 500), intensity: distance === 0 ? 1 : 0.72 }); } }
 function addAttackEffect(model, attacker, target, at, duration) { const animation = attackAnimationFor(UNIT_TYPES[attacker.type]); const ranged = animation !== ATTACK_ANIMATION.MELEE; model.effects.push({ type: ranged ? EFFECT_TYPE.RANGED : EFFECT_TYPE.MELEE, attackStyle: animation, attackerId: attacker.id, targetId: target.id, team: attacker.team, from: animatedPoint(attacker, at), to: animatedPoint(target, at), start: at, duration }); return { ranged, impactAt: at + duration * (ranged ? 0.52 : 0.2) }; }
+function latestVisualEnd(model, at) {
+  const effectEnd = model.effects.reduce((latest, effect) => effect.type === EFFECT_TYPE.GRID_FADE ? latest : Math.max(latest, effect.start + effect.duration), at);
+  return model.units.reduce((latest, unit) => {
+    if (unit.animationStartedAt === undefined || unit.animationDuration === undefined) return latest;
+    return Math.max(latest, unit.animationStartedAt + unit.animationDuration / BATTLE_SPEED);
+  }, effectEnd);
+}
+function lineHp(model, team) { return team === TEAM.PLAYER ? model.playerLineHp : model.enemyLineHp; }
+function addFinalWallDrain(model, losingTeam, start) {
+  const hpBefore = Math.max(0, Number(lineHp(model, losingTeam)) || 0);
+  if (hpBefore <= 0) return start;
+  for (let row = 0; row < GAME_CONFIG.rows; row += 1) {
+    model.effects.push({
+      type: EFFECT_TYPE.HEALTH_LOSS,
+      targetId: `line:${losingTeam}:${row}`,
+      hpBefore,
+      hpAfter: 0,
+      maxHp: GAME_CONFIG.baseHp,
+      actionStart: start,
+      start,
+      duration: FINALE_WALL_DRAIN_MS,
+      wallTimelineAt: start,
+      silentAudio: true,
+    });
+  }
+  return start + FINALE_WALL_DRAIN_MS;
+}
 function addFinaleFadeEffect(model, result, at) {
+  const losingTeam = result.playerWon ? TEAM.ENEMY : TEAM.PLAYER;
+  const animationsEnd = latestVisualEnd(model, at);
+  const wallDrainEnd = addFinalWallDrain(model, losingTeam, animationsEnd);
   model.effects.push({
     type: EFFECT_TYPE.GRID_FADE,
-    losingTeam: result.playerWon ? TEAM.ENEMY : TEAM.PLAYER,
-    start: at + FINALE_FADE_DELAY_MS,
+    losingTeam,
+    start: wallDrainEnd + FINALE_HOLD_MS,
     duration: FINALE_FADE_DURATION_MS,
+    audioBank: 'breach',
+    audioVolume: 1,
   });
 }
 
