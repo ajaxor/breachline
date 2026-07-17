@@ -265,12 +265,15 @@ export class FlowGameController extends GameController {
 
   startAnimationLoop() {
     const frame = (at) => {
-      this.renderer.render(this.model);
       if (this.pendingBattleResult && at >= this.pendingBattleResult.revealAt) {
         this.revealBattleResult(this.pendingBattleResult.result);
         return;
       }
-      this.animationFrame = this.scheduler.requestAnimationFrame(frame);
+      try {
+        this.renderer.render(this.model);
+      } finally {
+        this.animationFrame = this.scheduler.requestAnimationFrame(frame);
+      }
     };
     this.stopAnimationLoop();
     this.animationFrame = this.scheduler.requestAnimationFrame(frame);
@@ -283,16 +286,19 @@ export class FlowGameController extends GameController {
     const effectStart = this.model.effects.length - tickEffects.length;
     const tickDuration = result ? this.effectWindowDuration(effectStart) : this.movementDuration();
     this.fitEffectsToTickWindow(effectStart, tickDuration);
-    this.audioDirector?.playEffects(tickEffects);
-    this.refresh(false);
+
     if (result) {
       this.stopTimer();
       this.pendingBattleResult = {
         result,
         revealAt: this.model.now() + tickDuration + RESULT_REVEAL_PADDING_MS,
       };
-      return;
     }
+
+    try { this.audioDirector?.playEffects(tickEffects); } catch { /* Audio must not block battle flow. */ }
+    try { this.refresh(false); } catch { /* The animation loop owns the final transition. */ }
+
+    if (result) return;
     this.scheduleBattleTick(tickDuration);
   }
 
