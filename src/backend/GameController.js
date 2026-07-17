@@ -1,7 +1,7 @@
 import { GAME_CONFIG, MODE, UNIT_TYPES } from '../data/gameConfig.js';
 
 const BATTLE_SPEED = 0.5;
-const RESULT_REVEAL_PADDING_MS = 220;
+const RESULT_REVEAL_PADDING_MS = 500;
 const defaultScheduler = Object.freeze({
   setInterval: (callback, delay) => window.setInterval(callback, delay),
   clearInterval: (handle) => window.clearInterval(handle),
@@ -151,7 +151,7 @@ export class GameController {
         this.renderer.render(this.model);
         this.stopAnimationLoop();
         this.view.showResult(result, this.model.selectedMission + 1 < this.model.campaign.length);
-      }, tickDuration + RESULT_REVEAL_PADDING_MS);
+      }, this.resultRevealDelay(effectStart));
       return;
     }
     this.scheduleBattleTick(tickDuration);
@@ -168,6 +168,10 @@ export class GameController {
     const ends = effects.map((effect) => (effect.start ?? 0) + (effect.duration ?? 0)).filter(Number.isFinite);
     if (starts.length === 0 || ends.length === 0) return this.movementDuration();
     return Math.max(this.movementDuration(), Math.max(...ends) - Math.min(...starts));
+  }
+
+  resultRevealDelay(effectStart) {
+    return this.effectWindowDuration(effectStart) + RESULT_REVEAL_PADDING_MS;
   }
 
   fitEffectsToTickWindow(effectStart, tickDuration) {
@@ -211,7 +215,10 @@ export class GameController {
 
   refresh(renderCanvas = true) { this.view.render(this.model); this.view.renderRoster(this.model); if (renderCanvas) this.renderer.render(this.model); }
   startAnimationLoop() {
-    const frame = () => { if (this.model.mode !== MODE.BATTLE) return; this.renderer.render(this.model); this.animationFrame = this.scheduler.requestAnimationFrame(frame); };
+    const frame = () => {
+      this.renderer.render(this.model);
+      this.animationFrame = this.scheduler.requestAnimationFrame(frame);
+    };
     this.stopAnimationLoop();
     this.animationFrame = this.scheduler.requestAnimationFrame(frame);
   }
