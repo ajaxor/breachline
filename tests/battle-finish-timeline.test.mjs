@@ -60,9 +60,21 @@ test('battle finale waits for combat, drains the losing wall, then starts sound 
   assert.ok(fadeEffects[0].duration <= 1200, 'Battlefield fade should remain faster than the old explosion sequence');
   assert.equal(wallDrain.length, GAME_CONFIG.rows, 'Every losing wall segment should share the final health drain');
   assert.ok(wallDrain.every((effect) => effect.hpBefore === 7 && effect.hpAfter === 0), 'Final wall drain must animate remaining health to zero');
+  assert.equal(model.enemyLineHp, 0, 'Losing wall health must remain at zero after the drain effect expires');
+  assert.equal(model.playerLineHp, GAME_CONFIG.baseHp, 'Winning wall health must remain unchanged');
   const combatEnd = Math.max(combatEffect.start + combatEffect.duration, movingUnit.animationStartedAt + movingUnit.animationDuration / 0.5);
   const wallDrainEnd = Math.max(...wallDrain.map((effect) => effect.start + effect.duration));
   assert.ok(wallDrain.every((effect) => effect.start >= combatEnd), 'Wall drain must wait for combat animations to finish');
   assert.ok(fadeEffects[0].start > wallDrainEnd, 'Fade and sound must wait until the wall reaches zero and the hold completes');
   assert.equal(model.effects.some((effect) => effect.type === EFFECT_TYPE.EXPLOSION), false, 'Finale must not create explosion effects');
+});
+
+test('defeat finale keeps only the player wall at zero', () => {
+  const { model } = createModel(44_000, { playerWon: false, text: 'DEFEAT' }, {
+    playerLineHp: 11,
+    enemyLineHp: 9,
+  });
+
+  assert.equal(model.playerLineHp, 0, 'Defeated player wall must stay empty through the result transition');
+  assert.equal(model.enemyLineHp, 9, 'Enemy wall health must not be changed by a player defeat');
 });
