@@ -62,7 +62,7 @@ function addHealthLossEffect(model, target, damage, actionStart, impactStart, du
 function latestHealthLoss(model, unitId) { return [...model.effects].reverse().find((effect) => effect.type === EFFECT_TYPE.HEALTH_LOSS && effect.targetId === unitId); }
 function addDetonationEffects(model, unit, at, duration) { for (let rowOffset = -1; rowOffset <= 1; rowOffset += 1) for (let columnOffset = -1; columnOffset <= 1; columnOffset += 1) { const row = unit.row + rowOffset; const column = unit.column + columnOffset; if (row < 0 || row >= GAME_CONFIG.rows || column < 0 || column >= GAME_CONFIG.columns) continue; const distance = Math.hypot(rowOffset, columnOffset); model.effects.push({ type: EFFECT_TYPE.EXPLOSION, row, column, start: at + distance * 35, duration: Math.max(duration * 1.4, 500), intensity: distance === 0 ? 1 : 0.72 }); } }
 function addAttackEffect(model, attacker, target, at, duration) { const animation = attackAnimationFor(UNIT_TYPES[attacker.type]); const ranged = animation !== ATTACK_ANIMATION.MELEE; model.effects.push({ type: ranged ? EFFECT_TYPE.RANGED : EFFECT_TYPE.MELEE, attackStyle: animation, attackerId: attacker.id, targetId: target.id, team: attacker.team, from: animatedPoint(attacker, at), to: animatedPoint(target, at), start: at, duration }); return { ranged, impactAt: at + duration * (ranged ? 0.52 : 0.2) }; }
-function addBreachCollapseEffects(model, result, at, duration) {
+function addBreachCollapseEffects(model, result, at) {
   const losingTeam = result.playerWon ? TEAM.ENEMY : TEAM.PLAYER;
   const wallColumn = losingTeam === TEAM.PLAYER ? 0 : GAME_CONFIG.columns - 1;
   const direction = losingTeam === TEAM.PLAYER ? 1 : -1;
@@ -114,25 +114,6 @@ function addBreachCollapseEffects(model, result, at, duration) {
       });
     }
   }
-
-  const units = model.units.filter((unit) => unit.alive);
-  for (const unit of units) {
-    const distance = losingTeam === TEAM.PLAYER ? unit.column : GAME_CONFIG.columns - 1 - unit.column;
-    const deathAt = waveAt + distance * BREACH_WAVE_STEP_MS + 220;
-    model.effects.push({
-      type: EFFECT_TYPE.HEALTH_LOSS,
-      targetId: unit.id,
-      hpBefore: unit.hp,
-      hpAfter: 0,
-      maxHp: unit.maxHp,
-      actionStart: collapseAt,
-      start: deathAt,
-      duration: 1,
-    });
-    addDeathEffect(model, unit, deathAt, duration, collapseAt);
-    unit.alive = false;
-    unit.hp = 0;
-  }
 }
 
 export class CombatEventPresenter {
@@ -151,7 +132,7 @@ export class CombatEventPresenter {
       case COMBAT_EVENT.UNIT_BREACHED: model.effects.push({ type: EFFECT_TYPE.TEXT, ...point(event.unit), text: 'BREACH!', color: '#fbbf24', start: at, duration: Math.max(duration * 1.6, 400) }); model.addLog(`${UNIT_TYPES[event.unit.type].name} #${event.unit.id} breaks through the line!`, LOG_TYPE.SYSTEM); break;
       case COMBAT_EVENT.BASE_ATTACKED: model.effects.push({ type: EFFECT_TYPE.TEXT, ...point(event.unit), text: `-${event.damage}`, color: '#fbbf24', start: at, duration: duration * 1.2 }); model.addLog(`${UNIT_TYPES[event.unit.type].name} #${event.unit.id} strikes the line for ${event.damage}.`, event.unit.team === TEAM.PLAYER ? LOG_TYPE.KILL : LOG_TYPE.PLAYER_LOSS); break;
       case COMBAT_EVENT.UNIT_DESTROYED: { const definition = UNIT_TYPES[event.unit.type]; const healthLoss = latestHealthLoss(model, event.unit.id); const effectAt = healthLoss?.start ?? at; if (definition.animation.death === DEATH_ANIMATION.EXPLODE) { addGroundDeathExplosion(model, event.unit, effectAt, duration); addDeathEffect(model, event.unit, effectAt, duration, healthLoss?.actionStart); } else addDeathEffect(model, event.unit, effectAt, duration, healthLoss?.actionStart); if (!event.silent) model.addLog(`${definition.name} #${event.unit.id} destroyed.`, event.unit.team === TEAM.PLAYER ? LOG_TYPE.PLAYER_LOSS : LOG_TYPE.KILL); break; }
-      case COMBAT_EVENT.BATTLE_FINISHED: addBreachCollapseEffects(model, event.result, at, duration); model.addLog(event.result.text, LOG_TYPE.SYSTEM); break;
+      case COMBAT_EVENT.BATTLE_FINISHED: addBreachCollapseEffects(model, event.result, at); model.addLog(event.result.text, LOG_TYPE.SYSTEM); break;
       default: throw new Error(`Unsupported combat event: ${event.type}`);
     }
   }
