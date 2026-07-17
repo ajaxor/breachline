@@ -1,6 +1,8 @@
 import { GAME_CONFIG, UNIT_TYPES } from '../data/gameConfig.js';
 import { GameController } from './GameController.js';
 
+const RESULT_REVEAL_PADDING_MS = 500;
+
 export class FlowGameController extends GameController {
   constructor(model, view, renderer, buildInfo = {}, { audioDirector = null, ...options } = {}) {
     super(model, view, renderer, buildInfo, options);
@@ -260,7 +262,7 @@ export class FlowGameController extends GameController {
         this.stopAnimationLoop();
         if (result.playerWon) this.audioDirector?.setScene('title');
         this.view.showResult(result, { hasNextMission: this.model.selectedMission + 1 < this.model.campaign.length, canRetry: this.model.canRetry, sandbox: this.model.isSandbox });
-      }, this.resultRevealDelay(effectStart));
+      }, tickDuration + RESULT_REVEAL_PADDING_MS);
       return;
     }
     this.scheduleBattleTick(tickDuration);
