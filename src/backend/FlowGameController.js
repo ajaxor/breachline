@@ -7,6 +7,7 @@ export class FlowGameController extends GameController {
   constructor(model, view, renderer, buildInfo = {}, { audioDirector = null, ...options } = {}) {
     super(model, view, renderer, buildInfo, options);
     this.audioDirector = audioDirector;
+    this.pendingBattleResult = null;
   }
 
   initialize() {
@@ -124,6 +125,7 @@ export class FlowGameController extends GameController {
 
   startBattle() {
     if (!this.model.startBattle()) return;
+    this.pendingBattleResult = null;
     this.audioDirector?.unlock();
     this.audioDirector?.setScene('battle');
     this.view.closeRoster();
@@ -156,6 +158,7 @@ export class FlowGameController extends GameController {
   }
 
   surrenderCampaign() {
+    this.pendingBattleResult = null;
     this.stopTimer();
     this.stopAnimationLoop();
     this.view.closeSurrenderConfirm();
@@ -241,12 +244,14 @@ export class FlowGameController extends GameController {
   }
 
   returnToDeployment(missionIndex) {
+    this.pendingBattleResult = null;
     this.audioDirector?.setScene('deployment');
     super.returnToDeployment(missionIndex);
   }
 
   revealBattleResult(result) {
-    this.timer = null;
+    if (!this.pendingBattleResult) return;
+    this.pendingBattleResult = null;
     this.stopAnimationLoop();
     this.view.showResult(result, {
       hasNextMission: this.model.selectedMission + 1 < this.model.campaign.length,
@@ -256,6 +261,19 @@ export class FlowGameController extends GameController {
     if (result.playerWon) {
       try { this.audioDirector?.setScene('title'); } catch { /* Result UI must not depend on audio. */ }
     }
+  }
+
+  startAnimationLoop() {
+    const frame = (at) => {
+      this.renderer.render(this.model);
+      if (this.pendingBattleResult && at >= this.pendingBattleResult.revealAt) {
+        this.revealBattleResult(this.pendingBattleResult.result);
+        return;
+      }
+      this.animationFrame = this.scheduler.requestAnimationFrame(frame);
+    };
+    this.stopAnimationLoop();
+    this.animationFrame = this.scheduler.requestAnimationFrame(frame);
   }
 
   runBattleTick() {
@@ -269,16 +287,17 @@ export class FlowGameController extends GameController {
     this.refresh(false);
     if (result) {
       this.stopTimer();
-      this.timer = this.scheduler.setTimeout(
-        () => this.revealBattleResult(result),
-        tickDuration + RESULT_REVEAL_PADDING_MS,
-      );
+      this.pendingBattleResult = {
+        result,
+        revealAt: this.model.now() + tickDuration + RESULT_REVEAL_PADDING_MS,
+      };
       return;
     }
     this.scheduleBattleTick(tickDuration);
   }
 
   dispose() {
+    this.pendingBattleResult = null;
     this.audioDirector?.dispose();
     super.dispose();
   }
