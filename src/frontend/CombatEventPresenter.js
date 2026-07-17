@@ -3,11 +3,8 @@ import { ATTACK_ANIMATION, COMBAT_EVENT, DEATH_ANIMATION, EFFECT_TYPE, LOG_TYPE 
 
 const ATTACK_STAGGER_MS = 180;
 const BATTLE_SPEED = 0.5;
-const BREACH_COLLAPSE_DELAY_MS = 850;
-const BREACH_WALL_STAGGER_MS = 125;
-const BREACH_WAVE_STEP_MS = 210;
-const BREACH_WALL_EXPLOSION_MS = 1180;
-const BREACH_WAVE_EXPLOSION_MS = 980;
+const FINALE_FADE_DELAY_MS = 220;
+const FINALE_FADE_DURATION_MS = 1050;
 const clamp01 = (value) => Math.max(0, Math.min(1, value));
 const lerp = (start, end, progress) => start + (end - start) * progress;
 const point = (unit) => ({ row: unit.row, column: unit.column });
@@ -62,58 +59,13 @@ function addHealthLossEffect(model, target, damage, actionStart, impactStart, du
 function latestHealthLoss(model, unitId) { return [...model.effects].reverse().find((effect) => effect.type === EFFECT_TYPE.HEALTH_LOSS && effect.targetId === unitId); }
 function addDetonationEffects(model, unit, at, duration) { for (let rowOffset = -1; rowOffset <= 1; rowOffset += 1) for (let columnOffset = -1; columnOffset <= 1; columnOffset += 1) { const row = unit.row + rowOffset; const column = unit.column + columnOffset; if (row < 0 || row >= GAME_CONFIG.rows || column < 0 || column >= GAME_CONFIG.columns) continue; const distance = Math.hypot(rowOffset, columnOffset); model.effects.push({ type: EFFECT_TYPE.EXPLOSION, row, column, start: at + distance * 35, duration: Math.max(duration * 1.4, 500), intensity: distance === 0 ? 1 : 0.72 }); } }
 function addAttackEffect(model, attacker, target, at, duration) { const animation = attackAnimationFor(UNIT_TYPES[attacker.type]); const ranged = animation !== ATTACK_ANIMATION.MELEE; model.effects.push({ type: ranged ? EFFECT_TYPE.RANGED : EFFECT_TYPE.MELEE, attackStyle: animation, attackerId: attacker.id, targetId: target.id, team: attacker.team, from: animatedPoint(attacker, at), to: animatedPoint(target, at), start: at, duration }); return { ranged, impactAt: at + duration * (ranged ? 0.52 : 0.2) }; }
-function addBreachCollapseEffects(model, result, at) {
-  const losingTeam = result.playerWon ? TEAM.ENEMY : TEAM.PLAYER;
-  const wallColumn = losingTeam === TEAM.PLAYER ? 0 : GAME_CONFIG.columns - 1;
-  const direction = losingTeam === TEAM.PLAYER ? 1 : -1;
-  const collapseAt = at + BREACH_COLLAPSE_DELAY_MS;
-  const wallCollapseSpan = (GAME_CONFIG.rows - 1) * BREACH_WALL_STAGGER_MS;
-  const waveAt = collapseAt + wallCollapseSpan + 620;
-
+function addFinaleFadeEffect(model, result, at) {
   model.effects.push({
-    type: EFFECT_TYPE.EXPLOSION,
-    row: (GAME_CONFIG.rows - 1) / 2,
-    column: wallColumn,
-    start: collapseAt,
-    duration: BREACH_WALL_EXPLOSION_MS,
-    intensity: 1.35,
-    audioBank: 'breach',
+    type: EFFECT_TYPE.GRID_FADE,
+    losingTeam: result.playerWon ? TEAM.ENEMY : TEAM.PLAYER,
+    start: at + FINALE_FADE_DELAY_MS,
+    duration: FINALE_FADE_DURATION_MS,
   });
-  model.effects.push({
-    type: EFFECT_TYPE.TEXT,
-    row: (GAME_CONFIG.rows - 1) / 2,
-    column: wallColumn,
-    text: 'BREACH CASCADE',
-    color: '#f8fafc',
-    actionStart: collapseAt,
-    start: collapseAt,
-    duration: 1500,
-  });
-
-  for (let row = 0; row < GAME_CONFIG.rows; row += 1) {
-    const start = collapseAt + row * BREACH_WALL_STAGGER_MS;
-    model.effects.push({ type: EFFECT_TYPE.EXPLOSION, row, column: wallColumn, start, duration: BREACH_WALL_EXPLOSION_MS, intensity: 1.35, silentAudio: true });
-    const innerColumn = wallColumn + direction;
-    if (innerColumn >= 0 && innerColumn < GAME_CONFIG.columns) {
-      model.effects.push({ type: EFFECT_TYPE.EXPLOSION, row, column: innerColumn, start: start + 140, duration: BREACH_WALL_EXPLOSION_MS, intensity: 1.08, silentAudio: true });
-    }
-  }
-
-  for (let distance = 0; distance < GAME_CONFIG.columns; distance += 1) {
-    const column = wallColumn + direction * distance;
-    const stepAt = waveAt + distance * BREACH_WAVE_STEP_MS;
-    for (let row = 0; row < GAME_CONFIG.rows; row += 1) {
-      model.effects.push({
-        type: EFFECT_TYPE.EXPLOSION,
-        row,
-        column,
-        start: stepAt + Math.abs(row - (GAME_CONFIG.rows - 1) / 2) * 24,
-        duration: BREACH_WAVE_EXPLOSION_MS,
-        intensity: distance === 0 ? 1.08 : 0.96,
-        silentAudio: true,
-      });
-    }
-  }
 }
 
 export class CombatEventPresenter {
@@ -132,7 +84,7 @@ export class CombatEventPresenter {
       case COMBAT_EVENT.UNIT_BREACHED: model.effects.push({ type: EFFECT_TYPE.TEXT, ...point(event.unit), text: 'BREACH!', color: '#fbbf24', start: at, duration: Math.max(duration * 1.6, 400) }); model.addLog(`${UNIT_TYPES[event.unit.type].name} #${event.unit.id} breaks through the line!`, LOG_TYPE.SYSTEM); break;
       case COMBAT_EVENT.BASE_ATTACKED: model.effects.push({ type: EFFECT_TYPE.TEXT, ...point(event.unit), text: `-${event.damage}`, color: '#fbbf24', start: at, duration: duration * 1.2 }); model.addLog(`${UNIT_TYPES[event.unit.type].name} #${event.unit.id} strikes the line for ${event.damage}.`, event.unit.team === TEAM.PLAYER ? LOG_TYPE.KILL : LOG_TYPE.PLAYER_LOSS); break;
       case COMBAT_EVENT.UNIT_DESTROYED: { const definition = UNIT_TYPES[event.unit.type]; const healthLoss = latestHealthLoss(model, event.unit.id); const effectAt = healthLoss?.start ?? at; if (definition.animation.death === DEATH_ANIMATION.EXPLODE) { addGroundDeathExplosion(model, event.unit, effectAt, duration); addDeathEffect(model, event.unit, effectAt, duration, healthLoss?.actionStart); } else addDeathEffect(model, event.unit, effectAt, duration, healthLoss?.actionStart); if (!event.silent) model.addLog(`${definition.name} #${event.unit.id} destroyed.`, event.unit.team === TEAM.PLAYER ? LOG_TYPE.PLAYER_LOSS : LOG_TYPE.KILL); break; }
-      case COMBAT_EVENT.BATTLE_FINISHED: addBreachCollapseEffects(model, event.result, at); model.addLog(event.result.text, LOG_TYPE.SYSTEM); break;
+      case COMBAT_EVENT.BATTLE_FINISHED: addFinaleFadeEffect(model, event.result, at); model.addLog(event.result.text, LOG_TYPE.SYSTEM); break;
       default: throw new Error(`Unsupported combat event: ${event.type}`);
     }
   }
