@@ -21,9 +21,8 @@ export class FinaleFadeBattlefieldRenderer extends CombatRangeBattlefieldRendere
 
   activeGridFade() {
     const now = this.now();
-    return this.model?.effects?.find((effect) => effect.type === EFFECT_TYPE.GRID_FADE
-      && now >= effect.start
-      && now - effect.start < effect.duration) ?? null;
+    return [...(this.model?.effects ?? [])].reverse().find((effect) => effect.type === EFFECT_TYPE.GRID_FADE
+      && now >= effect.start) ?? null;
   }
 
   drawGridFade(effect) {
