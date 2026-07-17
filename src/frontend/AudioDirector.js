@@ -122,8 +122,8 @@ export class AudioDirector {
     this.sfxGain.gain.setTargetAtTime(this.settings.sfxMuted ? 0 : 0.18, at, 0.02);
   }
 
-  setMusicMuted(muted) { this.settings.musicMuted = muted; this.saveSettings(); this.applyVolumes(); this.restartMusic(); }
-  setSfxMuted(muted) { this.settings.sfxMuted = muted; this.saveSettings(); this.applyVolumes(); }
+  setMusicMuted(muted) { this.settings.musicMuted = Boolean(muted); this.saveSettings(); this.applyVolumes(); }
+  setSfxMuted(muted) { this.settings.sfxMuted = Boolean(muted); this.saveSettings(); this.applyVolumes(); }
   setScene(scene) { if (this.scene === scene) return; this.scene = scene; this.restartMusic(); }
 
   restartMusic() {
