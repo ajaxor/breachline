@@ -16,6 +16,6 @@ export class CampaignProgression {
       const nextMission = model.campaign[model.selectedMission + 1];
       if (nextMission?.status === MISSION_STATUS.LOCKED) nextMission.status = MISSION_STATUS.AVAILABLE;
     }
-    model.emitCombatEvent({ type: COMBAT_EVENT.BATTLE_FINISHED, result });
+    model.emitCombatEvent({ type: COMBAT_EVENT.BATTLE_FINISHED, result, at: model.now() });
   }
 }
