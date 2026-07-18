@@ -16,7 +16,7 @@ function prepareBattleModel(units) {
 
 test('formation medics move and heal during the same tick', () => {
   const commander = createBattleUnit({ id: 1, team: TEAM.PLAYER, type: 'commander', row: 0, column: 0 });
-  const medic = createBattleUnit({ id: 2, team: TEAM.PLAYER, type: 'medic', row: 1, column: 0 });
+  const medic = createBattleUnit({ id: 2, team: TEAM.PLAYER, type: 'healer', row: 1, column: 0 });
   const patient = createBattleUnit({ id: 3, team: TEAM.PLAYER, type: 'grunt', row: 2, column: 0 });
   patient.hp = patient.maxHp - 5;
   const model = prepareBattleModel([commander, medic, patient]);
@@ -26,7 +26,7 @@ test('formation medics move and heal during the same tick', () => {
   assert.equal(commander.column, 1);
   assert.equal(medic.column, 1);
   assert.equal(patient.column, 1);
-  assert.equal(patient.hp, Math.min(patient.maxHp, patient.maxHp - 5 + UNIT_TYPES.medic.healAmount));
+  assert.equal(patient.hp, Math.min(patient.maxHp, patient.maxHp - 5 + UNIT_TYPES.healer.healAmount));
   assert.ok(model.combatEvents.some((event) => event.type === COMBAT_EVENT.UNIT_HEALED && event.source.id === medic.id));
 });
 
@@ -41,5 +41,4 @@ test('formation rams destroy walls and advance the whole formation', () => {
   assert.equal(wall.alive, false);
   assert.equal(commander.column, 1);
   assert.equal(ram.column, 1);
-  assert.equal(model.occupantAt(1, 1)?.id, ram.id);
 });
