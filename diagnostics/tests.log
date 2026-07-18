@@ -1,0 +1,776 @@
+
+> test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: simultaneous audio limiter caps a breach-sized burst and keeps high-impact cues
+ok 1 - simultaneous audio limiter caps a breach-sized burst and keeps high-impact cues
+  ---
+  duration_ms: 1.198211
+  type: 'test'
+  ...
+# Subtest: simultaneous audio limiter preserves recurring cues that occur at different times
+ok 2 - simultaneous audio limiter preserves recurring cues that occur at different times
+  ---
+  duration_ms: 1.700916
+  type: 'test'
+  ...
+# Subtest: simultaneous audio limiter groups only effects inside the overlap window
+ok 3 - simultaneous audio limiter groups only effects inside the overlap window
+  ---
+  duration_ms: 0.174398
+  type: 'test'
+  ...
+# Subtest: units expose complete animation profiles with flying defaults
+ok 4 - units expose complete animation profiles with flying defaults
+  ---
+  duration_ms: 1.574609
+  type: 'test'
+  ...
+# Subtest: attack effects carry each attacker configured style
+ok 5 - attack effects carry each attacker configured style
+  ---
+  duration_ms: 1.459272
+  type: 'test'
+  ...
+# Subtest: melee flying attackers use projectile effects instead of lunging
+ok 6 - melee flying attackers use projectile effects instead of lunging
+  ---
+  duration_ms: 0.397757
+  type: 'test'
+  ...
+# Subtest: detonations render an explosion across every in-bounds aoe tile
+ok 7 - detonations render an explosion across every in-bounds aoe tile
+  ---
+  duration_ms: 0.706998
+  type: 'test'
+  ...
+# Subtest: edge detonations do not create effects outside the battlefield
+ok 8 - edge detonations do not create effects outside the battlefield
+  ---
+  duration_ms: 0.402496
+  type: 'test'
+  ...
+# Subtest: battle-finished presentation stays on the active combat timeline
+ok 9 - battle-finished presentation stays on the active combat timeline
+  ---
+  duration_ms: 2.540964
+  type: 'test'
+  ...
+# Subtest: battle finale waits for combat, drains the losing wall, then starts sound and full fade
+ok 10 - battle finale waits for combat, drains the losing wall, then starts sound and full fade
+  ---
+  duration_ms: 0.843264
+  type: 'test'
+  ...
+# Subtest: defeat finale keeps only the player wall at zero
+ok 11 - defeat finale keeps only the player wall at zero
+  ---
+  duration_ms: 0.290957
+  type: 'test'
+  ...
+# Subtest: landscape battlefield reserves centered gutters for outward-slanting walls
+ok 12 - landscape battlefield reserves centered gutters for outward-slanting walls
+  ---
+  duration_ms: 1.818186
+  type: 'test'
+  ...
+# Subtest: portrait battlefield preserves the same wall and lean gutters after rotation
+ok 13 - portrait battlefield preserves the same wall and lean gutters after rotation
+  ---
+  duration_ms: 0.287711
+  type: 'test'
+  ...
+# Subtest: all wall gutters are unselectable and grid pointer mapping remains centered
+ok 14 - all wall gutters are unselectable and grid pointer mapping remains centered
+  ---
+  duration_ms: 1.419467
+  type: 'test'
+  ...
+# Subtest: browser startup, drafting, deployment roster, and enemy inspection smoke flow
+ok 15 - browser startup, drafting, deployment roster, and enemy inspection smoke flow
+  ---
+  duration_ms: 11986.964184
+  type: 'test'
+  ...
+# Subtest: campaign has seven missions and correct unlock state
+ok 16 - campaign has seven missions and correct unlock state
+  ---
+  duration_ms: 1.21902
+  type: 'test'
+  ...
+# Subtest: each unit defines a valid tech level on the 1-3 scale
+ok 17 - each unit defines a valid tech level on the 1-3 scale
+  ---
+  duration_ms: 0.307959
+  type: 'test'
+  ...
+# Subtest: campaign tech level rises from early to late missions
+ok 18 - campaign tech level rises from early to late missions
+  ---
+  duration_ms: 0.38334
+  type: 'test'
+  ...
+# Subtest: tech probability curve leaves small cross-tech chances at both ends
+ok 19 - tech probability curve leaves small cross-tech chances at both ends
+  ---
+  duration_ms: 0.263996
+  type: 'test'
+  ...
+# Subtest: attack animations are derived from range and tags
+ok 20 - attack animations are derived from range and tags
+  ---
+  duration_ms: 0.245111
+  type: 'test'
+  ...
+# Subtest: enemy formations do not include player-only units
+ok 21 - enemy formations do not include player-only units
+  ---
+  duration_ms: 0.332585
+  type: 'test'
+  ...
+# Subtest: early campaign missions vary mobile army cores across seeds
+ok 22 - early campaign missions vary mobile army cores across seeds
+  ---
+  duration_ms: 6.539356
+  type: 'test'
+  ...
+# Subtest: enemy formations use unique enemy-zone cells and stay within their mobile wall and structure budgets
+ok 23 - enemy formations use unique enemy-zone cells and stay within their mobile wall and structure budgets
+  ---
+  duration_ms: 0.721786
+  type: 'test'
+  ...
+# Subtest: enemy formations remain mirrored across the horizontal center line
+ok 24 - enemy formations remain mirrored across the horizontal center line
+  ---
+  duration_ms: 0.977417
+  type: 'test'
+  ...
+# Subtest: campaign builds defensive bases before adding mobile armies
+ok 25 - campaign builds defensive bases before adding mobile armies
+  ---
+  duration_ms: 0.877048
+  type: 'test'
+  ...
+# Subtest: ranged flying and support units deploy behind walls or structures when present
+ok 26 - ranged flying and support units deploy behind walls or structures when present
+  ---
+  duration_ms: 0.673705
+  type: 'test'
+  ...
+# Subtest: later missions use drafted army cores instead of high-variety random collections
+ok 27 - later missions use drafted army cores instead of high-variety random collections
+  ---
+  duration_ms: 0.351199
+  type: 'test'
+  ...
+# Subtest: support units stay limited in generated armies
+ok 28 - support units stay limited in generated armies
+  ---
+  duration_ms: 0.270118
+  type: 'test'
+  ...
+# Subtest: later missions field denser armies with both cheap mass and premium units
+ok 29 - later missions field denser armies with both cheap mass and premium units
+  ---
+  duration_ms: 0.355067
+  type: 'test'
+  ...
+# Subtest: later missions include a mix of fortified structures from a parallel structure budget
+ok 30 - later missions include a mix of fortified structures from a parallel structure budget
+  ---
+  duration_ms: 0.280427
+  type: 'test'
+  ...
+# Subtest: campaign formations respect non-wall unit unlock missions
+ok 31 - campaign formations respect non-wall unit unlock missions
+  ---
+  duration_ms: 0.419248
+  type: 'test'
+  ...
+# Subtest: mission budgets grow according to configuration
+ok 32 - mission budgets grow according to configuration
+  ---
+  duration_ms: 0.232547
+  type: 'test'
+  ...
+# Subtest: a rear flyer can advance into the cell of an allied flyer that will also move
+ok 33 - a rear flyer can advance into the cell of an allied flyer that will also move
+  ---
+  duration_ms: 11.111026
+  type: 'test'
+  ...
+# Subtest: a reloading unit holds position while a target remains in range
+ok 34 - a reloading unit holds position while a target remains in range
+  ---
+  duration_ms: 4.150849
+  type: 'test'
+  ...
+# Subtest: Dozer pushes every contiguous unit in the target lane
+ok 35 - Dozer pushes every contiguous unit in the target lane
+  ---
+  duration_ms: 5.028267
+  type: 'test'
+  ...
+# Subtest: Dozer leaves the entire line in place when a chain push would leave the board
+ok 36 - Dozer leaves the entire line in place when a chain push would leave the board
+  ---
+  duration_ms: 2.208449
+  type: 'test'
+  ...
+# Subtest: range overlays include armed structures and non-swivel side lanes
+ok 37 - range overlays include armed structures and non-swivel side lanes
+  ---
+  duration_ms: 0.398048
+  type: 'test'
+  ...
+# Subtest: friendly formation range overlays are explicitly oriented toward the enemy wall
+ok 38 - friendly formation range overlays are explicitly oriented toward the enemy wall
+  ---
+  duration_ms: 0.374895
+  type: 'test'
+  ...
+# Subtest: sniper pays a premium for its five-cell range
+ok 39 - sniper pays a premium for its five-cell range
+  ---
+  duration_ms: 0.199595
+  type: 'test'
+  ...
+# Subtest: Stormwing uses low damage to offset its airborne anti-air stun salvo
+ok 40 - Stormwing uses low damage to offset its airborne anti-air stun salvo
+  ---
+  duration_ms: 0.455957
+  type: 'test'
+  ...
+# Subtest: title track playback is requested as soon as the audio director is created
+ok 41 - title track playback is requested as soon as the audio director is created
+  ---
+  duration_ms: 0.788762
+  type: 'test'
+  ...
+# Subtest: file music volume drives the Web Audio track gain when available
+ok 42 - file music volume drives the Web Audio track gain when available
+  ---
+  duration_ms: 0.786768
+  type: 'test'
+  ...
+# Subtest: the first pointer interaction unlocks title music without requiring a button click
+ok 43 - the first pointer interaction unlocks title music without requiring a button click
+  ---
+  duration_ms: 0.701297
+  type: 'test'
+  ...
+# Subtest: surrendering from a battle loss result returns directly to title
+ok 44 - surrendering from a battle loss result returns directly to title
+  ---
+  duration_ms: 0.329879
+  type: 'test'
+  ...
+# Subtest: decoded sound banks use Web Audio buffers and select melee variants randomly
+ok 45 - decoded sound banks use Web Audio buffers and select melee variants randomly
+  ---
+  duration_ms: 0.570832
+  type: 'test'
+  ...
+# Subtest: visual death explosions are silent so the death sound bank owns the cue
+ok 46 - visual death explosions are silent so the death sound bank owns the cue
+  ---
+  duration_ms: 0.479201
+  type: 'test'
+  ...
+# Subtest: melee attacks fall back to the arcade noise burst until samples are decoded
+ok 47 - melee attacks fall back to the arcade noise burst until samples are decoded
+  ---
+  duration_ms: 0.29801
+  type: 'test'
+  ...
+# Subtest: unit death synthesis remains as a fallback until the death sample is decoded
+ok 48 - unit death synthesis remains as a fallback until the death sample is decoded
+  ---
+  duration_ms: 0.280957
+  type: 'test'
+  ...
+# Subtest: laser attack synthesis remains as a fallback until the laser sample is decoded
+ok 49 - laser attack synthesis remains as a fallback until the laser sample is decoded
+  ---
+  duration_ms: 0.518003
+  type: 'test'
+  ...
+# Subtest: combat presenter staggers every attack in the same tick including melee actions
+ok 50 - combat presenter staggers every attack in the same tick including melee actions
+  ---
+  duration_ms: 0.96821
+  type: 'test'
+  ...
+# Subtest: combat presenter resets the attack stagger sequence on a new tick
+ok 51 - combat presenter resets the attack stagger sequence on a new tick
+  ---
+  duration_ms: 0.217048
+  type: 'test'
+  ...
+# Subtest: action queue moves passing units behind units that can act
+ok 52 - action queue moves passing units behind units that can act
+  ---
+  duration_ms: 1.997183
+  type: 'test'
+  ...
+# Subtest: action queue stops after every remaining unit passes
+ok 53 - action queue stops after every remaining unit passes
+  ---
+  duration_ms: 0.267092
+  type: 'test'
+  ...
+# Subtest: stealth remains active at range and breaks when an enemy is adjacent
+ok 54 - stealth remains active at range and breaks when an enemy is adjacent
+  ---
+  duration_ms: 5.642641
+  type: 'test'
+  ...
+# Subtest: healers use the heal tag and restore the nearest damaged ally
+ok 55 - healers use the heal tag and restore the nearest damaged ally
+  ---
+  duration_ms: 2.232264
+  type: 'test'
+  ...
+# Subtest: bomb and aoe tags detonate around the attacker for full damage
+ok 56 - bomb and aoe tags detonate around the attacker for full damage
+  ---
+  duration_ms: 3.373818
+  type: 'test'
+  ...
+# Subtest: detonation events use the unit animated position instead of its movement destination
+ok 57 - detonation events use the unit animated position instead of its movement destination
+  ---
+  duration_ms: 2.026448
+  type: 'test'
+  ...
+# Subtest: units can occupy the end column and target the line behind the grid
+ok 58 - units can occupy the end column and target the line behind the grid
+  ---
+  duration_ms: 3.566691
+  type: 'test'
+  ...
+# Subtest: bomb units detonate against virtual line targets
+ok 59 - bomb units detonate against virtual line targets
+  ---
+  duration_ms: 2.341169
+  type: 'test'
+  ...
+# Subtest: flying units overfly ground units but not aircraft
+ok 60 - flying units overfly ground units but not aircraft
+  ---
+  duration_ms: 7.927307
+  type: 'test'
+  ...
+# Subtest: agile units dodge the first attack into an open adjacent lane
+ok 61 - agile units dodge the first attack into an open adjacent lane
+  ---
+  duration_ms: 2.774222
+  type: 'test'
+  ...
+# Subtest: agile units consume their dodge when both adjacent lanes are blocked
+ok 62 - agile units consume their dodge when both adjacent lanes are blocked
+  ---
+  duration_ms: 2.397344
+  type: 'test'
+  ...
+# Subtest: barricade thorns reflect melee damage back to attackers
+ok 63 - barricade thorns reflect melee damage back to attackers
+  ---
+  duration_ms: 4.415436
+  type: 'test'
+  ...
+# Subtest: factories produce cheap melee units into the lane ahead
+ok 64 - factories produce cheap melee units into the lane ahead
+  ---
+  duration_ms: 2.568606
+  type: 'test'
+  ...
+# Subtest: stationary units never move
+ok 65 - stationary units never move
+  ---
+  duration_ms: 1.68173
+  type: 'test'
+  ...
+# Subtest: simultaneous line breach and mutual annihilation resolve as defeats
+ok 66 - simultaneous line breach and mutual annihilation resolve as defeats
+  ---
+  duration_ms: 2.263282
+  type: 'test'
+  ...
+# Subtest: Disruptor reloads after firing its stun salvo
+ok 67 - Disruptor reloads after firing its stun salvo
+  ---
+  duration_ms: 14.242299
+  type: 'test'
+  ...
+# Subtest: Assassin is a fragile stealth charger
+ok 68 - Assassin is a fragile stealth charger
+  ---
+  duration_ms: 0.238969
+  type: 'test'
+  ...
+# Subtest: Assassin advances at charge speed while hidden
+ok 69 - Assassin advances at charge speed while hidden
+  ---
+  duration_ms: 3.858409
+  type: 'test'
+  ...
+# Subtest: mission one draft choices are single tech-one units
+ok 70 - mission one draft choices are single tech-one units
+  ---
+  duration_ms: 8.854927
+  type: 'test'
+  ...
+# Subtest: pair offerings are not selected by a moderate pair roll
+ok 71 - pair offerings are not selected by a moderate pair roll
+  ---
+  duration_ms: 2.819708
+  type: 'test'
+  ...
+# Subtest: reinforcement drafts never pair two support units
+ok 72 - reinforcement drafts never pair two support units
+  ---
+  duration_ms: 19.277218
+  type: 'test'
+  ...
+# Subtest: passive blockers use wall frames while factories use structure frames
+ok 73 - passive blockers use wall frames while factories use structure frames
+  ---
+  duration_ms: 0.28226
+  type: 'test'
+  ...
+# Subtest: ranged units ignore walls unless directly blocked by them
+ok 74 - ranged units ignore walls unless directly blocked by them
+  ---
+  duration_ms: 0.5482
+  type: 'test'
+  ...
+# Subtest: ranged units treat structures like other units
+ok 75 - ranged units treat structures like other units
+  ---
+  duration_ms: 0.33523
+  type: 'test'
+  ...
+# Subtest: sound variation selection spans a bank deterministically
+ok 76 - sound variation selection spans a bank deterministically
+  ---
+  duration_ms: 1.155561
+  type: 'test'
+  ...
+# Subtest: sound banks contain every organized file variation
+ok 77 - sound banks contain every organized file variation
+  ---
+  duration_ms: 0.335862
+  type: 'test'
+  ...
+# Subtest: combat effects route to their decoded file-backed sound banks
+ok 78 - combat effects route to their decoded file-backed sound banks
+  ---
+  duration_ms: 1.693532
+  type: 'test'
+  ...
+# Subtest: all button cues use the decoded button press bank while placement keeps its own cue
+ok 79 - all button cues use the decoded button press bank while placement keeps its own cue
+  ---
+  duration_ms: 0.485142
+  type: 'test'
+  ...
+# Subtest: title music requests autoplay immediately on construction
+ok 80 - title music requests autoplay immediately on construction
+  ---
+  duration_ms: 0.241524
+  type: 'test'
+  ...
+# Subtest: file soundtrack starts on load and keeps its playhead while deployment ducks the title track
+ok 81 - file soundtrack starts on load and keeps its playhead while deployment ducks the title track
+  ---
+  duration_ms: 3.71451
+  type: 'test'
+  ...
+# Subtest: music volume scales the real file track live and persists the selected level
+ok 82 - music volume scales the real file track live and persists the selected level
+  ---
+  duration_ms: 0.574459
+  type: 'test'
+  ...
+# Subtest: saved music volume is restored for the title track on load
+ok 83 - saved music volume is restored for the title track on load
+  ---
+  duration_ms: 0.373963
+  type: 'test'
+  ...
+# Subtest: music mute pauses the file track and unmute resumes the same playhead
+ok 84 - music mute pauses the file track and unmute resumes the same playhead
+  ---
+  duration_ms: 0.402826
+  type: 'test'
+  ...
+# Subtest: battle scene keeps the title track silent even when music is unmuted
+ok 85 - battle scene keeps the title track silent even when music is unmuted
+  ---
+  duration_ms: 0.410221
+  type: 'test'
+  ...
+# Subtest: formation medics move and heal during the same tick
+ok 86 - formation medics move and heal during the same tick
+  ---
+  duration_ms: 9.482217
+  type: 'test'
+  ...
+# Subtest: formation rams destroy walls and advance the whole formation
+ok 87 - formation rams destroy walls and advance the whole formation
+  ---
+  duration_ms: 2.204141
+  type: 'test'
+  ...
+# Subtest: current game data passes validation
+ok 88 - current game data passes validation
+  ---
+  duration_ms: 1.781898
+  type: 'test'
+  ...
+# Subtest: all configured deployment columns are valid and disjoint
+ok 89 - all configured deployment columns are valid and disjoint
+  ---
+  duration_ms: 0.239379
+  type: 'test'
+  ...
+# Subtest: unit registry keys and definitions agree
+ok 90 - unit registry keys and definitions agree
+  ---
+  duration_ms: 0.25546
+  type: 'test'
+  ...
+# Subtest: structures always receive stationary and AI-only tags
+ok 91 - structures always receive stationary and AI-only tags
+  ---
+  duration_ms: 0.228058
+  type: 'test'
+  ...
+# Subtest: flying units do not retain redundant ground movement tags
+ok 92 - flying units do not retain redundant ground movement tags
+  ---
+  duration_ms: 0.265159
+  type: 'test'
+  ...
+# Subtest: campaign settings control mission count and difficulty budget
+ok 93 - campaign settings control mission count and difficulty budget
+  ---
+  duration_ms: 7.611431
+  type: 'test'
+  ...
+# Subtest: deployment rosters are sorted by role then displayed unit name
+ok 94 - deployment rosters are sorted by role then displayed unit name
+  ---
+  duration_ms: 176.113281
+  type: 'test'
+  ...
+# Subtest: sandbox exposes AI-only units and places both sides by board zone
+ok 95 - sandbox exposes AI-only units and places both sides by board zone
+  ---
+  duration_ms: 4.381803
+  type: 'test'
+  ...
+# Subtest: mutual destruction is reported as a failure
+ok 96 - mutual destruction is reported as a failure
+  ---
+  duration_ms: 2.931267
+  type: 'test'
+  ...
+# Subtest: pike is a durable low-attack formation unit with no extra mechanics
+ok 97 - pike is a durable low-attack formation unit with no extra mechanics
+  ---
+  duration_ms: 1.478909
+  type: 'test'
+  ...
+# Subtest: reaper cleaves enemies directly beside its melee target
+ok 98 - reaper cleaves enemies directly beside its melee target
+  ---
+  duration_ms: 1.04865
+  type: 'test'
+  ...
+# Subtest: hostile-only additions preserve their intended niches
+ok 99 - hostile-only additions preserve their intended niches
+  ---
+  duration_ms: 0.171292
+  type: 'test'
+  ...
+# Subtest: stun salvo attacks apply a two-turn stun to every hit target
+ok 100 - stun salvo attacks apply a two-turn stun to every hit target
+  ---
+  duration_ms: 1.137388
+  type: 'test'
+  ...
+# Subtest: Ram wall crushing deals double damage to the enemy battle line
+ok 101 - Ram wall crushing deals double damage to the enemy battle line
+  ---
+  duration_ms: 7.392639
+  type: 'test'
+  ...
+# Subtest: non-swivel ranged units use sideways targets only when forward movement is blocked
+ok 102 - non-swivel ranged units use sideways targets only when forward movement is blocked
+  ---
+  duration_ms: 9.14375
+  type: 'test'
+  ...
+# Subtest: ground melee ignores flying units while ground ranged units can target them
+ok 103 - ground melee ignores flying units while ground ranged units can target them
+  ---
+  duration_ms: 2.340538
+  type: 'test'
+  ...
+# Subtest: flying units evade half of non-anti-air ground ranged attacks
+ok 104 - flying units evade half of non-anti-air ground ranged attacks
+  ---
+  duration_ms: 5.05124
+  type: 'test'
+  ...
+# Subtest: anti-air attacks bypass flying evasion
+ok 105 - anti-air attacks bypass flying evasion
+  ---
+  duration_ms: 2.361848
+  type: 'test'
+  ...
+# Subtest: paired draft cards preserve staggered desktop geometry
+ok 106 - paired draft cards preserve staggered desktop geometry
+  ---
+  duration_ms: 1.484599
+  type: 'test'
+  ...
+# Subtest: paired draft cards keep a narrower mobile layout to avoid overlap and clipping
+ok 107 - paired draft cards keep a narrower mobile layout to avoid overlap and clipping
+  ---
+  duration_ms: 0.445127
+  type: 'test'
+  ...
+# Subtest: reinforcement stylesheet remains reviewable source, not single-line minified output
+ok 108 - reinforcement stylesheet remains reviewable source, not single-line minified output
+  ---
+  duration_ms: 0.157696
+  type: 'test'
+  ...
+# Subtest: sandbox can load campaign-generator hostile deployments without replacing player placements
+ok 109 - sandbox can load campaign-generator hostile deployments without replacing player placements
+  ---
+  duration_ms: 19.894389
+  type: 'test'
+  ...
+# Subtest: campaign-generator deployment is sandbox-only and deployment-only
+ok 110 - campaign-generator deployment is sandbox-only and deployment-only
+  ---
+  duration_ms: 7.489191
+  type: 'test'
+  ...
+# Subtest: Stormwing reloads after firing its stun salvo
+ok 111 - Stormwing reloads after firing its stun salvo
+  ---
+  duration_ms: 10.759
+  type: 'test'
+  ...
+# Subtest: draft quantity is derived from budget and finite supply limits deployment
+ok 112 - draft quantity is derived from budget and finite supply limits deployment
+  ---
+  duration_ms: 7.324962
+  type: 'test'
+  ...
+# Subtest: launched units are permanently consumed and placement clears between missions
+ok 113 - launched units are permanently consumed and placement clears between missions
+  ---
+  duration_ms: 3.095596
+  type: 'test'
+  ...
+# Subtest: depleted unit types are removed from the roster after battle
+ok 114 - depleted unit types are removed from the roster after battle
+  ---
+  duration_ms: 2.29919
+  type: 'test'
+  ...
+# Subtest: reinforcement growth outpaces enemy budget growth
+ok 115 - reinforcement growth outpaces enemy budget growth
+  ---
+  duration_ms: 1.795754
+  type: 'test'
+  ...
+# Subtest: unit roles determine the common icon silhouette
+ok 116 - unit roles determine the common icon silhouette
+  ---
+  duration_ms: 0.417364
+  type: 'test'
+  ...
+# Subtest: role definitions follow unit design constraints
+ok 117 - role definitions follow unit design constraints
+  ---
+  duration_ms: 0.412274
+  type: 'test'
+  ...
+# Subtest: flying unit definitions preserve their intended niches
+ok 118 - flying unit definitions preserve their intended niches
+  ---
+  duration_ms: 0.874052
+  type: 'test'
+  ...
+# Subtest: commander leader grants formation behavior to allied ground units
+ok 119 - commander leader grants formation behavior to allied ground units
+  ---
+  duration_ms: 2.476313
+  type: 'test'
+  ...
+# Subtest: factory produces weaker scatter infantry
+ok 120 - factory produces weaker scatter infantry
+  ---
+  duration_ms: 0.368192
+  type: 'test'
+  ...
+# Subtest: scatter units move sideways when blocked
+ok 121 - scatter units move sideways when blocked
+  ---
+  duration_ms: 1.926519
+  type: 'test'
+  ...
+# Subtest: only flying and anti-air units can target flying units
+ok 122 - only flying and anti-air units can target flying units
+  ---
+  duration_ms: 4.096957
+  type: 'test'
+  ...
+# Subtest: units cannot target enemies behind their direction of travel
+ok 123 - units cannot target enemies behind their direction of travel
+  ---
+  duration_ms: 1.805653
+  type: 'test'
+  ...
+# Subtest: destroyed units are removed from the spatial index immediately
+ok 124 - destroyed units are removed from the spatial index immediately
+  ---
+  duration_ms: 0.192421
+  type: 'test'
+  ...
+# Subtest: semantic combat events record the initial battle state and unit actions
+ok 125 - semantic combat events record the initial battle state and unit actions
+  ---
+  duration_ms: 3.034622
+  type: 'test'
+  ...
+# Subtest: walls are only targetable when they directly block movement
+ok 126 - walls are only targetable when they directly block movement
+  ---
+  duration_ms: 1.320431
+  type: 'test'
+  ...
+# Subtest: wall ignoring applies to melee and support targeting checks too
+ok 127 - wall ignoring applies to melee and support targeting checks too
+  ---
+  duration_ms: 0.216025
+  type: 'test'
+  ...
+1..127
+# tests 127
+# suites 0
+# pass 127
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 12277.874626

@@ -1,0 +1,6 @@
+
+> balance:check
+> node scripts/check-balance.mjs
+
+Balance regression check passed across 14280 simulations.
+Mean absolute win-rate deviation: 0.2270
