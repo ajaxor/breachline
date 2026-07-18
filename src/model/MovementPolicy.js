@@ -45,10 +45,14 @@ export class MovementPolicy {
     return Boolean(this.blockerAhead(model, unit));
   }
 
-  tryRamWall(model, unit, occupant, nextColumn, now) {
+  canRamWall(unit, occupant) {
     const type = UNIT_TYPES[unit.type];
     const occupantType = UNIT_TYPES[occupant?.type];
-    if (!hasUnitTag(type, UNIT_TAG.RAM) || occupantType?.role !== UNIT_ROLE.WALL) return false;
+    return hasUnitTag(type, UNIT_TAG.RAM) && occupantType?.role === UNIT_ROLE.WALL;
+  }
+
+  tryRamWall(model, unit, occupant, nextColumn, now) {
+    if (!this.canRamWall(unit, occupant)) return false;
     model.killUnit(occupant, now);
     unit.column = nextColumn;
     return true;
@@ -90,6 +94,7 @@ export class MovementPolicy {
     const direction = this.directionFor(units[0]);
     const formationIds = new Set(units.map((unit) => unit.id));
     const moves = [];
+    const wallsToRam = new Map();
 
     for (const unit of units) {
       const type = UNIT_TYPES[unit.type];
@@ -97,11 +102,13 @@ export class MovementPolicy {
       const nextColumn = unit.column + direction;
       if (nextColumn < 0 || nextColumn >= GAME_CONFIG.columns) return false;
       const occupants = model.occupantsAt?.(unit.row, nextColumn) ?? [model.occupantAt(unit.row, nextColumn)].filter(Boolean);
-      const blocker = occupants.find((occupant) => !formationIds.has(occupant.id));
-      if (blocker) return false;
+      const blockers = occupants.filter((occupant) => !formationIds.has(occupant.id));
+      if (blockers.some((blocker) => !this.canRamWall(unit, blocker))) return false;
+      for (const wall of blockers) wallsToRam.set(wall.id, wall);
       moves.push({ unit, nextColumn, previousRow: unit.row, previousColumn: unit.column });
     }
 
+    for (const wall of wallsToRam.values()) model.killUnit(wall, now);
     for (const move of moves) model.spatialIndex.remove(move.unit);
     for (const move of moves) {
       move.unit.column = move.nextColumn;
